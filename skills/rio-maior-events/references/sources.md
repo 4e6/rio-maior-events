@@ -20,7 +20,7 @@ The source list is kept in the script as data and mirrored here; change both tog
 
 ## Reading the dates
 
-- Portuguese months: jan fev mar abr mai jun jul ago set out nov dez. Weekdays: SEG TER QUA QUI SEX SÁB DOM, also written Seg Ter Qua Qui Sex Sáb Dom, Sá Do, or 2ª 3ª 4ª 5ª 6ª for Monday to Friday.
+- Portuguese months: jan fev mar abr mai jun jul ago set out nov dez. Weekdays: SEG TER QUA QUI SEX SÁB DOM, also written Seg Ter Qua Qui Sex Sáb Dom, sab without the accent, Sá Do, or 2ª 3ª 4ª 5ª 6ª for Monday to Friday.
 - A year can come as a suffix: "03 out. '26" is 3 October 2026.
 - Cards and agendas mostly show weekday, day and month with no year. Take the year from `collected_at`; a card whose month is earlier than the month of `collected_at` belongs to the next year (a December collection that shows "jan" means January of next year).
 - Check weekday against date when both are shown; a mismatch means the year is wrong or the card is stale.
@@ -101,7 +101,6 @@ From past listings, not from this collection. Use one only as "date to be confir
 
 - GoTrail and Running.life (trail races and walks): mostly the same races as Portugal Running, and they refuse this script with a 403.
 - Racefinder (racefinder.pt): race pages are good (date, prices, distances), but the only listing by area is a filter its robots.txt asks automated visitors not to use, and it sends pages compressed in a way Python's standard library cannot read.
-
 - Região de Rio Maior (local paper): stale since 2019.
 - O Mirante agenda: HTTP 500.
 - Alcobaça municipal site and Visit Alentejo: built by JavaScript, nothing to read without a browser. Viral Agenda covers Alcobaça.

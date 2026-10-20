@@ -119,6 +119,10 @@ SKIP_TAGS = {"script", "style", "noscript", "svg", "template"}
 # title and date in a header.
 CHROME_TAGS = {"nav", "header", "footer"}
 CONTENT_TAGS = {"article", "main"}
+# Inline tags that can mark up part of a word or number ("Sá<b>b</b>",
+# "6<sup>ª</sup>"): they part two words only when one ends and the next
+# begins at once ("<em>sab</em><em>24</em>").
+PHRASING_TAGS = {"b", "strong", "i", "em", "u", "sup", "sub", "small", "mark", "abbr", "s"}
 VOID_TAGS = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link",
              "meta", "source", "track", "wbr"}
 BLOCK_TAGS = {"address", "article", "aside", "blockquote", "br", "dd", "div", "dl",
@@ -134,6 +138,8 @@ class _TextParser(HTMLParser):
         self.content = 0
         self.chrome = []
         self.parts = []
+        self.gap = False
+        self.closed = False
 
     def handle_starttag(self, tag, attrs):
         if tag in VOID_TAGS:
@@ -147,7 +153,7 @@ class _TextParser(HTMLParser):
             self.skip += not self.content
         elif tag in SKIP_TAGS:
             self.skip += 1
-        self.parts.append("\n" if tag in BLOCK_TAGS else " ")
+        self._boundary(tag)
 
     def handle_startendtag(self, tag, attrs):
         if tag in BLOCK_TAGS:
@@ -161,11 +167,24 @@ class _TextParser(HTMLParser):
                 self.skip = max(0, self.skip - 1)
         elif tag in SKIP_TAGS:
             self.skip = max(0, self.skip - 1)
-        self.parts.append("\n" if tag in BLOCK_TAGS else " ")
+        self._boundary(tag, end=True)
+
+    def _boundary(self, tag, end=False):
+        if tag in BLOCK_TAGS:
+            self.parts.append("\n")
+        elif tag not in PHRASING_TAGS or (self.closed and not end):
+            self.gap = True
+        self.closed = end
 
     def handle_data(self, data):
-        if not self.skip:
-            self.parts.append(data)
+        if self.skip or not data:
+            return
+        # Another inline element starts a new field ("2026" then "dom"): keep
+        # a space between two letters or digits, but not before "," or ":".
+        if self.gap and self.parts and self.parts[-1][-1:].isalnum() and data[0].isalnum():
+            self.parts.append(" ")
+        self.gap = self.closed = False
+        self.parts.append(data)
 
 
 def visible_text(page, cap=TEXT_CAP):

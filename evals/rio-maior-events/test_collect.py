@@ -241,6 +241,23 @@ class Main(unittest.TestCase):
         self.assertEqual(collect.main(["o.json", "--from", "soon"]), 2)
 
 
+class InlineText(unittest.TestCase):
+    def text(self, page):
+        return collect.visible_text("<p>%s</p>" % page)[0]
+
+    def test_fields_in_spans_are_kept_apart(self):
+        self.assertEqual(self.text("<span>Trail 2026</span><span>dom</span><span>15</span><span>nov</span>"),
+                         "Trail 2026 dom 15 nov")
+
+    def test_fields_in_adjacent_ems_are_kept_apart(self):
+        self.assertEqual(self.text("<em>sab</em><em>24</em><em>out</em><em>Dia</em>"), "sab 24 out Dia")
+
+    def test_markup_inside_a_word_or_number_joins(self):
+        self.assertEqual(self.text("S\u00e1<b>b</b> 6<sup>\u00aa</sup>"), "S\u00e1b 6\u00aa")
+        self.assertEqual(self.text("<span>21</span>:<span>30</span> \u20ac<span>8</span>"), "21:30 \u20ac8")
+        self.assertEqual(self.text("<a href=x>Concerto</a>, hoje"), "Concerto, hoje")
+
+
 class SourceList(unittest.TestCase):
     def test_names_are_unique_and_documented(self):
         names = [s["name"] for s in collect.SOURCES]
