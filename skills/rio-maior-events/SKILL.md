@@ -98,6 +98,8 @@ file. Write one JSON document to
   (exhibitions, a fortnight's festival), with its hours in the description;
   `recurring` for a pattern such as a weekly market, with `recurrence` in words
   and `dates` where they are known.
+  Dated performances (a play on two or three dates) are never `recurring`:
+  write one `single` per date.
 - A link is the event's own page where the source has one, else the agenda
   page it was listed on.
 - `start_time` only where a source states it plainly; otherwise null. From

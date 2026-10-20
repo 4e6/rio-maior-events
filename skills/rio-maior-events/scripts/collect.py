@@ -5,8 +5,9 @@
 
 The window is --from (default today) to --to (default 42 days later); events
 outside it are dropped where their dates can be read. Each source is fetched
-once, in turn, with a 20 second timeout; after a timeout the rest of that
-site's pages are skipped. The reason this is a script: the cm
+once, in turn, with a 20 second timeout and a pause between two requests to
+the same site; after a refusal (403, 429, a 5xx), a timeout or a connection
+error the rest of that site's pages are skipped. The reason this is a script: the cm
 calendar needs a POST, and a script makes the run repeatable. A source that
 fails is recorded with ok false and an error and the rest carry on. For every
 page the file holds the schema.org Event objects found in its JSON-LD and the
@@ -31,13 +32,16 @@ import datetime
 import html
 import json
 import re
+import socket
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
 from html.parser import HTMLParser
 
 TIMEOUT = 20
+PAUSE = 1.5   # seconds between two requests to the same host
 TEXT_CAP = 30000
 DESCRIPTION_CAP = 300
 DEFAULT_DAYS = 42
@@ -108,7 +112,11 @@ def lisbon_time(moment):
     return moment.astimezone(datetime.timezone(datetime.timedelta(hours=1 if summer else 0)))
 
 
-SKIP_TAGS = {"script", "style", "noscript", "nav", "header", "footer", "svg", "template"}
+SKIP_TAGS = {"script", "style", "noscript", "svg", "template"}
+# Page chrome, dropped unless inside an article or main, where a card keeps its
+# title and date in a header.
+CHROME_TAGS = {"nav", "header", "footer"}
+CONTENT_TAGS = {"article", "main"}
 VOID_TAGS = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link",
              "meta", "source", "track", "wbr"}
 BLOCK_TAGS = {"address", "article", "aside", "blockquote", "br", "dd", "div", "dl",
@@ -121,6 +129,8 @@ class _TextParser(HTMLParser):
     def __init__(self):
         super().__init__(convert_charrefs=True)
         self.skip = 0
+        self.content = 0
+        self.chrome = []
         self.parts = []
 
     def handle_starttag(self, tag, attrs):
@@ -128,9 +138,14 @@ class _TextParser(HTMLParser):
             if tag in BLOCK_TAGS:
                 self.parts.append("\n")
             return
-        if tag in SKIP_TAGS:
+        if tag in CONTENT_TAGS:
+            self.content += 1
+        if tag in CHROME_TAGS:
+            self.chrome.append(not self.content)
+            self.skip += not self.content
+        elif tag in SKIP_TAGS:
             self.skip += 1
-        elif tag in BLOCK_TAGS:
+        if tag in BLOCK_TAGS:
             self.parts.append("\n")
 
     def handle_startendtag(self, tag, attrs):
@@ -138,9 +153,14 @@ class _TextParser(HTMLParser):
             self.parts.append("\n")
 
     def handle_endtag(self, tag):
-        if tag in SKIP_TAGS:
+        if tag in CONTENT_TAGS:
+            self.content = max(0, self.content - 1)
+        if tag in CHROME_TAGS:
+            if self.chrome and self.chrome.pop():
+                self.skip = max(0, self.skip - 1)
+        elif tag in SKIP_TAGS:
             self.skip = max(0, self.skip - 1)
-        elif tag in BLOCK_TAGS:
+        if tag in BLOCK_TAGS:
             self.parts.append("\n")
 
     def handle_data(self, data):
@@ -348,6 +368,10 @@ def collect_source(source, window):
     except urllib.error.HTTPError as err:
         result["status"] = err.code
         result["error"] = "HTTP %d %s" % (err.code, err.reason)
+        result["silent"] = err.code in (403, 429) or err.code >= 500
+    except (urllib.error.URLError, socket.timeout, TimeoutError, ConnectionError) as err:
+        result["error"] = "%s: %s" % (type(err).__name__, err)
+        result["silent"] = True
     except Exception as err:  # one source failing must not stop the others
         result["error"] = "%s: %s" % (type(err).__name__, err)
     return result
@@ -392,15 +416,19 @@ def main(argv=None):
     window = (start.isoformat(), end.isoformat())
     results = []
     silent_hosts = set()
+    seen_hosts = set()
     for source in chosen:
         host = urllib.parse.urlsplit(source["url"]).hostname
+        if host in seen_hosts and host not in silent_hosts:
+            time.sleep(PAUSE)
+        seen_hosts.add(host)
         if host in silent_hosts:
             result = dict(name=source["name"], url=source["url"], town=source["town"],
                           kind=source["kind"], ok=False, status=None, items=[], text=None,
-                          truncated=False, error="skipped: %s did not answer" % host)
+                          truncated=False, error="skipped: %s refused or did not answer" % host)
         else:
             result = collect_source(source, window)
-            if "timed out" in (result["error"] or ""):
+            if result.pop("silent", False):
                 silent_hosts.add(host)
         print(summary_line(result), flush=True)
         results.append(result)

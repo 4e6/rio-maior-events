@@ -15,7 +15,7 @@ and lays it out as one page you can plan your free time from.
   event; tap a day to jump the list to it.
 - **Exhibitions and other long runs** in their own section rather than on every
   day, and **weekly markets** under Regulars.
-- **Filters** by category, distance (≤20 min, ≤45 min), free, weekend, and a
+- **Filters** by category, distance (≤20 min, ≤45 min), free, weekend (Friday to Sunday), and a
   search box.
 - **Your picks**: star events and they stay starred when the page is made again;
   events new since your last visit are marked.

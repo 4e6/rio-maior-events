@@ -52,6 +52,7 @@ CATEGORIES = (
 )
 KINDS = ("single", "multi_day", "ongoing", "recurring")
 MAX_PROBLEMS = 20
+MAX_MULTI_DAY = 7
 
 EVENT_KEYS = (
     "title_pt", "title_en", "category", "kind", "start_date", "end_date",
@@ -94,8 +95,12 @@ def text_ok(value) -> bool:
     return isinstance(value, str) and bool(value.strip())
 
 
-def check_event(e: dict) -> list:
-    """What is wrong with one event, as short sentences."""
+def check_event(e: dict, window=None) -> list:
+    """What is wrong with one event, as short sentences.
+
+    window is the (start, end) pair of dates the agenda covers, or None when the
+    window itself is wrong and the events cannot be judged against it.
+    """
     bad = []
     for key in EVENT_KEYS:
         if key not in e:
@@ -124,6 +129,11 @@ def check_event(e: dict) -> list:
         for key in ("end_date", "start_time", "dates"):
             if e[key] is not None:
                 bad.append(key + " must be null while date_tbc is true")
+        if e["kind"] == "recurring":
+            bad.append("a recurring event has dates; with date_tbc true use another kind")
+        if window and isinstance(e["start_date"], str) and (start or real_month(e["start_date"])):
+            if not window[0].isoformat()[:len(e["start_date"])] <= e["start_date"] <= window[1].isoformat()[:len(e["start_date"])]:
+                bad.append("start_date %s is outside the window %s to %s" % (e["start_date"], window[0], window[1]))
     else:
         if start is None:
             bad.append("start_date must be a real date YYYY-MM-DD, got " + repr(e["start_date"]))
@@ -135,6 +145,8 @@ def check_event(e: dict) -> list:
             bad.append("a single event has end_date null")
         if kind == "multi_day" and (end is None or (start and end <= start)):
             bad.append("a multi_day event needs an end_date after start_date")
+        elif kind == "multi_day" and start and (end - start).days >= MAX_MULTI_DAY:
+            bad.append("a multi_day event spans at most %d days; use ongoing" % MAX_MULTI_DAY)
         if kind == "ongoing" and (end is None or (start and end < start)):
             bad.append("an ongoing event needs an end_date, not before start_date")
         if kind == "recurring":
@@ -145,6 +157,16 @@ def check_event(e: dict) -> list:
                 bad.append("a recurring event needs dates or a recurrence")
         elif e["dates"] is not None:
             bad.append("dates is only for recurring events")
+        if window and start:
+            last = end or start
+            if last < window[0] or start > window[1]:
+                bad.append("the event (%s to %s) is entirely outside the window %s to %s; drop it"
+                           % (start, last, window[0], window[1]))
+            if kind == "recurring" and isinstance(e["dates"], list):
+                for d in e["dates"]:
+                    day = real_date(d)
+                    if day and not window[0] <= day <= window[1]:
+                        bad.append("dates has %s, outside the window %s to %s" % (d, window[0], window[1]))
     for key in ("venue", "description_en", "recurrence"):
         if e[key] is not None and not isinstance(e[key], str):
             bad.append(key + " must be a string or null")
@@ -188,10 +210,13 @@ def check(data) -> list:
     w = data["window"]
     ws = real_date(w.get("start")) if isinstance(w, dict) else None
     we = real_date(w.get("end")) if isinstance(w, dict) else None
+    window = None
     if ws is None or we is None:
         problems.append("window needs real start and end dates, YYYY-MM-DD")
     elif we < ws:
         problems.append("window.end is before window.start")
+    else:
+        window = (ws, we)
     if not text_ok(data["origin"]):
         problems.append("origin must be a non-empty string")
     if "note" in data and not isinstance(data["note"], str):
@@ -211,7 +236,7 @@ def check(data) -> list:
             problems.append("events[%d]: must be an object" % i)
             continue
         label = "events[%d] %s" % (i, json.dumps(e.get("title_pt", ""), ensure_ascii=False))
-        found = check_event(e)
+        found = check_event(e, window)
         problems.extend(label + ": " + m for m in found)
         if not found:
             eid = event_id(e)

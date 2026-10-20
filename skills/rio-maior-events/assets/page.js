@@ -65,11 +65,13 @@
   function diff(a, b) { return Math.round((parse(b) - parse(a)) / 864e5); }
   function fmtDay(s) { var d = parse(s); return WD[d.getDay()] + " " + d.getDate() + " " + MO[d.getMonth()]; }
   function fmtShort(s) { var d = parse(s); return d.getDate() + " " + MO[d.getMonth()]; }
-  function isWeekend(s) { var w = dow(s); return w === 0 || w === 6; }
+  function isWeekend(s) { var w = dow(s); return w === 0 || w === 5 || w === 6; }   // Friday to Sunday, as in the bands
   var WIN = DATA.window;
   var realToday = iso(new Date());
   var stale = realToday > WIN.end;
-  var TODAY = realToday < WIN.start || stale ? WIN.start : realToday;
+  var TODAY = realToday < WIN.start || stale ? WIN.start : realToday;   // first day shown; the real date is realToday
+  var BAND_FROM = stale ? WIN.start : realToday;                        // bands and the Today mark follow the real date
+  var inWindow = realToday >= WIN.start && !stale;
 
   /* expand each event to the dated days it appears on */
   EVENTS.forEach(function (e) {
@@ -83,11 +85,12 @@
   });
 
   /* -------------------------------------------------- stars & "new" state */
-  var stars = new Set(store.get(NS + "stars", []));
+  function stored(k, ok, d) { var v = store.get(NS + k, d); return ok(v) ? v : d; }
+  var stars = new Set(stored("stars", Array.isArray, []).filter(function (x) { return typeof x === "string"; }));
   function saveStars() { store.set(NS + "stars", Array.from(stars)); }
   var newIds = (function () {
     var cur = EVENTS.map(function (e) { return e.id; });
-    var rec = store.get(NS + "visit", null);
+    var rec = stored("visit", function (v) { return v && typeof v === "object" && Array.isArray(v.ids) && (v.prev == null || Array.isArray(v.prev)); }, null);
     var prev;
     if (rec && rec.generated_at === DATA.generated_at) prev = rec.prev;   // reload of same edition: keep markers
     else if (rec) prev = rec.ids;
@@ -252,10 +255,12 @@
     if (ev.target.id !== "q") return;
     clearTimeout(qTimer); qTimer = setTimeout(function () { F.q = ev.target.value.trim(); renderAll(); }, 120);
   });
-  filtersEl.addEventListener("click", function (ev) {
-    if (ev.target.id !== "clear-filters") return;
+  function resetFilters() {
     F = { cats: new Set(), dist: "any", free: false, weekend: false, picks: false, q: "" };
     renderFilters(); renderAll();
+  }
+  filtersEl.addEventListener("click", function (ev) {
+    if (ev.target.id === "clear-filters") resetFilters();
   });
 
   /* ------------------------------------------------------------ bands */
@@ -277,7 +282,7 @@
     var base = EVENTS.filter(matchBase);
     var dated = base.filter(function (e) { return e.kind === "single" || e.kind === "multi_day"; });
     var ongoing = base.filter(function (e) { return e.kind === "ongoing" && e.end_date >= TODAY; });
-    var regulars = base.filter(function (e) { return e.kind === "recurring" && (!e.dates || !e.dates.length || e.dates.some(function (d) { return d >= TODAY; })) && (!F.weekend || !e.dates || e.dates.some(isWeekend) || /sat|sun|weekend/i.test(e.recurrence || "")); });
+    var regulars = base.filter(function (e) { return e.kind === "recurring" && !e.date_tbc && (!e.dates || !e.dates.length || e.dates.some(function (d) { return d >= TODAY; })) && (!F.weekend || !e.dates || e.dates.some(isWeekend) || /sat|sun|weekend/i.test(e.recurrence || "")); });
     var tbc = base.filter(function (e) { return e.date_tbc; });
 
     /* day -> entries */
@@ -306,14 +311,14 @@
     /* bands */
     var days = Object.keys(byDay).sort();
     var html = "";
-    bandsFor(TODAY).forEach(function (b) {
+    bandsFor(BAND_FROM).forEach(function (b) {
       var ds = days.filter(function (d) { return d >= b.from && d <= b.to; });
-      if (!ds.length && !b.weekend) return;
+      if (!ds.length && !(b.weekend && b.to >= WIN.start)) return;
       var range = b.to === "9999-12-31" ? "" : fmtShort(b.from) + (b.from !== b.to ? "–" + fmtShort(b.to) : "");
       html += '<section class="band' + (b.weekend ? " weekend" : "") + '" aria-labelledby="band-' + b.key + '"><h2 id="band-' + b.key + '">' + b.title + (range ? " <small>" + range + "</small>" : "") + "</h2>";
       if (!ds.length) html += '<p class="past-note" style="padding:0 4px 8px">Nothing dated matches your filters this weekend' + (regulars.length ? " — see Regulars above." : ".") + "</p>";
       ds.forEach(function (d) {
-        html += '<section class="day" id="d-' + d + '" data-day="' + d + '"><h3 class="day-h">' + (d === TODAY && !stale ? '<span class="today-tag">Today</span>' : "") + fmtDay(d) +
+        html += '<section class="day" id="d-' + d + '" data-day="' + d + '"><h3 class="day-h">' + (d === realToday && inWindow ? '<span class="today-tag">Today</span>' : "") + fmtDay(d) +
           (isWeekend(d) && !b.weekend ? '<span class="we-tag">weekend</span>' : "") + '</h3><div class="day-list">';
         byDay[d].sort(function (x, y) {
           if (x.first !== y.first) return x.first ? -1 : 1;
@@ -328,8 +333,10 @@
       html += "</section>";
     });
     var nShown = dated.filter(function (e) { return visibleDays(e).length; }).length + ongoing.length + regulars.length + tbc.length;
-    if (!nShown) html = '<div class="empty-state"><p>No events match these filters.</p><button class="btn" type="button" onclick="document.getElementById(\'clear-filters\').click()">Clear filters</button></div>';
+    if (!nShown) html = '<div class="empty-state"><p>No events match these filters.</p><button class="btn" type="button" id="empty-clear">Clear filters</button></div>';
     document.getElementById("list").innerHTML = html;
+    var emptyBtn = document.getElementById("empty-clear");
+    if (emptyBtn) emptyBtn.addEventListener("click", resetFilters);
 
     /* tbc */
     document.getElementById("tbc").innerHTML = tbc.length ? '<section class="band" aria-labelledby="band-tbc"><h2 id="band-tbc">Date to be confirmed</h2><div class="day-list">' +
@@ -349,10 +356,10 @@
   /* ------------------------------------------------- strip & month grids */
   function dayBtn(d, extra) {
     var c = dayCounts[d];
-    var cls = "day-btn" + (isWeekend(d) ? " we" : "") + (d === TODAY && !stale ? " today" : "") + (d < TODAY ? " past" : "") + (!c ? " empty" : "");
+    var cls = "day-btn" + (isWeekend(d) ? " we" : "") + (d === realToday && inWindow ? " today" : "") + (d < TODAY ? " past" : "") + (!c ? " empty" : "");
     var dots = "";
     if (c) { for (var i = 0; i < Math.min(c.n, 3); i++) dots += '<span class="dot"></span>'; if (c.star) dots = '<span class="dot star">' + STAR + "</span>" + dots.slice(0, dots.lastIndexOf("<span")); }
-    var label = fmtDay(d) + (d === TODAY ? ", today" : "") + ": " + (c ? c.n + (c.n === 1 ? " event" : " events") + (c.star ? ", includes a pick" : "") : "no events");
+    var label = fmtDay(d) + (d === realToday && inWindow ? ", today" : "") + ": " + (c ? c.n + (c.n === 1 ? " event" : " events") + (c.star ? ", includes a pick" : "") : "no events");
     return '<button type="button" class="' + cls + '" data-go="' + d + '" aria-label="' + label + '">' + (extra || "") + '<span class="num">' + parse(d).getDate() + '</span><span class="dots" aria-hidden="true">' + dots + "</span></button>";
   }
   function renderNav() {
@@ -370,7 +377,7 @@
     while (cur <= WIN.end) {
       var dt = parse(cur), y = dt.getFullYear(), mo = dt.getMonth();
       r += '<div class="month"><h2>' + MONTHS[mo] + " " + y + '</h2><div class="grid" role="group" aria-label="' + MONTHS[mo] + '">';
-      ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"].forEach(function (x, i) { r += '<span class="dow' + (i > 4 ? " we" : "") + '" aria-hidden="true">' + x + "</span>"; });
+      ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"].forEach(function (x, i) { r += '<span class="dow' + (i > 3 ? " we" : "") + '" aria-hidden="true">' + x + "</span>"; });
       var lead = (dow(cur) + 6) % 7;
       for (var i = 0; i < lead; i++) r += "<span></span>";
       for (var dd = cur; parse(dd).getMonth() === mo; dd = add(dd, 1)) {
@@ -380,7 +387,7 @@
       r += "</div></div>";
       cur = add(cur, 32).slice(0, 7) + "-01";
     }
-    r += '<div class="legend"><span><span class="dots"><span class="dot"></span></span>one event (up to 3 shown)</span><span><span class="dots"><span class="dot star">' + STAR + '</span></span>a day with one of your picks</span><span><span class="day-btn today" style="height:auto;width:auto;display:inline-flex"><span class="num">' + parse(TODAY).getDate() + '</span></span>&nbsp; today</span></div>';
+    r += '<div class="legend"><span><span class="dots"><span class="dot"></span></span>one event (up to 3 shown)</span><span><span class="dots"><span class="dot star">' + STAR + '</span></span>a day with one of your picks</span>' + (inWindow ? '<span><span class="day-btn today" style="height:auto;width:auto;display:inline-flex"><span class="num">' + parse(realToday).getDate() + '</span></span>&nbsp; today</span>' : "") + '</div>';
     document.getElementById("rail").innerHTML = r;
   }
 
@@ -508,7 +515,8 @@
   function icsText(e) {
     var lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//rio-maior-events//EN", "CALSCALE:GREGORIAN", "METHOD:PUBLISH"];
     if (e.kind === "recurring") {
-      var ds = visibleDays(e).length ? visibleDays(e) : (e.dates || []);
+      var ahead = (e.dates || []).filter(function (d) { return d >= TODAY; });
+      var ds = ahead.length ? ahead : (e.dates || []);
       ds.slice(0, 12).forEach(function (d, i) { lines = lines.concat(vevent(e, d, d, "-" + i)); });
     } else if (e.kind === "ongoing") {
       lines = lines.concat(vevent(Object.assign({}, e, { start_time: null }), e.start_date > TODAY ? e.start_date : TODAY, e.end_date));

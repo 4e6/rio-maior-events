@@ -171,6 +171,58 @@ class ValidationTests(unittest.TestCase):
             e["end_date"] = e["start_date"]
         self.assertTrue(any("multi_day" in p for p in self.problems_after(change)))
 
+    def test_a_recurring_event_cannot_have_date_tbc(self):
+        def change(d):
+            e = first(d, "recurring")
+            e.update(date_tbc=True, dates=None, start_time=None, end_date=None)
+        found = self.problems_after(change)
+        self.assertTrue(any("recurring" in p and "date_tbc" in p for p in found))
+
+    def test_multi_day_spans_at_most_seven_days(self):
+        def change(d):
+            e = first(d, "multi_day")
+            e["start_date"], e["end_date"] = "2026-10-21", "2026-10-28"
+        found = self.problems_after(change)
+        self.assertTrue(any("at most 7 days" in p and "ongoing" in p for p in found))
+
+    def test_multi_day_of_seven_days_is_fine(self):
+        def change(d):
+            e = first(d, "multi_day")
+            e["start_date"], e["end_date"] = "2026-10-21", "2026-10-27"
+        self.assertEqual(self.problems_after(change), [])
+
+    def test_recurring_dates_must_be_inside_the_window(self):
+        def change(d):
+            first(d, "recurring")["dates"] = ["2026-10-24", "2026-12-05"]
+        found = self.problems_after(change)
+        self.assertEqual(len(found), 1)
+        self.assertIn("2026-12-05", found[0])
+
+    def test_an_event_that_ended_before_the_window_is_rejected(self):
+        def change(d):
+            e = first(d, "multi_day")
+            e["start_date"], e["end_date"] = "2026-10-10", "2026-10-12"
+        self.assertTrue(any("outside the window" in p for p in self.problems_after(change)))
+
+    def test_a_single_event_outside_the_window_is_rejected(self):
+        for day in ("2026-10-19", "2026-12-01"):
+            def change(d):
+                first(d, "single")["start_date"] = day
+            self.assertTrue(any("outside the window" in p for p in self.problems_after(change)), day)
+
+    def test_an_event_that_started_before_the_window_but_runs_into_it_is_kept(self):
+        self.assertEqual(self.problems_after(lambda d: None), [])
+        self.assertLess(first(sample(), "ongoing")["start_date"], sample()["window"]["start"])
+
+    def test_a_month_only_date_is_judged_by_its_month(self):
+        def change(d):
+            e = next(e for e in d["events"] if e["date_tbc"])
+            e["start_date"] = "2027-02"
+        self.assertTrue(any("outside the window" in p for p in self.problems_after(change)))
+        def inside(d):
+            next(e for e in d["events"] if e["date_tbc"])["start_date"] = "2026-10"
+        self.assertEqual(self.problems_after(inside), [])
+
     def test_a_missing_field_is_named(self):
         def change(d):
             del d["events"][0]["town"]
@@ -267,6 +319,10 @@ class PageScriptTests(unittest.TestCase):
         self.assertIn("DTEND;VALUE=DATE:", self.js)
         self.assertIn("data:text/calendar", self.js)
         self.assertNotIn("createObjectURL", self.js)
+
+    def test_the_empty_state_does_not_click_a_button_that_may_be_missing(self):
+        self.assertNotIn("clear-filters').click()", self.js)
+        self.assertNotIn('clear-filters\\\').click()', self.js)
 
     def test_no_demo_leftovers(self):
         self.assertNotIn("__demo", self.js)

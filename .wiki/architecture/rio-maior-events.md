@@ -6,7 +6,7 @@ tags: [architecture, skill, network, page]
 sources:
   - resource: skills/rio-maior-events/**
   - resource: evals/rio-maior-events/**
-sources_digest: d7b30fd7e58b6d91
+sources_digest: c4e3e7b08e3002cd
 ---
 
 # What it is
@@ -72,8 +72,9 @@ read-only.
   when opened (no remote script, stylesheet or font).
 - It names third-party sites, because they are its subject.
 - A site that refuses (a 403) or does not answer is recorded as failed and not
-  retried another way. After a timeout the rest of that site's pages are
-  skipped. GoTrail and Running.life answer Python's TLS handshake with a 403
+  retried another way. After a refusal (403, 429, a 5xx), a timeout or a
+  connection error the rest of that site's pages are skipped, and requests to
+  one site are 1.5 s apart. GoTrail and Running.life answer Python's TLS handshake with a 403
   while a browser gets the page; a fallback to `curl` was built and removed,
   because getting round a refusal is not this script's call. The model may read
   a failed source once with its own page-reading tool. Viral Agenda stopped
@@ -123,3 +124,5 @@ dark.
 parsers on small hand-written fixtures, and the renderer's validation, ids,
 escaping, byte-stable sample and its rules for `page.js`. A live run is not in
 CI: the sources change and some throttle. No eval measures the model's reading.
+The gap: `page.js` behaviour (bands, filters, `.ics`) is checked in headless
+Chrome by hand, not in CI; the tests only grep its source.

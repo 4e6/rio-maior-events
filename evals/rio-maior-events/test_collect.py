@@ -11,7 +11,9 @@ import importlib.util
 import json
 import datetime
 import os
+import socket
 import tempfile
+import urllib.error
 import unittest
 from unittest import mock
 
@@ -112,6 +114,18 @@ class VisibleText(unittest.TestCase):
         self.assertIn("Sáb 24 out & mais\nConcerto às 21:30", text)
         self.assertIn("Item um\nItem dois", text)
 
+    def test_a_card_keeps_its_header_inside_an_article(self):
+        text, _ = collect.visible_text(fixture("page.html").decode("utf-8"))
+        self.assertIn("Cartao Titulo\n24 out", text)
+        self.assertIn("Cartao rodape", text)
+        self.assertNotIn("Site header", text)
+        self.assertNotIn("Footer text", text)
+
+    def test_a_page_header_after_an_article_is_still_dropped(self):
+        text, _ = collect.visible_text(
+            "<article><p>Card</p></article><header>Top</header><main><p>Body</p></main>")
+        self.assertEqual(text, "Card\nBody")
+
     def test_cap_sets_truncated(self):
         text, truncated = collect.visible_text("<p>%s</p>" % ("a" * 100), cap=40)
         self.assertEqual((len(text), truncated), (40, True))
@@ -148,6 +162,11 @@ class CollectSource(unittest.TestCase):
 
 
 class Main(unittest.TestCase):
+    def setUp(self):
+        patcher = mock.patch.object(collect, "PAUSE", 0)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     def test_unknown_source_is_a_usage_error(self):
         with tempfile.TemporaryDirectory() as tmp:
             self.assertEqual(collect.main([os.path.join(tmp, "o.json"), "--only", "nope"]), 2)
@@ -172,6 +191,51 @@ class Main(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertEqual([s["ok"] for s in data["sources"]], [False, True])
         self.assertEqual(data["window"], {"start": "2026-10-20", "end": "2026-12-01"})
+
+    def run_viral(self, error):
+        """Three Viral Agenda pages and one other site; the first page fails with error."""
+        calls = []
+
+        def fake(url, data=None):
+            calls.append(url)
+            if "viralagenda" in url and len([c for c in calls if "viralagenda" in c]) == 1:
+                raise error
+            return 200, ("<p>%s</p>" % ("evento " * 60)).encode(), None
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(collect, "fetch", fake):
+            out = os.path.join(tmp, "o.json")
+            code = collect.main([out, "--only", "viralagenda-rio-maior", "cineteatro",
+                                 "viralagenda-santarem", "viralagenda-obidos", "--from", "2026-10-20"])
+            with open(out, encoding="utf-8") as handle:
+                data = json.load(handle)
+        return code, calls, {s["name"]: s for s in data["sources"]}
+
+    def test_a_host_that_refuses_or_does_not_answer_is_skipped(self):
+        http = lambda code: urllib.error.HTTPError("u", code, "x", None, None)
+        for error in (http(403), http(429), http(503), socket.timeout("timed out"),
+                      urllib.error.URLError("refused"), ConnectionResetError("reset")):
+            code, calls, sources = self.run_viral(error)
+            self.assertEqual(code, 0)
+            self.assertEqual(len([c for c in calls if "viralagenda" in c]), 1, error)
+            for name in ("viralagenda-santarem", "viralagenda-obidos"):
+                self.assertFalse(sources[name]["ok"])
+                self.assertEqual(sources[name]["error"],
+                                 "skipped: www.viralagenda.com refused or did not answer")
+            self.assertTrue(sources["cineteatro"]["ok"])
+
+    def test_other_failures_do_not_skip_the_host(self):
+        for error in (urllib.error.HTTPError("u", 404, "x", None, None), OSError("down")):
+            code, calls, sources = self.run_viral(error)
+            self.assertEqual(len([c for c in calls if "viralagenda" in c]), 3, error)
+            self.assertTrue(sources["viralagenda-obidos"]["ok"])
+
+    def test_the_same_host_is_paused_between_requests(self):
+        def fake(url, data=None):
+            return 200, ("<p>%s</p>" % ("evento " * 60)).encode(), None
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(collect, "fetch", fake), \
+                mock.patch.object(collect, "PAUSE", 1.5), mock.patch.object(collect.time, "sleep") as sleep:
+            collect.main([os.path.join(tmp, "o.json"), "--only", "viralagenda-rio-maior",
+                          "cineteatro", "viralagenda-santarem", "viralagenda-obidos"])
+        self.assertEqual(sleep.call_args_list, [mock.call(1.5), mock.call(1.5)])
 
     def test_bad_date_is_a_usage_error(self):
         self.assertEqual(collect.main(["o.json", "--from", "soon"]), 2)
