@@ -115,31 +115,40 @@ def local_stamp(value):
 
 
 CLOCK = r"(\d{1,2})(?:\s*(?:h|horas?)(?:\s*(\d{2}))?|:(\d{2}))"
-ONE_TIME_RE = re.compile(r"(?:[àa]s\s+)?%s\.?$" % CLOCK, re.I)
-RANGE_RE = re.compile(r"(?:das\s+)?%s\s*(?:[àa]s|a|-|–)\s*%s\.?$" % (CLOCK, CLOCK), re.I)
+PREFIX = r"((?:a partir d?as|[\u00e0a]s|das)\s+)?"
+ONE_TIME_RE = re.compile(r"%s%s\.?$" % (PREFIX, CLOCK), re.I)
+RANGE_RE = re.compile(r"%s%s\s*(?:[\u00e0a]s|a|-|\u2013)\s*%s\.?$" % (PREFIX, CLOCK, CLOCK), re.I)
+EARLIEST_BARE_HOUR = 6
 
 
 def clocks(schedule):
-    """["HH:MM"] or ["HH:MM", "HH:MM"] when the schedule says one clock time or
-    a range of two and nothing else; [] for anything vaguer ("Todo o dia")."""
+    """["HH:MM"] or ["HH:MM", "HH:MM"] when the schedule says one time of day
+    or a range of two and nothing else; [] for anything vaguer ("Todo o dia")
+    or a bare duration ("2h", "1 hora"). A time of day has a prefix ("\u00e0s",
+    "das", "a partir das"), minutes ("15h30", "21:30") or an hour of 6 or more
+    ("15 horas", "10h")."""
     text = re.sub(r"\s+", " ", schedule).strip() if isinstance(schedule, str) else ""
     match = ONE_TIME_RE.match(text) or RANGE_RE.match(text)
     if not match:
         return []
     groups, found = match.groups(), []
-    for at in range(0, len(groups), 3):
-        hour, minute = int(groups[at]), int(groups[at + 1] or groups[at + 2] or 0)
-        if hour > 23 or minute > 59:
+    for at in range(1, len(groups), 3):
+        hour = int(groups[at])
+        minutes = groups[at + 1] or groups[at + 2]
+        if hour > 23 or int(minutes or 0) > 59:
             return []
-        found.append("%02d:%02d" % (hour, minute))
+        if not (groups[0] or minutes or hour >= EARLIEST_BARE_HOUR):
+            return []
+        found.append("%02d:%02d" % (hour, int(minutes or 0)))
     return found
 
 
 def with_schedule(start, end, schedule):
-    """(start, end) with the schedule's clock times on a day-only start (and a
-    day-only end on the same day, for a range)."""
+    """(start, end) with the schedule's clock times on a day-only start. Only
+    an event on one day gets them (no end, or an end on the same day); a run of
+    days stays dates and the schedule is left to the excerpt."""
     times = clocks(schedule)
-    if not times or not start or len(start) != 10:
+    if not times or not start or len(start) != 10 or (end and end[:10] != start):
         return start, end
     if len(times) == 2 and (end is None or end == start):
         end = "%s %s" % (start, times[1])

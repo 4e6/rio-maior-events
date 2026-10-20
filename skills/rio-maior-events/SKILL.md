@@ -13,7 +13,7 @@ description: >-
 license: MIT
 compatibility: >-
   Needs web access. With Python 3.9+ (standard library only), the collect
-  script fetches about 33 list pages and up to about 150 event pages per run,
+  script fetches about 33 list pages and up to about 180 event pages per run,
   read-only, once each (one POST, the rest GETs; a few minutes); the merge
   and render scripts run offline. Without subagents the groups are read one after
   another. Without Python, the sources are read with the host's own web tools
@@ -62,7 +62,7 @@ address, and a new name loses both.
 python3 <this skill's directory>/scripts/collect.py rio-maior-collected --from <start> --to <end>
 ```
 
-A run fetches about 33 list pages, then up to about 150 event pages of the sites
+A run fetches about 33 list pages, then up to about 180 event pages of the sites
 that set `follow` (a site's event pages come after its list pages, spaced the
 same way, capped per site), and takes a few minutes (the sites are worked in
 parallel): run it with a timeout of at least 5 minutes and wait for the line

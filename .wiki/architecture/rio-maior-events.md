@@ -6,7 +6,7 @@ tags: [architecture, skill, network, page]
 sources:
   - resource: skills/rio-maior-events/**
   - resource: evals/rio-maior-events/**
-sources_digest: 4897297ea3d37f2f
+sources_digest: c576acced51f42ac
 ---
 
 # What it is
@@ -74,7 +74,7 @@ and each has its own traps.
   https pages of the source's own host (a leading `www.` is ignored, as in a
   marker), only up to `follow` in `sources.json` (default 0); a redirect to another host or to http is refused before it is
   requested. A failed event page leaves the source ok, a refusal ends only that
-  host's event pages. **Why capped:** a run is polite by design and about 150
+  host's event pages. **Why capped:** a run is polite by design and about 180
   more requests at 1.5 s each already make it a few minutes, so the caps are per
   source, favour the nearest events (page order; a feed: nearest dates first)
   and the budget of the collected text (about 120 KB of excerpts) stays inside a
@@ -145,7 +145,7 @@ later weeks rest on few sources; the page says which in its `note`.
 
 [The overview](/overview.md) calls a skill a payload that runs on the user's
 host. This one reaches the network by its own code, so `compatibility` says
-what and how much: about 33 list pages and up to about 150 event pages per run,
+what and how much: about 33 list pages and up to about 180 event pages per run,
 one POST and the rest GETs, read-only, a few minutes.
 
 - `collect.py` is the only script that imports `urllib`; the adapters and `merge.py` reach nothing. `render.py` reads its

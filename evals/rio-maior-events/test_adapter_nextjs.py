@@ -90,6 +90,21 @@ class EventPages(unittest.TestCase):
         self.assertEqual(nextjs.clocks("15h30"), ["15:30"])
         self.assertEqual(nextjs.clocks("9h"), ["09:00"])
 
+    def test_a_bare_duration_is_not_a_time_of_day(self):
+        for value in ("2h", "1 hora", "2 horas", "3h a 5h"):
+            self.assertEqual(nextjs.clocks(value), [], value)
+        self.assertEqual(nextjs.clocks("\u00e0s 2h"), ["02:00"])
+        self.assertEqual(nextjs.clocks("a partir das 21 horas"), ["21:00"])
+        self.assertEqual(nextjs.clocks("2h30"), ["02:30"])
+        self.assertEqual(nextjs.clocks("das 10h \u00e0s 18h"), ["10:00", "18:00"])
+
+    def test_a_run_of_days_keeps_dates_and_the_schedule_in_the_excerpt(self):
+        text = fixture("nextjs_event.html").decode("utf-8").replace(
+            '\\"endDate\\":\\"2026-10-24T23:00', '\\"endDate\\":\\"2026-11-05T00:00')
+        got = nextjs.details(SOURCE, [Page("u", 200, text.encode("utf-8"), None)], WINDOW)[0]
+        self.assertEqual((got["start"], got["end"]), ("2026-10-25", "2026-11-05"))
+        self.assertTrue(got["excerpt"].startswith("Hor\u00e1rio: 15 horas\n"))
+
     def test_a_range_sets_start_and_end(self):
         got = nextjs.details(SOURCE, [with_schedule("10h \u00e0s 18h")], WINDOW)[0]
         self.assertEqual((got["start"], got["end"]), ("2026-10-25 10:00", "2026-10-25 18:00"))
