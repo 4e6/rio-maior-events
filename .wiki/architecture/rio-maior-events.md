@@ -6,7 +6,7 @@ tags: [architecture, skill, network, page]
 sources:
   - resource: skills/rio-maior-events/**
   - resource: evals/rio-maior-events/**
-sources_digest: 5f717181f9d918c3
+sources_digest: a7812c759c3007bc
 ---
 
 # What it is
@@ -28,6 +28,9 @@ and each has its own traps.
   the source's own cap). It parses no HTML layout: layouts change, and a model
   reads changed text better than a regex does. Only data a site publishes as
   data (JSON-LD, JSON, a framework's embedded list) is read by field.
+  It undoes gzip and deflate itself (by header or by the gzip magic bytes) and
+  offers only those encodings; a source whose text is mostly control or
+  replacement characters fails as unreadable instead of passing as ok.
 - **Readers read.** Portuguese dates with no year, two-digit years,
   times that are an hour off, the same event on two sources, far-away
   Eventbrite listings: `references/sources.md` lists them

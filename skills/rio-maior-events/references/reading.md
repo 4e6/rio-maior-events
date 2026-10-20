@@ -57,7 +57,7 @@ no `id`, and no `window` or `sources_checked`: those come from the merge.
   to something (inscrições) rather than the event itself; sessions only for
   seniors or for schools; past events, far-away and online ones, and anything
   outside the window.
-- Further than about 50 minutes (towns.md) keep only a big event.
+- 50 minutes or more (towns.md) keep only a big event.
 - One event per real event. Merge the same event from several sources of this
   group into one, with all of them in `sources`. A show on two or three dates
   is one event per date. Other groups may list the same event; the merge step
@@ -89,7 +89,14 @@ MARATONA" over "50ª Meia Maratona Internacional da Nazaré".
   page it was listed on.
 - `start_time` only where a source states it plainly; otherwise null.
 - `town` from the venue: the place name alone, without parentheses ("Cambelas",
-  not "Cambelas (Torres Vedras)"); `drive_min` from towns.md.
+  not "Cambelas (Torres Vedras)"); `drive_min` from towns.md. A village not in
+  towns.md: `town` is the village name, and `drive_min` is the minutes of the
+  nearest listed place, or null when that cannot be told.
+- Several sessions on one day are one event: the times go in the description and
+  `start_time` is the first session. A festival whose days are hosted by
+  different towns is one event per town. A card that shows a date range for what
+  is really a one-day event: use the day the event's own details give; with none,
+  keep the range and set `confidence: "low"`.
 - `price` only as a source states it; null when unknown.
 - `confidence: "low"` with a short `caveat` when the year was inferred against
   a weekday that does not match, sources disagree, or the source looks stale.
@@ -102,19 +109,23 @@ event with `date_tbc: true` (see the schema for the fields it nulls),
 item (title and date) or the entry in sources.md's known yearly list.
 
 - Only from a `past` item of this group or from an entry of that list whose
-  town is in this group. The hint's source is the one that entry names.
+  source is in this group (the group's sources, not its towns: a regional
+  source's cards carry district labels, so the town does not decide). The hint's
+  source is the one that entry names. `title_pt` is the event's Portuguese name
+  as known: the `past` item's title, or the list's `title_pt` column.
 - One sighting is all a hint rests on, so it is `confidence: "low"`.
 - Never when this year's edition is already in `past` or in `events`, and never
   when a source of this group dates it.
-- `start_date` must fall inside the window, as `YYYY-MM` of the expected month.
-  If the usual time is outside the window, write no hint.
+- A yearly event qualifies when its usual dates overlap the window, not merely
+  its month. `start_date` is then `YYYY-MM` of the expected month, and must fall
+  inside the window. If the usual dates are outside the window, write no hint.
 - Do not state a day; say it is expected.
 
 ## Coverage
 
 `coverage` is one line, in plain words: which sources of this group were thin or
-failed, and how far ahead the group reaches: "reaches <the last date any event
-in the group falls on>" (most agendas show the current month only), such as
+failed, and how far ahead the group reaches: "reaches <date>", the last date on which
+a listed event of the group starts or takes place within the window (most agendas show the current month only), such as
 "cm-riomaior and cineteatro ok; cm-alcanena failed (403); reaches 2026-11-30".
 Name a source that gave only its first page. The main reader writes the page's
 note from these lines.

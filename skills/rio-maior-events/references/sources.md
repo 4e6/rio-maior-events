@@ -194,27 +194,27 @@ The pages have no readable text; the script takes the events from the page's emb
 
 ## Known yearly events
 
-From past listings, not from this collection. Use one only as "date to be confirmed" when the window covers its usual time and no source lists a date for it; say it is expected, never state a date. Its source is the municipality's own site named in the last column; a hint rests on one sighting, so it is always low confidence.
+From past listings, not from this collection. Use one only as "date to be confirmed" when its usual dates overlap the window (not merely its month) and no source lists a date for it; say it is expected, never state a date. A hint's `title_pt` is the `title_pt` column. Its source is the municipality's own site named in the last column; a hint rests on one sighting, so it is always low confidence.
 
-| Event | Usual time | Town | Source |
-|---|---|---|---|
-| Frimor, Feira Nacional da Cebola (Pavilhão Multiusos) | early September | Rio Maior | Município de Rio Maior, `https://www.cm-riomaior.pt/` |
-| Tasquinhas | around March | Rio Maior | Município de Rio Maior, `https://www.cm-riomaior.pt/` |
-| Palhaçarte | late May | Rio Maior | Município de Rio Maior, `https://www.cm-riomaior.pt/` |
-| Christmas market and Presépios de Sal at the Salinas | December | Salinas de Rio Maior | Município de Rio Maior, `https://www.cm-riomaior.pt/` |
-| Halloween walk at the Salinas | 31 October | Salinas de Rio Maior | Município de Rio Maior, `https://www.cm-riomaior.pt/` |
-| Hike Land, cave walk | May | Alcobertas | Município de Rio Maior, `https://www.cm-riomaior.pt/` |
-| European Outdoor Film Tour (ESDRM) | June | Rio Maior | Município de Rio Maior, `https://www.cm-riomaior.pt/` |
-| Festival de Patinagem Artística | December | Rio Maior | Município de Rio Maior, `https://www.cm-riomaior.pt/` |
-| FÓLIO, literary festival | mid October | Óbidos | Agenda Cultural de Óbidos, `https://agenda.obidos.pt/` |
-| Mostra de Doces Conventuais | mid October | Santarém | Município de Santarém, `https://www.cm-santarem.pt/agenda` |
-| Semana Cultural nos Cemitérios | October | Santarém | Município de Santarém, `https://www.cm-santarem.pt/agenda` |
-| FIGS, guitar festival | late September | Santarém | Município de Santarém, `https://www.cm-santarem.pt/agenda` |
-| Festival Internacional de Teatro para a Infância | late September to early October | Santarém | Município de Santarém, `https://www.cm-santarem.pt/agenda` |
-| Festa da Bênção do Gado | late July to August | Riachos | Município de Torres Novas, `https://www.cm-torresnovas.pt/index.php/comunicacao/agenda` |
-| Encontro de Bandas Filarmónicas | September | Torres Novas | Município de Torres Novas, `https://www.cm-torresnovas.pt/index.php/comunicacao/agenda` |
-| Encontro de Ranchos | September | Torres Novas | Município de Torres Novas, `https://www.cm-torresnovas.pt/index.php/comunicacao/agenda` |
-| Cinema de Verão | August | Torres Novas | Município de Torres Novas, `https://www.cm-torresnovas.pt/index.php/comunicacao/agenda` |
+| Event | `title_pt` | Usual time | Town | Source |
+|---|---|---|---|---|
+| Frimor, Feira Nacional da Cebola (Pavilhão Multiusos) | Frimor, Feira Nacional da Cebola | early September | Rio Maior | Município de Rio Maior, `https://www.cm-riomaior.pt/` |
+| Tasquinhas | Tasquinhas | around March | Rio Maior | Município de Rio Maior, `https://www.cm-riomaior.pt/` |
+| Palhaçarte | Palhaçarte | late May | Rio Maior | Município de Rio Maior, `https://www.cm-riomaior.pt/` |
+| Christmas market and Presépios de Sal at the Salinas | Mercado de Natal e Presépios de Sal nas Salinas | December | Salinas de Rio Maior | Município de Rio Maior, `https://www.cm-riomaior.pt/` |
+| Halloween walk at the Salinas | Passeio de Halloween nas Salinas | 31 October | Salinas de Rio Maior | Município de Rio Maior, `https://www.cm-riomaior.pt/` |
+| Hike Land, cave walk | Hike Land, passeio às grutas | May | Alcobertas | Município de Rio Maior, `https://www.cm-riomaior.pt/` |
+| European Outdoor Film Tour (ESDRM) | European Outdoor Film Tour (ESDRM) | June | Rio Maior | Município de Rio Maior, `https://www.cm-riomaior.pt/` |
+| Festival de Patinagem Artística | Festival de Patinagem Artística | December | Rio Maior | Município de Rio Maior, `https://www.cm-riomaior.pt/` |
+| FÓLIO, literary festival | FÓLIO, Festival Literário Internacional de Óbidos | mid October | Óbidos | Agenda Cultural de Óbidos, `https://agenda.obidos.pt/` |
+| Mostra de Doces Conventuais | Mostra de Doces Conventuais | mid October | Santarém | Município de Santarém, `https://www.cm-santarem.pt/agenda` |
+| Semana Cultural nos Cemitérios | Semana Cultural nos Cemitérios | October | Santarém | Município de Santarém, `https://www.cm-santarem.pt/agenda` |
+| FIGS, guitar festival | FIGS, Festival Internacional de Guitarra de Santarém | late September | Santarém | Município de Santarém, `https://www.cm-santarem.pt/agenda` |
+| Festival Internacional de Teatro para a Infância | Festival Internacional de Teatro para a Infância | late September to early October | Santarém | Município de Santarém, `https://www.cm-santarem.pt/agenda` |
+| Festa da Bênção do Gado | Festa da Bênção do Gado | late July to August | Riachos | Município de Torres Novas, `https://www.cm-torresnovas.pt/index.php/comunicacao/agenda` |
+| Encontro de Bandas Filarmónicas | Encontro de Bandas Filarmónicas | September | Torres Novas | Município de Torres Novas, `https://www.cm-torresnovas.pt/index.php/comunicacao/agenda` |
+| Encontro de Ranchos | Encontro de Ranchos | September | Torres Novas | Município de Torres Novas, `https://www.cm-torresnovas.pt/index.php/comunicacao/agenda` |
+| Cinema de Verão | Cinema de Verão | August | Torres Novas | Município de Torres Novas, `https://www.cm-torresnovas.pt/index.php/comunicacao/agenda` |
 
 ## Not used, and why
 

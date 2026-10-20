@@ -5,16 +5,15 @@ Approximate drive time by car from Rio Maior town centre, in minutes, for
 Each row is one place and one whole number. The `town` of an event is the place
 name alone, as in the first column, with no parentheses.
 
-A place not listed: use the minutes of the nearest listed place, not of its
-municipality's town (border villages are much closer than their town). If a
+A place not listed (a village): `town` is the village name, and `drive_min` the
+minutes of the nearest listed place, not of its municipality's town (border villages are much closer than their town). If a
 source gives the distance from Rio Maior, about one minute per kilometre will
 do. If you cannot tell which listed place is nearest, `drive_min` is null.
 
-The area the skill covers is everything up to about 45 minutes. Further than
-that, include an event only when it is big (a national festival, a major
-concert) and say how far it is.
-So the towns listed at 50 minutes or more (Peniche, Leiria, Entroncamento,
-Chamusca, Golegã, Ourém, Vila Nova da Barquinha, Tomar) are big events only.
+The area the skill covers is everything up to about 45 minutes. At 50 minutes
+or more (Peniche, Leiria, Entroncamento, Chamusca, Golegã, Ourém, Vila Nova da
+Barquinha, Tomar), include an event only when it is big (a national festival, a
+major concert) and say how far it is.
 
 | Town | Municipality | Minutes |
 |---|---|---|

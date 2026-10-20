@@ -53,6 +53,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import zlib
 
 sys.dont_write_bytecode = True  # before the adapters are imported
 
@@ -60,7 +61,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
 from adapters import ADAPTERS  # noqa: E402
-from adapters.common import AdapterError, Page, Request  # noqa: E402
+from adapters.common import AdapterError, Page, Request, decode  # noqa: E402
 
 SOURCES_PATH = os.path.join(HERE, "sources.json")
 TIMEOUT = 20
@@ -78,13 +79,42 @@ def load_config(path=SOURCES_PATH):
         return json.load(handle)
 
 
+def inflate(body, encoding):
+    """The body with a gzip or deflate encoding undone.
+
+    Done when Content-Encoding says gzip or deflate, and also when the body
+    starts with the gzip magic bytes (1f 8b) whatever the header says.
+    """
+    encoding = (encoding or "").strip().lower()
+    if encoding in ("gzip", "x-gzip") or body[:2] == b"\x1f\x8b":
+        return zlib.decompress(body, 47)  # 47: a gzip or zlib wrapper
+    if encoding == "deflate":
+        try:
+            return zlib.decompress(body)
+        except zlib.error:
+            return zlib.decompress(body, -15)  # a raw deflate stream
+    return body
+
+
+def garbled(body, content_type, limit=0.05, sample=2000):
+    """Whether the body, read as text, is mostly control or replacement characters."""
+    text = decode(body, content_type)[:sample]
+    if not text:
+        return False
+    bad = sum(1 for c in text if c == "\ufffd" or (ord(c) < 32 and c not in "\t\n\r"))
+    return bad / len(text) > limit
+
+
 def fetch(url, data=None):
-    headers = {"User-Agent": USER_AGENT, "Accept-Language": "pt-PT,pt;q=0.9,en;q=0.5"}
+    # Only encodings inflate() can undo are offered.
+    headers = {"User-Agent": USER_AGENT, "Accept-Language": "pt-PT,pt;q=0.9,en;q=0.5",
+               "Accept-Encoding": "gzip, deflate"}
     if data is not None:
         headers["Content-Type"] = "application/x-www-form-urlencoded"
     request = urllib.request.Request(url, data=data, headers=headers)
     with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
-        return response.status, response.read(), response.headers.get("Content-Type")
+        body = inflate(response.read(), response.headers.get("Content-Encoding"))
+        return response.status, body, response.headers.get("Content-Type")
 
 
 def host_of(source):
@@ -137,8 +167,11 @@ def run_host(host, jobs, fetch, sleep, clock, delay, on_done=None, stop=None):
                         return outcomes
                 try:
                     status, body, content_type = fetch(request.url, request.data)
-                    pages.append(Page(request.url, status, body, content_type))
                     outcome["status"] = status
+                    if garbled(body, content_type):
+                        outcome["error"] = "unreadable response (binary or garbled)"
+                    else:
+                        pages.append(Page(request.url, status, body, content_type))
                 except urllib.error.HTTPError as err:
                     outcome["status"] = err.code
                     outcome["error"] = "HTTP %d %s" % (err.code, err.reason)

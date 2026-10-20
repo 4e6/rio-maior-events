@@ -142,6 +142,46 @@ class RunHost(unittest.TestCase):
         self.assertEqual(done, ["a", "b"])
 
 
+class Encoding(unittest.TestCase):
+    TEXT = ("<p>Concerto no Cineteatro. " * 40).encode()
+
+    def gzip_bytes(self):
+        import gzip
+        return gzip.compress(self.TEXT)
+
+    def test_gzip_with_header(self):
+        self.assertEqual(collect.inflate(self.gzip_bytes(), "gzip"), self.TEXT)
+
+    def test_gzip_without_header_by_magic_bytes(self):
+        self.assertEqual(collect.inflate(self.gzip_bytes(), None), self.TEXT)
+
+    def test_deflate_zlib_and_raw(self):
+        import zlib
+        self.assertEqual(collect.inflate(zlib.compress(self.TEXT), "deflate"), self.TEXT)
+        raw = zlib.compressobj(wbits=-15)
+        data = raw.compress(self.TEXT) + raw.flush()
+        self.assertEqual(collect.inflate(data, "deflate"), self.TEXT)
+
+    def test_plain_body_is_untouched(self):
+        self.assertEqual(collect.inflate(self.TEXT, None), self.TEXT)
+        self.assertEqual(collect.inflate(self.TEXT, "identity"), self.TEXT)
+
+    def run_one(self, body, content_type=None):
+        clock = Clock()
+        return collect.run_host("h.example", [("a", [Request("u")])], lambda url, data=None: (200, body, content_type),
+                                clock.sleep, clock.clock, 2.0)
+
+    def test_garbled_text_fails_its_source(self):
+        outcomes = self.run_one(bytes(range(0, 9)) * 100)
+        self.assertEqual(outcomes["a"]["error"], "unreadable response (binary or garbled)")
+        self.assertIsNone(outcomes["a"]["pages"])
+
+    def test_normal_text_is_unaffected(self):
+        outcomes = self.run_one(PAGE, "text/html; charset=utf-8")
+        self.assertIsNone(outcomes["a"]["error"])
+        self.assertFalse(collect.garbled("Olá, São João – ação".encode("utf-8"), None))
+
+
 class Pool(unittest.TestCase):
     def sources(self, *names):
         return [{"name": n, "label": n, "adapter": "text", "town": "T", "group": "g",

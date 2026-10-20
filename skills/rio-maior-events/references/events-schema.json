@@ -46,7 +46,7 @@
       "items": {
         "type": "object",
         "properties": {
-          "title_pt": { "type": "string", "minLength": 1, "description": "The title as the source gives it." },
+          "title_pt": { "type": "string", "minLength": 1, "description": "The title as the source gives it; for a hint, the event's Portuguese name as known (the yearly list gives it)." },
           "title_en": { "type": "string", "minLength": 1, "description": "A short English title or gloss. The same as title_pt for a name that does not translate." },
           "category": {
             "type": "string",
@@ -86,11 +86,11 @@
             "description": "True when the event is expected but its date is not announced. Then end_date, start_time and dates are null."
           },
           "venue": { "type": ["string", "null"] },
-          "town": { "type": "string", "minLength": 1, "description": "The place name alone, as in references/towns.md, with no parentheses." },
+          "town": { "type": "string", "minLength": 1, "description": "The place name alone, as in references/towns.md, with no parentheses. For a village not listed there, the village name." },
           "drive_min": {
             "type": ["integer", "null"],
             "minimum": 0,
-            "description": "Minutes by car from origin, from references/towns.md; for a place not listed there, the nearest listed place's minutes. Null only when that cannot be told."
+            "description": "Minutes by car from origin, from references/towns.md; for a village not listed there, the nearest listed place's minutes. Null only when that cannot be told."
           },
           "price": {
             "type": ["object", "null"],
