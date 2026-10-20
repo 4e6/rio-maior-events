@@ -72,7 +72,7 @@ sys.path.insert(0, HERE)
 
 from adapters import ADAPTERS  # noqa: E402
 from adapters.common import (AdapterError, Page, Request, clean_url, decode,  # noqa: E402
-                             default_details)
+                             default_details, same_site)
 
 SOURCES_PATH = os.path.join(HERE, "sources.json")
 TIMEOUT = 20
@@ -328,7 +328,7 @@ def follow_requests(source, follow):
     found = []
     for request in follow or []:
         url = clean_url(None, request.url)
-        if (url and urllib.parse.urlsplit(url).hostname == host_of(source)
+        if (url and url.startswith("https://") and same_site(url, "https://" + host_of(source))
                 and url not in [r.url for r in found]):
             found.append(Request(url))
     return found[:limit] if isinstance(limit, int) else []

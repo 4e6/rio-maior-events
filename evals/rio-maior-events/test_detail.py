@@ -173,6 +173,26 @@ class Excerpt(unittest.TestCase):
         found = extract_detail(page(og("Fado"), "<main><h1>Fado</h1><p>So isto.</p></main>"))
         self.assertEqual(found["excerpt"], "Fado\nSo isto.")
 
+    def test_a_mention_that_leads_into_a_mini_calendar_is_skipped(self):
+        calendar = "".join("<li>%s</li>" % d for d in ["SEG", "TER", "QUA", "QUI", "SEX", "SAB", "DOM"]
+                           + [str(n) for n in range(1, 32)])
+        body = ("<main><a href='/e' title='Fado'>Ir</a><ul><li>Pesquisar</li><li>Calendario</li>%s</ul>"
+                "<h1>Fado</h1><p>Noite de fado, 21h30, no teatro.</p></main>" % calendar)
+        found = extract_detail(page(og("Fado"), body))
+        self.assertTrue(found["excerpt"].startswith("Fado\nNoite de fado, 21h30"), found["excerpt"])
+
+    def test_a_title_that_is_the_only_mention_is_kept_even_before_short_lines(self):
+        found = extract_detail(page(og("Fado"), "<main><h1>Fado</h1>" + "<p>1</p>" * 10 + "</main>"))
+        self.assertTrue(found["excerpt"].startswith("Fado\n1\n1"))
+
+    def test_the_title_is_not_said_twice_when_the_title_line_runs_on(self):
+        html = ("<!doctype html><html><head><title>Corrida 2026 - Inscricoes</title>"
+                '<meta property="og:title" content="Corrida 2026" /></head><body>'
+                "<main><p>Corrida 2026 - Inscricoes Pular para o conteudo</p><h1>Corrida 2026 dom 25 out</h1>"
+                "<p>Tipo Corrida</p></main></body></html>")
+        found = extract_detail(Page(URL, 200, html.encode("utf-8"), "text/html"))
+        self.assertEqual(found["excerpt"], "Corrida 2026 dom 25 out\nTipo Corrida")
+
     def test_a_page_with_no_text_has_no_excerpt(self):
         found = extract_detail(Page(URL, 200, b"<html><head></head><body></body></html>", None))
         self.assertIsNone(found["excerpt"])

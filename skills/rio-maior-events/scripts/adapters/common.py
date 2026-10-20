@@ -78,6 +78,11 @@ def clean_url(base, href):
         urllib.parse.quote(parts.query, safe=keep + "?"), ""))
 
 
+def same_site(url, other):
+    """Whether two URLs have the same host, ignoring a leading "www." """
+    return _bare_host(url) == _bare_host(other)
+
+
 def _bare_host(url):
     host = urllib.parse.urlsplit(url).hostname or ""
     return host[4:] if host.startswith("www.") else host
@@ -464,20 +469,37 @@ def _page_title(page):
     return "", ""
 
 
+def _in_calendar(text, at):
+    """Whether the lines after `at` read as a mini calendar or a menu: at least
+    half of the next 12 non-empty lines are 3 characters or fewer (a day, a
+    weekday abbreviation)."""
+    lines = [line.strip() for line in text[at:].split("\n")[1:] if line.strip()][:12]
+    return len(lines) >= 6 and sum(len(line) <= 3 for line in lines) * 2 >= len(lines)
+
+
 def _excerpt(text, title, head):
     """About EXCERPT_CAP characters of text from the first mention of the title
-    after the <title> line (or of its part before " - ", " | ", " ‹ "), else
-    from the start of the text after that line."""
+    after the <title> line (or of its part before " - ", " | ", " ‹ ") that does
+    not lead into a mini calendar, else from the start of the text after that
+    line. A first line that starts with the title and is followed by a line that
+    starts with the title's first 20 characters is dropped, so the title is not
+    said twice."""
     start = 0
     if head and text.startswith(head):
         start = len(head)
     needles = [title] + [part for part in re.split(r" - | \| | ‹ ", title)[:1] if part != title]
     for needle in needles:
-        found = text.find(needle, start) if needle else -1
-        if found >= 0:
-            start = found
+        first = text.find(needle, start) if needle else -1
+        if first >= 0:
+            found = first
+            while found >= 0 and _in_calendar(text, found):
+                found = text.find(needle, found + len(needle))
+            start = found if found >= 0 else first
             break
     chunk = text[start:].strip()
+    lines = chunk.split("\n", 2)
+    if title and len(lines) > 1 and lines[0].startswith(title) and lines[1].startswith(title[:20]):
+        chunk = chunk[len(lines[0]) + 1:].strip()
     if len(chunk) > EXCERPT_CAP:
         chunk = chunk[:EXCERPT_CAP]
         cut = max(chunk.rfind(" "), chunk.rfind("\n"))

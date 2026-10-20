@@ -6,7 +6,7 @@ tags: [architecture, skill, network, page]
 sources:
   - resource: skills/rio-maior-events/**
   - resource: evals/rio-maior-events/**
-sources_digest: e6d22e19c9034f66
+sources_digest: 49e056c0676d787e
 ---
 
 # What it is
@@ -70,8 +70,9 @@ and each has its own traps.
   worker with the same spacing, then calls the adapter's `details` (by default
   `common.extract_detail`: title, start, end and venue from JSON-LD, an
   `atc_*` calendar widget or an inline iCal link, plus an 800-character
-  excerpt). Only the source's own host, only up to `follow` in `sources.json`
-  (default 0); a redirect to another host or to http is refused before it is
+  excerpt, which skips a title mention that leads into a mini calendar). Only
+  https pages of the source's own host (a leading `www.` is ignored, as in a
+  marker), only up to `follow` in `sources.json` (default 0); a redirect to another host or to http is refused before it is
   requested. A failed event page leaves the source ok, a refusal ends only that
   host's event pages. **Why capped:** a run is polite by design and about 150
   more requests at 1.5 s each already make it a few minutes, so the caps are per

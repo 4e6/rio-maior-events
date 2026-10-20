@@ -102,7 +102,7 @@
             "additionalProperties": false,
             "description": "Null when the source states no price."
           },
-          "kids": { "type": "boolean", "description": "True when the source says it suits children or families." },
+          "kids": { "type": "boolean", "description": "True when the event is aimed at children." },
           "description_en": { "type": ["string", "null"], "description": "One or two plain sentences in English." },
           "sources": {
             "type": "array",

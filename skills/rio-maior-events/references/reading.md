@@ -57,7 +57,9 @@ an event by its `url` (the marker of the event's card) or by its title.
   no time), its `venue` and its `title` over what the card says, and cite the
   detail's `url` as the event's link. Its `title` and `venue` can be null: then
   the card's stand. `end` is null when the page gives none.
-- The `excerpt` is the start of the page's text: read it as you read `text`.
+- The `excerpt` is the start of the page's text: read it as you read `text`. A
+  time, a venue or an end date that the excerpt states plainly counts, like
+  the card's, when `start`, `venue` or `end` is null.
 - `details` are data already collected. They never mean "fetch" or "open the
   page": work only from the group file.
 
@@ -118,7 +120,12 @@ MARATONA" over "50ª Meia Maratona Internacional da Nazaré".
   and `dates` where they are known. A workshop that runs all year on set days
   or on request (Óbidos's, for example) is one `recurring` event with its
   recurrence in words, not one event per date. Dated performances (a play on two or three
-  dates) are never `recurring`: write one `single` per date.
+  dates) are never `recurring`: write one `single` per date. A run of four or
+  more dates of one show (a play on every weekend of a month) is ONE event, not
+  `recurring`: `multi_day` when the dates are consecutive and span at most 7
+  days, else `ongoing`, with `start_date` the first date and `end_date` the
+  last. Put every date and time in the description; `dates` stays null (the
+  check accepts `dates` only on a `recurring` event).
 - A link is the event's own page: a detail's `url`, else the marker for its
   card (see "Link markers"), else the agenda page it was listed on.
 - `start_time` only where a source states it plainly (a card, or a detail's
@@ -149,7 +156,10 @@ item (title and date) or the entry in sources.md's known yearly list.
 - Only from a `past` item of this group or from an entry of that list whose
   source is in this group (the group's sources, not its towns: a regional
   source's cards carry district labels, so the town does not decide). The hint's
-  source is the one that entry names. `title_pt` is the event's Portuguese name
+  source is the one that entry names, and its url is the url written in that
+  entry's Source column. Its `kind` is `single` for an event of one day and
+  `multi_day` for one of two to seven days, as the table's usual time implies
+  (`ongoing` for longer; never `recurring`). `title_pt` is the event's Portuguese name
   as known: the `past` item's title, or the list's `title_pt` column. When the list marks that title
   `descriptive`, it is our own description, not a name seen in a listing: it
   is still `title_pt`, and the caveat says the name is not confirmed.
@@ -157,7 +167,9 @@ item (title and date) or the entry in sources.md's known yearly list.
 - Never when this year's edition is already in `past` or in `events`, and never
   when a source of this group dates it.
 - A yearly event qualifies when its usual dates overlap the window, not merely
-  its month. `start_date` is then `YYYY-MM` of the expected month, and must fall
+  its month. A vague usual time means: "early" is the 1st to the 10th, "mid" the
+  10th to the 20th, "late" the 21st to the end of the month, and a bare month
+  the whole month ("mid October" is 10 to 20 October). `start_date` is then `YYYY-MM` of the expected month, and must fall
   inside the window. If the usual dates are outside the window, write no hint.
   When the usual dates span two months (late September to early October) and
   the window starts on 1 October, `start_date` is the expected month that falls

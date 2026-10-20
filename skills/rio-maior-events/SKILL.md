@@ -103,8 +103,9 @@ group, one reader per group:
   once, on the same model as you unless a smaller one has been shown to read as
   well. Give each the window and this instruction, with absolute paths: read
   reading.md, then sources.md and towns.md (in this skill's `references/`
-  folder), then its group file, and write its candidates file, naming those
-  five paths in full (the three references, the group file
+  folder) and events-schema.json (the same folder, the format it writes),
+  then its group file, and write its candidates file, naming those six paths
+  in full (the four references, the group file
   `<current folder>/rio-maior-collected/<group>.json` and the output
   `<current folder>/rio-maior-candidates/<group>.json`). The reader reads
   [references/reading.md](references/reading.md) first.

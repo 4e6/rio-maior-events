@@ -551,6 +551,18 @@ class FollowContract(unittest.TestCase):
         self.assertEqual([d["url"] for d in results[0]["details"]],
                          ["https://a.example/e1", "https://a.example/e2"])
 
+    def test_the_other_www_variant_of_the_sources_host_is_followed(self):
+        source = self.source(follow=3, url="https://www.a.example/page")
+        parsed = {"items": [], "follow": [Request("https://a.example/e1"), Request("https://www.a.example/e2"),
+                                          Request("https://b.example/e3")]}
+        self.assertEqual([r.url for r in collect.follow_requests(source, parsed["follow"])],
+                         ["https://a.example/e1", "https://www.a.example/e2"])
+
+    def test_a_follow_over_plain_http_is_dropped(self):
+        parsed = {"items": [], "follow": [Request("http://a.example/e1"), Request("https://a.example/e2")]}
+        results, calls = self.collect([self.source(follow=2)], parsed)
+        self.assertEqual(calls, ["https://a.example/page", "https://a.example/e2"])
+
     def test_a_non_ascii_url_is_percent_encoded(self):
         results, calls = self.collect([self.source(follow=1)], self.follow("/e/caf\u00e9 x"))
         self.assertEqual(calls[1], "https://a.example/e/caf%C3%A9%20x")
