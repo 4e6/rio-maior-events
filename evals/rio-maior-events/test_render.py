@@ -165,6 +165,15 @@ class ValidationTests(unittest.TestCase):
         self.assertTrue(any("start_time" in p for p in found))
         self.assertTrue(any("category" in p for p in found))
 
+    def test_an_ongoing_event_without_an_end_is_not_called_outside_the_window(self):
+        def change(d):
+            e = first(d, "ongoing")
+            e["start_date"], e["end_date"] = "2026-10-01", None
+        found = self.problems_after(change)
+        self.assertEqual(len(found), 1)
+        self.assertIn("needs an end_date", found[0])
+        self.assertNotIn("outside", found[0])
+
     def test_multi_day_needs_a_later_end(self):
         def change(d):
             e = first(d, "multi_day")

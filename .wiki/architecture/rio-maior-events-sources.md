@@ -7,7 +7,7 @@ sources:
   - resource: skills/rio-maior-events/scripts/sources.json
   - resource: skills/rio-maior-events/scripts/adapters/**
   - resource: skills/rio-maior-events/references/sources.md
-sources_digest: 7be93c7c932955ba
+sources_digest: 9bd14bee2a54bf9d
 ---
 
 # What this page is for
@@ -51,9 +51,12 @@ browser; the page should show dated cards for the coming weeks.
   Alcobaça, Óbidos and Porto de Mós are now also read from their own sites;
   Viral Agenda stays for the rest.
 - **Portugal Running.** The one race calendar ([why](#why)). Breaks if the site starts
-  refusing scripts, as GoTrail and Running.life did.
-- **Joomla agendas (Alcanena, Entroncamento, Vila Nova da Barquinha).** One
-  template, so one change breaks three. Entroncamento asks for a crawl delay of
+  refusing scripts, as GoTrail and Running.life did. Each month's list is cut
+  behind a "Mostrar mais" the collector cannot press, so a month can hold more
+  races than the text shows; the readers say so in their coverage lines.
+- **Joomla agendas (Alcanena, Entroncamento, Vila Nova da Barquinha, Torres
+  Novas).** One template, so one change breaks four. Torres Novas shows page 1
+  of 4 only. Entroncamento asks for a crawl delay of
   3; the collector reads one page of it.
 - **Theatres and cinemas (Torres Novas, Torres Vedras, Alcobaça, Caldas da
   Rainha).** Small pages, each one venue; the Caldas da Rainha centre's is the
@@ -74,7 +77,8 @@ browser; the page should show dated cards for the coming weeks.
 - **Porto de Mós home page.** Chosen over the agenda page the site links to,
   which holds a 2020 listing. Breaks when the home page's agenda block moves.
 - **Almeirim, Batalha, Nazaré, Peniche, Chamusca.** Municipal listings, one page
-  each. None is paged: one page per source, by decision. Peniche's page
+  each. None is paged: one page per source, by decision, so Almeirim
+  (page 1 of 2) reaches only a few weeks ahead; so do the Cartaxo (1 of 2) and Torres Novas (1 of 4) agendas. Peniche's page
   carries leftover markup, which the collector filters and its text cap guards.
 - **JSON sources (Ourém, Cadaval).** Ourém is a standard events plugin's API,
   steady. Cadaval's host name contains "stage" and may move; the

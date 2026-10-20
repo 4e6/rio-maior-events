@@ -13,7 +13,10 @@ import json
 import os
 import socket
 import tempfile
+import threading
+import types
 import unittest
+from unittest import mock
 import urllib.error
 import urllib.parse
 
@@ -141,7 +144,7 @@ class RunHost(unittest.TestCase):
 
 class Pool(unittest.TestCase):
     def sources(self, *names):
-        return [{"name": n, "adapter": "text", "town": "T", "group": "g",
+        return [{"name": n, "label": n, "adapter": "text", "town": "T", "group": "g",
                  "url": "https://%s.example/page" % n.split("-")[0]} for n in names]
 
     def test_results_follow_the_order_of_the_sources_whatever_finishes_first(self):
@@ -196,6 +199,112 @@ class Pool(unittest.TestCase):
         self.assertTrue(results[1]["ok"])
 
 
+class Contract(unittest.TestCase):
+    def source(self, name="a-1", host="a.example"):
+        return {"name": name, "label": name, "adapter": "text", "town": "T", "group": "g",
+                "url": "https://%s/page" % host}
+
+    def collect(self, sources, **kwargs):
+        return collect.collect_all(
+            sources, WINDOW, {}, 0, kwargs.pop("fetch", lambda url, data=None: (200, PAGE, None)),
+            kwargs.pop("sleep", lambda s: None), lambda: 0.0, kwargs.pop("workers", 2), lambda l: None)
+
+    def test_two_hosts_are_fetched_at_the_same_time(self):
+        barrier = threading.Barrier(2, timeout=5)
+
+        def fetch(url, data=None):
+            barrier.wait()  # passes only when both hosts are inside fetch together
+            return 200, PAGE, None
+        results = self.collect([self.source("a-1", "a.example"), self.source("b-1", "b.example")], fetch=fetch)
+        self.assertEqual([r["ok"] for r in results], [True, True])
+
+    def test_one_worker_cannot_overlap_two_hosts(self):
+        barrier = threading.Barrier(2, timeout=0.2)
+
+        def fetch(url, data=None):
+            barrier.wait()
+            return 200, PAGE, None
+        results = self.collect([self.source("a-1", "a.example"), self.source("b-1", "b.example")],
+                               fetch=fetch, workers=1)
+        self.assertEqual([r["ok"] for r in results], [False, False])
+
+    def adapter(self, parsed, requests=None):
+        fake = types.SimpleNamespace(parse=lambda source, pages, window: parsed)
+        if requests is not None:
+            fake.requests = lambda source, window: requests
+        return mock.patch.dict(collect.ADAPTERS, {"text": fake})
+
+    def test_a_malformed_adapter_result_fails_only_its_source(self):
+        bad = [
+            "not a dict", {"items": "x"}, {"items": ["x"]}, {"items": [], "past": {}},
+            {"items": [], "text": 5}, {"items": [], "truncated": "yes"}, {"items": [], "note": []},
+        ]
+        for parsed in bad:
+            with self.adapter(parsed):
+                results = self.collect([self.source()])
+            self.assertFalse(results[0]["ok"], parsed)
+            self.assertEqual(results[0]["error"], "adapter returned a malformed result")
+            self.assertEqual(results[0]["items"], [])
+
+    def test_a_well_formed_result_passes(self):
+        with self.adapter({"items": [{"title": "x"}], "past": [], "text": None, "truncated": False, "note": "n"}):
+            results = self.collect([self.source()])
+        self.assertTrue(results[0]["ok"])
+        self.assertEqual(results[0]["items"], [{"title": "x"}])
+
+    def test_a_request_to_another_host_fails_the_source_and_is_not_made(self):
+        called = []
+        with self.adapter({"items": []}, [Request("https://evil.example/x")]):
+            results = self.collect([self.source()], fetch=lambda url, data=None: called.append(url))
+        self.assertFalse(results[0]["ok"])
+        self.assertIn("evil.example", results[0]["error"])
+        self.assertEqual(called, [])
+
+    def test_a_request_to_its_own_host_is_fine(self):
+        with self.adapter({"items": []}, [Request("https://a.example/other")]):
+            self.assertTrue(self.collect([self.source()])[0]["ok"])
+
+    def test_a_stopped_host_makes_no_more_requests(self):
+        stop = threading.Event()
+        stop.set()
+        calls = []
+        outcomes = collect.run_host("h.example", [("a", [Request("https://h.example/a")])],
+                                    lambda url, data=None: calls.append(url), lambda s: None,
+                                    lambda: 0.0, 1.0, None, stop)
+        self.assertEqual((calls, outcomes), ([], {}))
+
+    def test_the_stop_is_checked_after_the_wait_too(self):
+        stop = threading.Event()
+        calls = []
+
+        def fetch(url, data=None):
+            calls.append(url)
+            return 200, PAGE, None
+        jobs = [("a", [Request("https://h.example/a"), Request("https://h.example/b")])]
+        clock = Clock()
+        collect.run_host("h.example", jobs, fetch, lambda s: stop.set(), clock.clock, 5.0, None, stop)
+        self.assertEqual(calls, ["https://h.example/a"])
+
+
+class Interrupt(unittest.TestCase):
+    def test_ctrl_c_writes_nothing_exits_130_and_stops_the_other_hosts(self):
+        calls = []
+
+        def fetch(url, data=None):
+            calls.append(url)
+            raise KeyboardInterrupt
+        with tempfile.TemporaryDirectory() as tmp:
+            out = os.path.join(tmp, "collected")
+            err = io.StringIO()
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(err):
+                code = collect.main([out, "--only", "cineteatro", "mcr-caldas", "cm-nazare"], fetch,
+                                    lambda s: None, lambda: 0.0, 1)
+            self.assertEqual(code, 130)
+            self.assertFalse(os.path.exists(out))
+        self.assertIn("interrupted", err.getvalue())
+        self.assertEqual(len(calls), 1)
+
+
 class Main(unittest.TestCase):
     def run_main(self, args, fetch=None, workers=2):
         fetch = fetch or (lambda url, data=None: (200, PAGE, None))
@@ -245,7 +354,7 @@ class Main(unittest.TestCase):
         self.assertEqual([s["name"] for s in group["sources"]], ["mcr-caldas", "cm-nazare"])
         self.assertEqual(sorted(group["sources"][0]), sorted(
             ["name", "url", "town", "adapter", "ok", "status", "error", "note", "items", "past",
-             "text", "truncated"]))
+             "text", "truncated", "label"]))
         self.assertEqual(group["sources"][0]["adapter"], "text")
 
     def test_one_failure_does_not_stop_the_rest(self):
@@ -290,12 +399,16 @@ class Config(unittest.TestCase):
     def test_every_source_has_an_adapter_and_its_options(self):
         for source in self.sources:
             self.assertIn(source["adapter"], ADAPTERS, source["name"])
-            for key in ("name", "town", "group", "url"):
+            for key in ("name", "label", "town", "group", "url"):
                 self.assertTrue(source[key])
         by_name = {s["name"]: s for s in self.sources}
         self.assertTrue(by_name["cm-riomaior"]["options"]["categories"])
         self.assertTrue(by_name["ourem"]["options"]["window_params"])
         self.assertTrue(by_name["cm-cadaval"]["options"]["site"])
+
+    def test_the_group_file_carries_each_sources_label(self):
+        label = next(s["label"] for s in self.sources if s["name"] == "cm-nazare")
+        self.assertEqual(label, "Município de Nazaré")
 
     def test_the_adapters_expose_parse(self):
         for name, module in ADAPTERS.items():
@@ -313,6 +426,22 @@ class Config(unittest.TestCase):
                     if (other["town"] == source["town"] and other["group"] != "regional"
                             and other["group"] != source["group"]):
                         self.fail("%s and %s are in different groups" % (source["name"], other["name"]))
+
+
+class Towns(unittest.TestCase):
+    def rows(self):
+        path = os.path.join(helpers.SKILL, "references", "towns.md")
+        with open(path, encoding="utf-8") as handle:
+            lines = [l for l in handle if l.startswith("|")][2:]
+        return [[c.strip() for c in l.strip().strip("|").split("|")] for l in lines]
+
+    def test_each_row_is_one_place_and_one_integer(self):
+        rows = self.rows()
+        self.assertGreater(len(rows), 30)
+        for town, municipality, minutes in rows:
+            self.assertTrue(minutes.isdigit(), (town, minutes))
+            self.assertNotIn(",", town)
+            self.assertNotIn("(", town)
 
 
 class SourceList(unittest.TestCase):

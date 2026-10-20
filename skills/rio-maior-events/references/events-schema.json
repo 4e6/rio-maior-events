@@ -86,11 +86,11 @@
             "description": "True when the event is expected but its date is not announced. Then end_date, start_time and dates are null."
           },
           "venue": { "type": ["string", "null"] },
-          "town": { "type": "string", "minLength": 1 },
+          "town": { "type": "string", "minLength": 1, "description": "The place name alone, as in references/towns.md, with no parentheses." },
           "drive_min": {
             "type": ["integer", "null"],
             "minimum": 0,
-            "description": "Minutes by car from origin, from references/towns.md. Null when the town is not listed there."
+            "description": "Minutes by car from origin, from references/towns.md; for a place not listed there, the nearest listed place's minutes. Null only when that cannot be told."
           },
           "price": {
             "type": ["object", "null"],

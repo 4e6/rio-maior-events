@@ -6,7 +6,7 @@ tags: [architecture, skill, network, page]
 sources:
   - resource: skills/rio-maior-events/**
   - resource: evals/rio-maior-events/**
-sources_digest: a85b0cd12d9d482b
+sources_digest: f9e725b62d02a19c
 ---
 
 # What it is
@@ -35,8 +35,9 @@ and each has its own traps.
   group follows `references/reading.md` and writes
   `rio-maior-candidates/<group>.json`.
 - **`merge.py` joins.** It checks that every group has a current candidates
-  file, writes `rio-maior-events.json` and prints possible duplicates, coverage
-  and yearly-event hints. The main model settles those and writes the `note`.
+  file, writes `rio-maior-events.json` and prints possible duplicates, coverage,
+  yearly-event hints and what `render.py`'s check finds wrong, each problem
+  with the group it came from. The main model settles those and writes the `note`.
 - **`render.py` checks and draws.** It validates the file in plain Python
   (exit 2 lists each problem with its event), makes each event's id, and inlines
   `assets/page.css`, `assets/page.js` and the events as JSON into one HTML file.
@@ -52,7 +53,12 @@ and each has its own traps.
   after a refusal, a timeout or a connection error the worker skips the rest of
   that site. Results come back in `sources.json` order, whatever finished
   first, and the slowest host (delay times requests) starts first, so a run
-  lasts about as long as Viral Agenda's spaced pages: about 7 minutes.
+  lasts about as long as Viral Agenda's spaced pages: 8 gaps of 15 s, so
+  about 2 to 3 minutes, the other sites running beside them. Ctrl-C sets a stop
+  event that ends each worker between requests (and in its wait), cancels the
+  hosts not yet started, writes nothing and exits 130. The runner also holds
+  an adapter to its contract: a result of the wrong shape, or a request to a
+  host other than the source's own, fails that source rather than the run.
 - **Adapters per platform, not per source.** An adapter in
   `scripts/adapters/` is a pure parse over pages the runner fetched; it has no
   network. About 30 sources share the `text` adapter, so a module per source
@@ -62,9 +68,13 @@ and each has its own traps.
 - **Groups are the reading units.** `sources.json` puts each source in a
   group: a sub-region (Rio Maior; northern and southern Oeste; Ribatejo; Médio
   Tejo) and the regional listings. A town's municipal and Viral Agenda pages
-  always share a group, so an event listed on both is in one reader's file. A
-  group is kept near 150,000 characters of collected text, so one reader holds
-  it with room to write; a larger sub-region would split.
+  always share a group, which keeps most doubles in one reader's file; a
+  race listed by Portugal Running and by its town sits in two groups, and
+  `merge.py` flags such pairs. The groups hold up to about 40,000 characters of
+  collected text today, against a budget of 150,000 so one reader holds a group
+  with room to write; a larger sub-region would split. Each source carries a
+  human `label` in `sources.json`, copied into the group file for the readers
+  to use as the source's name on the page.
 - **Fan-out reading, on the same model by default.** The sources were once
   read by one model in one pass, and the text of 40 pages does not read well in
   one context. A reader per group, run at the same time, keeps each context
@@ -75,8 +85,12 @@ and each has its own traps.
 - **`merge.py` lists duplicates and never merges them.** Whether two listings
   are one event is a judgement (a town's municipal date beats a community
   one, a show on two dates is two events), so the script only pairs candidates
-  (same town, dates a day apart, shared title words) and the main model decides.
-  It refuses a missing or stale group file rather than write a partial page.
+  (same town or a town and its parenthetical, date ranges that overlap or lie a
+  day apart, shared title words) and the main model decides; the rule it
+  decides by is "which listing wins" in `reading.md`. It refuses a missing or
+  stale group file, and a stale `manual.json`, which it tells the model to
+  delete, rather than write a partial page. Running the check of `render.py`
+  at merge time spares the main model a render just to learn the file's faults.
 - **No cache.** A same-day cache of fetched pages was built and dropped:
   `--only` re-fetches a few sources, the scope of a run is small, and a cache
   kept a refusal or a half page alive.

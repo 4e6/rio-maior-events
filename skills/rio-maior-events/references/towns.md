@@ -2,9 +2,13 @@
 
 Approximate drive time by car from Rio Maior town centre, in minutes, for
 `drive_min`. Round figures from the usual roads (A15, IC2, N1), not traffic.
-A village not listed: if a source gives its distance from Rio Maior, about
-one minute per kilometre; otherwise the nearest place listed. Not its
-municipality's town: border villages are much closer than their town.
+Each row is one place and one whole number. The `town` of an event is the place
+name alone, as in the first column, with no parentheses.
+
+A place not listed: use the minutes of the nearest listed place, not of its
+municipality's town (border villages are much closer than their town). If a
+source gives the distance from Rio Maior, about one minute per kilometre will
+do. If you cannot tell which listed place is nearest, `drive_min` is null.
 
 The area the skill covers is everything up to about 45 minutes. Further than
 that, include an event only when it is big (a national festival, a major
@@ -15,7 +19,14 @@ Chamusca, Golegã, Ourém, Vila Nova da Barquinha, Tomar) are big events only.
 | Town | Municipality | Minutes |
 |---|---|---|
 | Rio Maior | Rio Maior | 0 |
-| Alcobertas, Fráguas, Asseiceira, Arruda dos Pisões, Marmeleira, São João da Ribeira, Ribeira de São João, Outeiro da Cortiçada | Rio Maior | 10–15 |
+| Alcobertas | Rio Maior | 15 |
+| Fráguas | Rio Maior | 10 |
+| Asseiceira | Rio Maior | 10 |
+| Arruda dos Pisões | Rio Maior | 10 |
+| Marmeleira | Rio Maior | 10 |
+| São João da Ribeira | Rio Maior | 10 |
+| Ribeira de São João | Rio Maior | 10 |
+| Outeiro da Cortiçada | Rio Maior | 15 |
 | Salinas de Rio Maior | Rio Maior | 8 |
 | Benedita | Alcobaça | 20 |
 | Caldas da Rainha | Caldas da Rainha | 25 |
@@ -46,6 +57,6 @@ Chamusca, Golegã, Ourém, Vila Nova da Barquinha, Tomar) are big events only.
 | Entroncamento | Entroncamento | 50 |
 | Chamusca | Chamusca | 50 |
 | Golegã | Golegã | 50 |
-| Ourém (town) | Ourém | 55 |
+| Ourém | Ourém | 55 |
 | Vila Nova da Barquinha | Vila Nova da Barquinha | 55 |
 | Tomar | Tomar | 55 |

@@ -9,7 +9,9 @@ the list of sources: each names the adapter (a module in scripts/adapters/)
 that knows its kind of site, its town, its reading group and its URL. An
 adapter plans the requests a source needs and turns the pages that come back
 into `items` (events it could parse) and `text` (the visible text, capped), and
-raises an error when the pages cannot be read. Reading, dating and merging the
+raises an error when the pages cannot be read. A result that is not shaped as
+the adapters promise, or a request to a host other than the source's own, fails
+that source. Each source's `label` (a name for people) is copied into its result. Reading, dating and merging the
 events is left to whoever reads the files.
 
 Requests go out with a 20 second timeout. Hosts are worked in parallel, one
@@ -19,8 +21,10 @@ own), counted from the end of the previous response. After a refusal (403, 429,
 a 5xx), a timeout or a connection error the rest of that host's sources are
 skipped; any other failed request, a 404 say, fails only its own source. A
 source that fails is recorded with ok false and an error and the rest carry on.
-A run makes about 41 requests and takes about 7 minutes, almost all of it the
-Viral Agenda pages, spaced 15 seconds apart.
+A run makes about 41 requests and takes about 2 to 3 minutes: the nine Viral
+Agenda pages are spaced 15 seconds apart, and the other sites are worked in
+parallel with them. Ctrl-C stops the workers between requests, writes nothing
+and exits 130.
 
 The output folder holds index.json (the window, `collected_at`, every group's
 file and sources, and one summary row per source) and one file per reading
@@ -28,7 +32,8 @@ group, <group>.json, with that group's full source results. --only restricts
 both to the sources run.
 
 Exit 0 when at least one source was read, even if others failed. Exit 2, with a
-message on stderr, for a usage error or when every source failed.
+message on stderr, for a usage error or when every source failed. Exit 130 when
+interrupted.
 
 Python 3.9, standard library only. Read-only requests; TLS is always verified.
 A site that refuses the request (a 403, a timeout) is recorded as failed and
@@ -49,6 +54,8 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+
+sys.dont_write_bytecode = True  # before the adapters are imported
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -89,33 +96,46 @@ def plan_requests(source, window):
     """The requests a source needs: its adapter's, else one GET of its url."""
     adapter = ADAPTERS[source["adapter"]]
     if hasattr(adapter, "requests"):
-        return list(adapter.requests(source, window))
-    return [Request(source["url"])]
+        requests = list(adapter.requests(source, window))
+    else:
+        requests = [Request(source["url"])]
+    for request in requests:
+        host = urllib.parse.urlsplit(request.url).hostname
+        if host != host_of(source):
+            raise AdapterError("a request to %s, not the source's host %s" % (host, host_of(source)))
+    return requests
 
 
-def run_host(host, jobs, fetch, sleep, clock, delay, on_done=None):
+def run_host(host, jobs, fetch, sleep, clock, delay, on_done=None, stop=None):
     """Fetch one host's requests in turn; jobs is [(name, [Request])].
 
     Returns {name: {"pages": [Page] or None, "status": int or None, "error": str or None}}.
     Two requests are `delay` seconds apart, from the end of one response to the
     start of the next. A refusal (403, 429, a 5xx), a timeout or a connection
     error fails its source and skips the host's remaining sources; any other
-    failed request fails only its own source.
+    failed request fails only its own source. Once `stop` (a threading.Event) is
+    set, no further request is made and the host's work ends.
     """
     outcomes = {}
     last_end = None
     refused = False
     for name, requests in jobs:
+        if stop is not None and stop.is_set():
+            break
         outcome = {"pages": None, "status": None, "error": None}
         if refused:
             outcome["error"] = "skipped: %s refused or did not answer" % host
         else:
             pages = []
             for request in requests:
+                if stop is not None and stop.is_set():
+                    return outcomes
                 if last_end is not None:
                     wait = delay - (clock() - last_end)
                     if wait > 0:
                         sleep(wait)
+                    if stop is not None and stop.is_set():
+                        return outcomes
                 try:
                     status, body, content_type = fetch(request.url, request.data)
                     pages.append(Page(request.url, status, body, content_type))
@@ -144,8 +164,8 @@ def run_host(host, jobs, fetch, sleep, clock, delay, on_done=None):
 def build_result(source, outcome, window):
     """The result of one source from what its host returned."""
     result = {
-        "name": source["name"], "url": source["url"], "town": source["town"],
-        "adapter": source["adapter"], "ok": False, "status": outcome["status"],
+        "name": source["name"], "label": source["label"], "url": source["url"],
+        "town": source["town"], "adapter": source["adapter"], "ok": False, "status": outcome["status"],
         "error": outcome["error"], "note": None, "items": [], "past": [],
         "text": None, "truncated": False,
     }
@@ -159,10 +179,27 @@ def build_result(source, outcome, window):
     except Exception as err:  # one source failing must not stop the others
         result["error"] = "%s: %s" % (type(err).__name__, err)
         return result
+    if not well_formed(parsed):
+        result["error"] = "adapter returned a malformed result"
+        return result
     for key in ("items", "past", "text", "truncated", "note"):
         result[key] = parsed.get(key, result[key])
     result["ok"] = True
     return result
+
+
+def well_formed(parsed):
+    """Whether an adapter's result has the shape the output files promise."""
+    if not isinstance(parsed, dict):
+        return False
+    for key in ("items", "past"):
+        value = parsed.get(key, [])
+        if not (isinstance(value, list) and all(isinstance(i, dict) for i in value)):
+            return False
+    for key in ("text", "note"):
+        if not isinstance(parsed.get(key), (str, type(None))):
+            return False
+    return isinstance(parsed.get("truncated", False), bool)
 
 
 def summary_line(result):
@@ -173,9 +210,17 @@ def summary_line(result):
         result["name"], len(result["items"]), text, " (truncated)" if result["truncated"] else "")
 
 
-def collect_all(sources, window, hosts, default_delay, fetch=fetch, sleep=time.sleep,
+def collect_all(sources, window, hosts, default_delay, fetch=fetch, sleep=None,
                 clock=time.monotonic, max_workers=MAX_WORKERS, report=print):
-    """Results for the sources, in the order given, whatever order the hosts finish in."""
+    """Results for the sources, in the order given, whatever order the hosts finish in.
+
+    `sleep` defaults to waiting on the stop event, so an interrupt ends a wait at
+    once. On KeyboardInterrupt the pending hosts are cancelled, the running ones
+    stop before their next request, and the interrupt is raised again.
+    """
+    stop = threading.Event()
+    if sleep is None:
+        sleep = stop.wait
     results = {}
     by_host = {}
     for source in sources:
@@ -202,14 +247,22 @@ def collect_all(sources, window, hosts, default_delay, fetch=fetch, sleep=time.s
                 results[name] = result
                 report(summary_line(result))
         run_host(host, [(s["name"], r) for s, r in entries], fetch, sleep, clock,
-                 delay_of(host), done)
+                 delay_of(host), done, stop)
 
     # The host that will take longest starts first.
     order = sorted(by_host, key=lambda h: -delay_of(h) * sum(len(r) for _, r in by_host[h]))
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as pool:
-        futures = [pool.submit(work, host, by_host[host]) for host in order]
-        for future in futures:
-            future.result()
+        futures = []
+        try:
+            for host in order:
+                futures.append(pool.submit(work, host, by_host[host]))
+            for future in futures:
+                future.result()
+        except BaseException:  # KeyboardInterrupt, or a worker that was interrupted
+            stop.set()
+            for future in futures:
+                future.cancel()
+            raise
     return [results[s["name"]] for s in sources]
 
 
@@ -243,7 +296,7 @@ def write_output(out_dir, collected_at, window, groups, sources, results):
     return index
 
 
-def main(argv=None, fetch=fetch, sleep=time.sleep, clock=time.monotonic, max_workers=MAX_WORKERS):
+def main(argv=None, fetch=fetch, sleep=None, clock=time.monotonic, max_workers=MAX_WORKERS):
     parser = argparse.ArgumentParser(description="Collect event listings around Rio Maior.")
     parser.add_argument("out", help="folder to write: index.json and one file per group")
     parser.add_argument("--from", dest="start", metavar="YYYY-MM-DD", help="first day (default today)")
@@ -275,8 +328,12 @@ def main(argv=None, fetch=fetch, sleep=time.sleep, clock=time.monotonic, max_wor
         return 2
     window = (start.isoformat(), end.isoformat())
 
-    results = collect_all(chosen, window, config.get("hosts", {}), config.get("default_delay", 1.5),
-                          fetch, sleep, clock, max_workers, lambda line: print(line, flush=True))
+    try:
+        results = collect_all(chosen, window, config.get("hosts", {}), config.get("default_delay", 1.5),
+                              fetch, sleep, clock, max_workers, lambda line: print(line, flush=True))
+    except KeyboardInterrupt:
+        print("interrupted; nothing written", file=sys.stderr)
+        return 130
     ok = sum(1 for r in results if r["ok"])
     if not ok:
         print("every source failed; nothing written", file=sys.stderr)

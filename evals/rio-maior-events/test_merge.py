@@ -156,7 +156,10 @@ class Failures(Case):
     def test_stale_manual(self):
         write(os.path.join(self.cand, "manual.json"),
               {"collected_at": "2026-10-19T00:00:00+01:00", "events": [], "sources": []})
-        self.assertEqual(self.run_merge()[0], 2)
+        code, out = self.run_merge()
+        self.assertEqual(code, 2)
+        self.assertIn("delete", out)
+        self.assertIn("manual.json", out)
 
 
 class Manual(Case):
@@ -211,6 +214,64 @@ class Duplicates(Case):
             event("Tasquinhas", "2026-11-10"),
         ])
         self.assertEqual(tail.strip(), "")
+
+
+class RangesAndTowns(Case):
+    def test_a_range_that_holds_the_other_day_is_a_pair(self):
+        # the Nazaré half-marathon: a reader's range in one group, a single day in another
+        self.cand_file("g1", [event("MEIA MARATONA", "2026-11-11", "Nazaré", kind="multi_day",
+                                    end_date="2026-11-15")])
+        self.cand_file("g2", [event("50ª Meia Maratona Internacional da Nazaré 2026", "2026-11-15", "Nazaré")])
+        tail = self.run_merge()[1].split("possible duplicates:")[1]
+        self.assertIn("events[0]", tail)
+        self.assertIn("events[1]", tail)
+
+    def test_ranges_a_day_apart_pair_and_further_apart_do_not(self):
+        self.cand_file("g1", [event("Feira Grande", "2026-11-01", end_date="2026-11-03", kind="multi_day"),
+                              event("Feira Grande", "2026-11-04"),
+                              event("Feira Grande", "2026-11-06", "Caldas da Rainha")])
+        self.cand_file("g2", [event("Feira Grande", "2026-11-05", "Caldas da Rainha")])
+        tail = self.run_merge()[1].split("possible duplicates:")[1]
+        self.assertIn("events[0]", tail)   # 1-3 Nov and 4 Nov
+        self.assertIn("events[3]", tail)   # 6 Nov and 5 Nov, Caldas
+        self.assertEqual(tail.count("<->"), 2)
+
+    def test_a_parenthetical_town_matches_its_municipality(self):
+        self.cand_file("g1", [event("Festa do Vinho", "2026-11-07", "Cambelas (Torres Vedras)")])
+        self.cand_file("g2", [event("Festa do Vinho", "2026-11-07", "Torres Vedras")])
+        self.assertIn("<->", self.run_merge()[1].split("possible duplicates:")[1])
+
+    def test_two_different_parentheticals_are_not_a_match(self):
+        self.cand_file("g1", [event("Festa do Vinho", "2026-11-07", "Cambelas (Torres Vedras)")])
+        self.cand_file("g2", [event("Festa do Vinho", "2026-11-07", "Alcanede (Santarém)")])
+        self.assertNotIn("<->", self.run_merge()[1])
+
+
+class Problems(Case):
+    def test_render_problems_are_printed_with_their_group_and_exit_is_zero(self):
+        bad = event("Sem fim", "2026-10-25", kind="ongoing")
+        self.cand_file("g2", [bad])
+        code, out = self.run_merge()
+        self.assertEqual(code, 0)
+        block = out.split("problems:")[1].split("possible duplicates:")[0]
+        self.assertIn("needs an end_date", block)
+        self.assertIn("[group g2]", block)
+        self.assertNotIn("[group g1]", block)
+
+    def test_no_problems_leaves_the_block_empty(self):
+        block = self.run_merge()[1].split("problems:")[1].split("possible duplicates:")[0]
+        self.assertEqual(block.strip(), "")
+
+    def test_a_manual_event_is_tagged_manual(self):
+        write(os.path.join(self.cand, "manual.json"),
+              {"collected_at": STAMP, "events": [event("Sem fim", "2026-10-25", kind="ongoing")], "sources": []})
+        self.assertIn("[group manual]", self.run_merge()[1])
+
+    def test_a_hint_that_is_not_an_object_is_refused(self):
+        self.cand_file("g1", [], hints=["Frimor"])
+        code, out = self.run_merge()
+        self.assertEqual(code, 2)
+        self.assertIn("group g1: hints", out)
 
 
 class Report(Case):

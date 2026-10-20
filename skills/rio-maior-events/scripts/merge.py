@@ -17,20 +17,27 @@ whose file is missing, unreadable or stale, writes nothing, and exits 2.
 Otherwise it writes the events file: window and sources_checked from the index
 (with the manual overrides applied), generated_at now with the local offset,
 origin "Rio Maior", no note, and the events of every group in index order,
-then the manual ones. It prints three blocks for the model to act on:
+then the manual ones. It prints four blocks for the model to act on:
 
     hints:               each yearly-event hint with its group
     coverage:            each group's one-line coverage
+    problems:            what render.py's check finds wrong in the written
+                         events, each with the group the event came from (the
+                         exit code stays 0; the model fixes them before rendering)
     possible duplicates: pairs of events, with index, title, start date and
                          town, by index in the written events list
 
-A pair is possible when the towns match (case and accents ignored), both start
-dates are full dates at most one day apart, and the titles share at least half
-of the words of the shorter one (accents stripped, case folded, words under
-three letters and common Portuguese function words dropped). The script never
-merges them: whether two listings are one event is for the model to decide.
-The file has no `note`: the model writes it from the coverage lines.
-An event whose start_date is only a month (date_tbc) is never paired.
+A pair is possible when the towns match, the dates are close, and the titles
+share at least half of the words of the shorter one (accents stripped, case
+folded, words under three letters and common Portuguese function words
+dropped). Towns match when they are equal once case and accents are ignored, or
+when one is the other's parenthetical ("Cambelas (Torres Vedras)" and "Torres
+Vedras"). Dates are close when the events' date ranges (start to end, a single
+day when there is no end) overlap or are at most one day apart; both start
+dates must be full dates. The script never merges them: whether two listings
+are one event is for the model to decide. The file has no `note`: the model
+writes it from the coverage lines. An event whose start_date is only a month
+(date_tbc) is never paired.
 
 Python 3.9, standard library only, no network. The output depends on the input
 files alone except generated_at, which main() takes from the clock unless a
@@ -48,6 +55,9 @@ import unicodedata
 from pathlib import Path
 
 sys.dont_write_bytecode = True
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import render  # noqa: E402
 
 ORIGIN = "Rio Maior"
 MAX_DAYS_APART = 1
@@ -79,6 +89,25 @@ def full_date(text):
         return None
 
 
+def town_names(town) -> frozenset:
+    """The names a town goes by: whole, without its parenthetical, and the parenthetical."""
+    if not isinstance(town, str):
+        return frozenset()
+    whole = normalise(town)
+    names = {whole, normalise(re.sub(r"\(.*?\)", " ", town))}
+    names.update(normalise(inner) for inner in re.findall(r"\((.*?)\)", town))
+    return frozenset(n for n in names if n)
+
+
+def day_range(e: dict):
+    """(first, last) day of an event, or None when its start is not a full date."""
+    first = full_date(e.get("start_date"))
+    if first is None:
+        return None
+    last = full_date(e.get("end_date"))
+    return first, (last if last and last >= first else first)
+
+
 def load(path: Path, problems: list, what: str):
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
@@ -97,23 +126,24 @@ def possible_duplicates(events: list) -> list:
     """Index pairs (i, j), i < j, that may be one event listed twice."""
     keys = []
     for e in events:
-        title = e.get("title_pt") if isinstance(e, dict) else None
-        town = e.get("town") if isinstance(e, dict) else None
+        ok = isinstance(e, dict)
+        title = e.get("title_pt") if ok else None
         keys.append((
-            normalise(town) if isinstance(town, str) else "",
-            full_date(e.get("start_date")) if isinstance(e, dict) else None,
+            town_names(e.get("town")) if ok else frozenset(),
+            day_range(e) if ok else None,
             tokens(title) if isinstance(title, str) else frozenset(),
         ))
+    gap = datetime.timedelta(days=MAX_DAYS_APART)
     pairs = []
     for i in range(len(keys)):
-        town_i, day_i, words_i = keys[i]
-        if not town_i or day_i is None or not words_i:
+        town_i, days_i, words_i = keys[i]
+        if not town_i or days_i is None or not words_i:
             continue
         for j in range(i + 1, len(keys)):
-            town_j, day_j, words_j = keys[j]
-            if town_j != town_i or day_j is None or not words_j:
+            town_j, days_j, words_j = keys[j]
+            if not (town_i & town_j) or days_j is None or not words_j:
                 continue
-            if abs((day_j - day_i).days) > MAX_DAYS_APART:
+            if days_j[0] > days_i[1] + gap or days_i[0] > days_j[1] + gap:
                 continue
             if len(words_i & words_j) / min(len(words_i), len(words_j)) >= MIN_OVERLAP:
                 pairs.append((i, j))
@@ -137,7 +167,7 @@ def merge(collected: Path, candidates: Path, now=None):
     if not (isinstance(groups, dict) and isinstance(sources, list) and isinstance(window, dict) and stamp):
         return None, ["index: needs collected_at, window, groups and sources"]
 
-    events, hints, coverage = [], [], []
+    events, origins, hints, coverage = [], [], [], []
     for group in groups:
         data = load(candidates / (group + ".json"), problems, "group " + group)
         if data is None:
@@ -153,7 +183,12 @@ def merge(collected: Path, candidates: Path, now=None):
             problems.append("group %s: events must be a list" % group)
             continue
         events.extend(data["events"])
-        for h in data.get("hints") or []:
+        origins.extend([group] * len(data["events"]))
+        hint_list = data.get("hints") or []
+        if not (isinstance(hint_list, list) and all(isinstance(h, dict) for h in hint_list)):
+            problems.append("group %s: hints must be a list of events" % group)
+            continue
+        for h in hint_list:
             hints.append((group, h))
         if data.get("coverage"):
             coverage.append((group, str(data["coverage"])))
@@ -164,10 +199,13 @@ def merge(collected: Path, candidates: Path, now=None):
         manual = load(manual_path, problems, "manual")
         if manual is not None:
             if manual.get("collected_at") != stamp:
-                problems.append("manual: stale, its collected_at is %s but the index says %s"
-                                % (manual.get("collected_at"), stamp))
+                problems.append("manual: stale, its collected_at is %s but the index says %s; "
+                                "delete %s and read the failed sources again if you still need it"
+                                % (manual.get("collected_at"), stamp, manual_path))
             else:
-                events.extend(manual.get("events") or [])
+                manual_events = manual.get("events") or []
+                events.extend(manual_events)
+                origins.extend(["manual"] * len(manual_events))
                 for o in manual.get("sources") or []:
                     name = o.get("name") if isinstance(o, dict) else None
                     if not any(s.get("name") == name for s in sources):
@@ -199,6 +237,12 @@ def merge(collected: Path, candidates: Path, now=None):
     lines.append("coverage:")
     for group, text in coverage:
         lines.append("  %s: %s" % (group, text))
+    lines.append("problems:")
+    for text in render.check(doc):
+        found = re.match(r"events\[(\d+)\]", text)
+        if found and int(found.group(1)) < len(origins):
+            text += " [group %s]" % origins[int(found.group(1))]
+        lines.append("  " + text)
     lines.append("possible duplicates:")
     for i, j in possible_duplicates(events):
         lines.append("  events[%d] %s  <->  events[%d] %s" % (i, describe(events[i]), j, describe(events[j])))

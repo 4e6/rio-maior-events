@@ -157,7 +157,7 @@ def check_event(e: dict, window=None) -> list:
                 bad.append("a recurring event needs dates or a recurrence")
         elif e["dates"] is not None:
             bad.append("dates is only for recurring events")
-        if window and start:
+        if window and start and not (kind in ("multi_day", "ongoing") and end is None):
             last = end or start
             if last < window[0] or start > window[1]:
                 bad.append("the event (%s to %s) is entirely outside the window %s to %s; drop it"
