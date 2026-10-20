@@ -198,6 +198,23 @@ class Duplicates(Case):
         self.assertIn("2026-11-21", tail)
         self.assertEqual(len(self.output()["events"]), 2)
 
+    def test_lookalike_letters_do_not_hide_a_pair(self):
+        self.cand_file("g1", [event("Ana Bacalhau", "2026-11-20")])
+        # Cyrillic "а" in the title and a Cyrillic "о" in the town
+        self.cand_file("g2", [event("Ana Bacalhau".replace("a", "\u0430"), "2026-11-20", "Rio Mai\u043er")])
+        tail = self.pairs_after_merge()
+        self.assertIn("events[0]", tail)
+        self.assertIn("events[1]", tail)
+
+    def pairs_after_merge(self):
+        _, out = self.run_merge()
+        return out.split("possible duplicates:")[1]
+
+    def test_normalise_folds_cyrillic_greek_and_compatibility_forms(self):
+        self.assertEqual(merge.normalise("\u0410n\u0430 B\u0430c\u0430lh\u0430u"), "ana bacalhau")
+        self.assertEqual(merge.normalise("\u03bf\u03b1\u03b5"), "oae")
+        self.assertEqual(merge.normalise("\uff21na"), "ana")
+
     def test_near_misses(self):
         tail = self.pairs([
             event("Grande Concerto Natal", "2026-11-20"),

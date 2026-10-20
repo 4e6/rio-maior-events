@@ -28,8 +28,8 @@ then the manual ones. It prints four blocks for the model to act on:
                          town, by index in the written events list
 
 A pair is possible when the towns match, the dates are close, and the titles
-share at least half of the words of the shorter one (accents stripped, case
-folded, words under three letters and common Portuguese function words
+share at least half of the words of the shorter one (accents stripped, lookalike
+Cyrillic and Greek letters read as Latin, case folded, words under three letters and common Portuguese function words
 dropped). Towns match when they are equal once case and accents are ignored, or
 when one is the other's parenthetical ("Cambelas (Torres Vedras)" and "Torres
 Vedras"). Dates are close when the events' date ranges (start to end, a single
@@ -69,7 +69,16 @@ STOPWORDS = frozenset(
 DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 
+# Letters of other alphabets that look like a Latin one, so that a title with a
+# Cyrillic "е" still matches the same title in Latin letters.
+LOOKALIKES = str.maketrans(
+    "аеорсухіјѕАЕОРСУХІЈЅ" "οαε" "ΟΑΕ",
+    "aeopcyxijsAEOPCYXIJS" "oae" "OAE",
+)
+
+
 def normalise(text: str) -> str:
+    text = unicodedata.normalize("NFKC", text).translate(LOOKALIKES)
     text = unicodedata.normalize("NFKD", text)
     text = "".join(c for c in text if not unicodedata.combining(c))
     return " ".join(text.casefold().split())

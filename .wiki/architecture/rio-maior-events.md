@@ -6,7 +6,7 @@ tags: [architecture, skill, network, page]
 sources:
   - resource: skills/rio-maior-events/**
   - resource: evals/rio-maior-events/**
-sources_digest: 0d1b9485559d5bd5
+sources_digest: 3971d8aa810be4c8
 ---
 
 # What it is
@@ -118,7 +118,7 @@ later weeks rest on few sources; the page says which in its `note`.
 
 [The overview](/overview.md) calls a skill a payload that runs on the user's
 host. This one reaches the network by its own code, so `compatibility` says
-what and how much: about 32 public pages per run, one POST and the rest GETs,
+what and how much: about 33 public pages per run, one POST and the rest GETs,
 read-only, under a minute.
 
 - `collect.py` is the only script that imports `urllib`; the adapters and `merge.py` reach nothing. `render.py` reads its

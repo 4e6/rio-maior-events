@@ -65,6 +65,22 @@ class SantaremRss(unittest.TestCase):
         with self.assertRaises(AdapterError):
             parse(raw)
 
+    def test_a_utf16_doctype_is_refused(self):
+        raw = '<?xml version="1.0" encoding="utf-16"?><!DOCTYPE rss [<!ENTITY a "b">]><rss><channel/></rss>'
+        for encoding in ("utf-16", "utf-16-le", "utf-32"):
+            with self.assertRaisesRegex(AdapterError, "not ASCII-compatible"):
+                parse(raw.encode(encoding))
+
+    def test_consecutive_single_days_with_one_link_stay_separate(self):
+        def entry(day, time):
+            return ("<item><title>Peça</title><link>https://www.example.pt/p</link>"
+                    "<santaremEvent><startTime>%s</startTime><singleDate>%s</singleDate>"
+                    "</santaremEvent></item>" % (time, day))
+        raw = ('<rss><channel>' + entry("2026-10-23", "21:30") + entry("2026-10-24", "16:00")
+               + '</channel></rss>').encode()
+        items = parse(raw)["items"]
+        self.assertEqual([i["start"] for i in items], ["2026-10-23 21:30", "2026-10-24 16:00"])
+
     def test_malformed_xml_is_an_error(self):
         with self.assertRaisesRegex(AdapterError, "not valid XML"):
             parse(b"<rss><channel><item>")

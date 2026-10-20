@@ -181,6 +181,32 @@ class Encoding(unittest.TestCase):
         self.assertIsNone(outcomes["a"]["error"])
         self.assertFalse(collect.garbled("Olá, São João – ação".encode("utf-8"), None))
 
+    def fetch_with(self, body, encoding):
+        headers = {"Content-Type": "text/html; charset=utf-8"}
+        if encoding:
+            headers["Content-Encoding"] = encoding
+        response = mock.MagicMock()
+        response.__enter__.return_value = response
+        response.status = 200
+        response.read.return_value = body
+        response.headers = headers
+        with mock.patch("urllib.request.urlopen", return_value=response):
+            return collect.fetch("https://h.example/")
+
+    def test_fetch_decompresses_gzip_with_the_header(self):
+        status, body, content_type = self.fetch_with(self.gzip_bytes(), "gzip")
+        self.assertEqual((status, body, content_type), (200, self.TEXT, "text/html; charset=utf-8"))
+
+    def test_fetch_decompresses_gzip_without_the_header(self):
+        self.assertEqual(self.fetch_with(self.gzip_bytes(), None)[1], self.TEXT)
+
+    def test_undecoded_gzip_reaching_the_runner_fails_the_source_as_unreadable(self):
+        # run_host receives what fetch returns; fetch has already inflated, so
+        # compressed bytes arriving here mean an encoding it could not undo.
+        outcomes = self.run_one(self.gzip_bytes(), "text/html; charset=utf-8")
+        self.assertEqual(outcomes["a"]["error"], "unreadable response (binary or garbled)")
+        self.assertIsNone(outcomes["a"]["pages"])
+
 
 class Pool(unittest.TestCase):
     def sources(self, *names):

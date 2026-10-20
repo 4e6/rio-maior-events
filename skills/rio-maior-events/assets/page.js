@@ -387,7 +387,7 @@
       r += "</div></div>";
       cur = add(cur, 32).slice(0, 7) + "-01";
     }
-    r += '<div class="legend"><span><span class="dots"><span class="dot"></span></span>one event (up to 3 shown)</span><span><span class="dots"><span class="dot star">' + STAR + '</span></span>a day with one of your picks</span>' + (inWindow ? '<span><span class="day-btn today" style="height:auto;width:auto;display:inline-flex"><span class="num">' + parse(realToday).getDate() + '</span></span>&nbsp; today</span>' : "") + '</div>';
+    r += '<div class="legend"><span><span class="mk"><span class="dots"><span class="dot"></span></span></span>one event (up to 3 shown)</span><span><span class="mk"><span class="dots"><span class="dot star">' + STAR + '</span></span></span>a day with one of your picks</span>' + (inWindow ? '<span><span class="mk"><span class="today"><span class="num">' + parse(realToday).getDate() + '</span></span></span>today</span>' : "") + '</div>';
     document.getElementById("rail").innerHTML = r;
   }
 

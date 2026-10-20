@@ -57,7 +57,11 @@ no `id`, and no `window` or `sources_checked`: those come from the merge.
   to something (inscrições) rather than the event itself; sessions only for
   seniors or for schools; past events, far-away and online ones, and anything
   outside the window.
-- 50 minutes or more (towns.md) keep only a big event.
+- 50 minutes or more (towns.md) keep only a big event: a named festival, a
+  national or international concert or race, a major venue's headline show;
+  not a local workshop or screening.
+- An event that started earlier on the collection day: keep it if it is still
+  running or has a later session today, otherwise drop it.
 - One event per real event. Merge the same event from several sources of this
   group into one, with all of them in `sources`. A show on two or three dates
   is one event per date. Other groups may list the same event; the merge step
@@ -83,13 +87,18 @@ MARATONA" over "50ª Meia Maratona Internacional da Nazaré".
   source shows no end, `end_date` is the last day the source shows, with
   `confidence: "low"` and a caveat saying the end is not stated;
   `recurring` for a pattern such as a weekly market, with `recurrence` in words
-  and `dates` where they are known. Dated performances (a play on two or three
+  and `dates` where they are known. A workshop that runs all year on set days
+  or on request (Óbidos's, for example) is one `recurring` event with its
+  recurrence in words, not one event per date. Dated performances (a play on two or three
   dates) are never `recurring`: write one `single` per date.
 - A link is the event's own page where the source has one, else the agenda
   page it was listed on.
 - `start_time` only where a source states it plainly; otherwise null.
 - `town` from the venue: the place name alone, without parentheses ("Cambelas",
-  not "Cambelas (Torres Vedras)"); `drive_min` from towns.md. A village not in
+  not "Cambelas (Torres Vedras)"); `drive_min` from towns.md. A race from
+  Portugal Running that gives only the municipality: `town` is that
+  municipality's town and `drive_min` is from it; add a caveat only when the
+  start place matters (a trail far from the town). A village not in
   towns.md: `town` is the village name, and `drive_min` is the minutes of the
   nearest listed place, or null when that cannot be told.
 - Several sessions on one day are one event: the times go in the description and
@@ -112,13 +121,19 @@ item (title and date) or the entry in sources.md's known yearly list.
   source is in this group (the group's sources, not its towns: a regional
   source's cards carry district labels, so the town does not decide). The hint's
   source is the one that entry names. `title_pt` is the event's Portuguese name
-  as known: the `past` item's title, or the list's `title_pt` column.
+  as known: the `past` item's title, or the list's `title_pt` column. When the list marks that title
+  `descriptive`, it is our own description, not a name seen in a listing: it
+  is still `title_pt`, and the caveat says the name is not confirmed.
 - One sighting is all a hint rests on, so it is `confidence: "low"`.
 - Never when this year's edition is already in `past` or in `events`, and never
   when a source of this group dates it.
 - A yearly event qualifies when its usual dates overlap the window, not merely
   its month. `start_date` is then `YYYY-MM` of the expected month, and must fall
   inside the window. If the usual dates are outside the window, write no hint.
+  When the usual dates span two months (late September to early October) and
+  the window starts on 1 October, `start_date` is the expected month that falls
+  inside the window: `YYYY-10`.
+- `kids` on a hint is true only when the yearly event is aimed at children.
 - Do not state a day; say it is expected.
 
 ## Coverage

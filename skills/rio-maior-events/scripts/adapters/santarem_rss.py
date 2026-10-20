@@ -60,15 +60,16 @@ def _session(entry):
 
 
 def _join(entries):
-    """Entries with one link: touching periods become one, same-day sessions
-    become one, separate dates stay apart. Each result carries its sessions."""
+    """Entries with one link: touching periods become one (when at least one
+    is a range), same-day sessions become one, separate dates stay apart. Each result carries its sessions."""
     joined = []
     for entry in sorted(entries, key=lambda e: (e["first"], e["start"] or "")):
         entry = dict(entry, sessions=[_session(entry)] if _session(entry) else [])
         last = joined[-1] if joined else None
         if last and (entry["first"], entry["last"]) == (last["first"], last["last"]):
             last["sessions"] += entry["sessions"]
-        elif last and entry["first"] == last["last"] + ONE_DAY:
+        elif (last and entry["first"] == last["last"] + ONE_DAY
+              and (last["first"] != last["last"] or entry["first"] != entry["last"])):
             last["last"] = entry["last"]
             last["sessions"] += [s for s in entry["sessions"] if s not in last["sessions"]]
             last["start"] = last["end"] = None
@@ -96,6 +97,8 @@ def _to_item(entry):
 
 
 def map_feed(body):
+    if b"\x00" in body or body.startswith((b"\xff\xfe", b"\xfe\xff")):
+        raise AdapterError("feed is UTF-16 or UTF-32, not ASCII-compatible; not read")
     if re.search(rb"<!(DOCTYPE|ENTITY)", body, re.I):
         raise AdapterError("feed has a DOCTYPE or ENTITY declaration; not read")
     try:
