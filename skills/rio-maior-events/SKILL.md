@@ -72,7 +72,8 @@ It prints one line per source as it finishes and exits 0 if any source was read.
 every source failed, or a usage error; read the message.
 
 A source that failed (`ok: false`) can be read once with your own tool for
-reading a web page, if you have one (step 3 says where it goes); otherwise
+reading a web page, if you have one, in step 3 after its folder is cleared
+(step 3 says where it goes); otherwise
 leave it and name it in step 5.
 When a site refuses or does not answer, skip its other pages too. Never fetch a
 source repeatedly: some of these sites throttle a visitor who does.

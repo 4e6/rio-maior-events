@@ -6,7 +6,7 @@ tags: [architecture, skill, network, page]
 sources:
   - resource: skills/rio-maior-events/**
   - resource: evals/rio-maior-events/**
-sources_digest: f9e725b62d02a19c
+sources_digest: 465655c931bf3384
 ---
 
 # What it is
