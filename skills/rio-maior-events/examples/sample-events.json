@@ -1,0 +1,580 @@
+{
+  "generated_at": "2026-10-20T08:15:00+01:00",
+  "window": {
+    "start": "2026-10-20",
+    "end": "2026-11-30"
+  },
+  "origin": "Rio Maior",
+  "note": "Sample page with invented events. Past mid-November, a real agenda comes mostly from the municipality and the Cineteatro.",
+  "sources_checked": [
+    {
+      "name": "Município de Rio Maior — Agenda",
+      "url": "https://example.org/rio-maior/agenda",
+      "ok": true
+    },
+    {
+      "name": "Cineteatro de Rio Maior",
+      "url": "https://example.org/cineteatro",
+      "ok": true
+    },
+    {
+      "name": "Biblioteca Municipal",
+      "url": "https://example.org/biblioteca",
+      "ok": true
+    },
+    {
+      "name": "Caldas da Rainha — Agenda",
+      "url": "https://example.org/caldas",
+      "ok": true
+    },
+    {
+      "name": "Teatro da Rainha",
+      "url": "https://example.org/teatro-rainha",
+      "ok": true
+    },
+    {
+      "name": "Óbidos — Eventos",
+      "url": "https://example.org/obidos",
+      "ok": true
+    },
+    {
+      "name": "Alcobaça — Agenda Cultural",
+      "url": "https://example.org/alcobaca",
+      "ok": true
+    },
+    {
+      "name": "Santarém — Agenda",
+      "url": "https://example.org/santarem",
+      "ok": true
+    },
+    {
+      "name": "Peniche — Agenda",
+      "url": "https://example.org/peniche",
+      "ok": true
+    },
+    {
+      "name": "Running calendar PT",
+      "url": "https://example.org/corridas",
+      "ok": true
+    },
+    {
+      "name": "Parque Natural Serras de Aire e Candeeiros",
+      "url": "https://example.org/pnsac",
+      "ok": true
+    },
+    {
+      "name": "Regional newspaper",
+      "url": "https://example.org/jornal",
+      "ok": true
+    },
+    {
+      "name": "Facebook page: Associação local",
+      "url": "https://example.org/fb-assoc",
+      "ok": false,
+      "error": "could not be read (sample)"
+    },
+    {
+      "name": "Tourism office PDF",
+      "url": "https://example.org/turismo.pdf",
+      "ok": false,
+      "error": "could not be read (sample)"
+    }
+  ],
+  "events": [
+    {
+      "title_pt": "Sal: o Ouro Branco da Serra (exemplo)",
+      "title_en": "Salt: White Gold of the Hills (sample)",
+      "category": "exhibition",
+      "kind": "ongoing",
+      "start_date": "2026-09-12",
+      "end_date": "2026-11-30",
+      "start_time": null,
+      "dates": null,
+      "recurrence": null,
+      "date_tbc": false,
+      "venue": "Casa Municipal da Cultura",
+      "town": "Rio Maior",
+      "drive_min": 3,
+      "price": {
+        "free": true,
+        "text": "Free"
+      },
+      "kids": true,
+      "description_en": "Sample entry. Photographs, tools and oral histories from the inland salt pans. Tue–Sun 10:00–18:00.",
+      "sources": [
+        {
+          "name": "Município de Rio Maior",
+          "url": "https://example.org/rio-maior/agenda#sal"
+        }
+      ],
+      "confidence": "high",
+      "caveat": null
+    },
+    {
+      "title_pt": "Olhares do Ribatejo — fotografia (exemplo)",
+      "title_en": "Views of the Ribatejo — photography (sample)",
+      "category": "exhibition",
+      "kind": "ongoing",
+      "start_date": "2026-10-01",
+      "end_date": "2026-11-15",
+      "start_time": null,
+      "dates": null,
+      "recurrence": null,
+      "date_tbc": false,
+      "venue": "Convento de São Francisco",
+      "town": "Santarém",
+      "drive_min": 30,
+      "price": {
+        "free": false,
+        "text": "€3"
+      },
+      "kids": false,
+      "description_en": "Sample entry. Group show of regional photographers.",
+      "sources": [
+        {
+          "name": "Santarém — Agenda",
+          "url": "https://example.org/santarem#foto"
+        }
+      ],
+      "confidence": "high",
+      "caveat": null
+    },
+    {
+      "title_pt": "Mercado Semanal (exemplo)",
+      "title_en": "Weekly market (sample)",
+      "category": "market",
+      "kind": "recurring",
+      "start_date": "2026-10-24",
+      "end_date": null,
+      "start_time": "08:00",
+      "dates": [
+        "2026-10-24",
+        "2026-10-31",
+        "2026-11-07",
+        "2026-11-14",
+        "2026-11-21",
+        "2026-11-28"
+      ],
+      "recurrence": "Every Sat morning",
+      "date_tbc": false,
+      "venue": "Largo do Mercado",
+      "town": "Rio Maior",
+      "drive_min": 2,
+      "price": {
+        "free": true,
+        "text": "Free"
+      },
+      "kids": true,
+      "description_en": "Sample entry. Fruit, vegetables, cheese, bread and plants from local growers.",
+      "sources": [
+        {
+          "name": "Município de Rio Maior",
+          "url": "https://example.org/rio-maior/mercado"
+        }
+      ],
+      "confidence": "high",
+      "caveat": null
+    },
+    {
+      "title_pt": "Praça da Fruta (exemplo)",
+      "title_en": "Daily fruit market (sample)",
+      "category": "market",
+      "kind": "recurring",
+      "start_date": "2026-10-20",
+      "end_date": null,
+      "start_time": "07:00",
+      "dates": null,
+      "recurrence": "Every morning, Mon–Sat",
+      "date_tbc": false,
+      "venue": "Praça da República",
+      "town": "Caldas da Rainha",
+      "drive_min": 30,
+      "price": null,
+      "kids": true,
+      "description_en": "Sample entry. Open-air produce market in the town square.",
+      "sources": [
+        {
+          "name": "Caldas da Rainha — Agenda",
+          "url": "https://example.org/caldas#praca"
+        }
+      ],
+      "confidence": "high",
+      "caveat": null
+    },
+    {
+      "title_pt": "Noite de Fado no Cineteatro (exemplo)",
+      "title_en": "Fado night at the Cineteatro (sample)",
+      "category": "music",
+      "kind": "single",
+      "start_date": "2026-10-24",
+      "end_date": null,
+      "start_time": "21:30",
+      "dates": null,
+      "recurrence": null,
+      "date_tbc": false,
+      "venue": "Cineteatro de Rio Maior",
+      "town": "Rio Maior",
+      "drive_min": 3,
+      "price": {
+        "free": false,
+        "text": "€8"
+      },
+      "kids": false,
+      "description_en": "Sample entry. Two fadistas with Portuguese guitar and viola.",
+      "sources": [
+        {
+          "name": "Cineteatro de Rio Maior",
+          "url": "https://example.org/cineteatro#fado"
+        },
+        {
+          "name": "Regional newspaper",
+          "url": "https://example.org/jornal#fado"
+        }
+      ],
+      "confidence": "high",
+      "caveat": null
+    },
+    {
+      "title_pt": "Feira do Sal e dos Sabores (exemplo)",
+      "title_en": "Salt & Flavours Fair (sample)",
+      "category": "festival",
+      "kind": "multi_day",
+      "start_date": "2026-10-23",
+      "end_date": "2026-10-25",
+      "start_time": "18:00",
+      "dates": null,
+      "recurrence": null,
+      "date_tbc": false,
+      "venue": "Salinas de Rio Maior",
+      "town": "Rio Maior",
+      "drive_min": 8,
+      "price": {
+        "free": true,
+        "text": "Free"
+      },
+      "kids": true,
+      "description_en": "Sample entry. Stalls of salt, sweets and charcuterie, live music each evening, salt-raking demonstrations on Saturday.",
+      "sources": [
+        {
+          "name": "Município de Rio Maior",
+          "url": "https://example.org/rio-maior/feira"
+        }
+      ],
+      "confidence": "high",
+      "caveat": null
+    },
+    {
+      "title_pt": "Hora do Conto: Histórias do Sal (exemplo)",
+      "title_en": "Story hour: tales of salt (sample)",
+      "category": "kids",
+      "kind": "single",
+      "start_date": "2026-10-24",
+      "end_date": null,
+      "start_time": "11:00",
+      "dates": null,
+      "recurrence": null,
+      "date_tbc": false,
+      "venue": "Biblioteca Municipal",
+      "town": "Rio Maior",
+      "drive_min": 3,
+      "price": {
+        "free": true,
+        "text": "Free"
+      },
+      "kids": true,
+      "description_en": "Sample entry. Storytelling in Portuguese for ages 4–8. Booking advised.",
+      "sources": [
+        {
+          "name": "Biblioteca Municipal",
+          "url": "https://example.org/biblioteca#conto"
+        }
+      ],
+      "confidence": "high",
+      "caveat": null
+    },
+    {
+      "title_pt": "Trail das Salinas 15 km (exemplo)",
+      "title_en": "Salt Pans Trail 15 km (sample)",
+      "category": "sport",
+      "kind": "single",
+      "start_date": "2026-10-25",
+      "end_date": null,
+      "start_time": "09:00",
+      "dates": null,
+      "recurrence": null,
+      "date_tbc": false,
+      "venue": "Salinas de Rio Maior",
+      "town": "Rio Maior",
+      "drive_min": 8,
+      "price": {
+        "free": false,
+        "text": "€15"
+      },
+      "kids": false,
+      "description_en": "Sample entry. 15 km trail plus a 6 km walk. Online registration closes Thursday.",
+      "sources": [
+        {
+          "name": "Running calendar PT",
+          "url": "https://example.org/corridas#salinas"
+        }
+      ],
+      "confidence": "high",
+      "caveat": null
+    },
+    {
+      "title_pt": "Cineclube: Sessão de Outono (exemplo)",
+      "title_en": "Film club: autumn screening (sample)",
+      "category": "cinema",
+      "kind": "single",
+      "start_date": "2026-10-27",
+      "end_date": null,
+      "start_time": null,
+      "dates": null,
+      "recurrence": null,
+      "date_tbc": false,
+      "venue": "Auditório Municipal",
+      "town": "Peniche",
+      "drive_min": 50,
+      "price": {
+        "free": false,
+        "text": "€4"
+      },
+      "kids": false,
+      "description_en": "Sample entry. Portuguese film with English subtitles.",
+      "sources": [
+        {
+          "name": "Peniche — Agenda",
+          "url": "https://example.org/peniche#cine"
+        }
+      ],
+      "confidence": "low",
+      "caveat": "Date from last year's poster"
+    },
+    {
+      "title_pt": "Auto da Barca do Inferno (exemplo)",
+      "title_en": "The Ship of Hell — Gil Vicente (sample)",
+      "category": "theatre",
+      "kind": "single",
+      "start_date": "2026-10-29",
+      "end_date": null,
+      "start_time": "21:30",
+      "dates": null,
+      "recurrence": null,
+      "date_tbc": false,
+      "venue": "Teatro da Rainha",
+      "town": "Caldas da Rainha",
+      "drive_min": 30,
+      "price": {
+        "free": false,
+        "text": "€10"
+      },
+      "kids": false,
+      "description_en": "Sample entry. Classic 16th-century satire, in Portuguese.",
+      "sources": [
+        {
+          "name": "Teatro da Rainha",
+          "url": "https://example.org/teatro-rainha#auto"
+        }
+      ],
+      "confidence": "high",
+      "caveat": null
+    },
+    {
+      "title_pt": "Caminhada na Serra dos Candeeiros (exemplo)",
+      "title_en": "Walk in the Candeeiros hills (sample)",
+      "category": "nature",
+      "kind": "single",
+      "start_date": "2026-11-01",
+      "end_date": null,
+      "start_time": "09:30",
+      "dates": null,
+      "recurrence": null,
+      "date_tbc": false,
+      "venue": "Centro de Interpretação, Alcobertas",
+      "town": "Alcobertas",
+      "drive_min": 15,
+      "price": {
+        "free": true,
+        "text": "Free"
+      },
+      "kids": true,
+      "description_en": "Sample entry. 9 km guided walk over limestone plateau. Bring water and boots.",
+      "sources": [
+        {
+          "name": "PNSAC",
+          "url": "https://example.org/pnsac#walk"
+        }
+      ],
+      "confidence": "high",
+      "caveat": null
+    },
+    {
+      "title_pt": "Mostra de Vinhos do Tejo (exemplo)",
+      "title_en": "Tejo Wine Show (sample)",
+      "category": "food",
+      "kind": "multi_day",
+      "start_date": "2026-11-07",
+      "end_date": "2026-11-08",
+      "start_time": "15:00",
+      "dates": null,
+      "recurrence": null,
+      "date_tbc": false,
+      "venue": "Mercado Municipal",
+      "town": "Santarém",
+      "drive_min": 30,
+      "price": {
+        "free": false,
+        "text": "€5 with glass"
+      },
+      "kids": false,
+      "description_en": "Sample entry. Tastings from around 30 producers.",
+      "sources": [
+        {
+          "name": "Santarém — Agenda",
+          "url": "https://example.org/santarem#vinhos"
+        }
+      ],
+      "confidence": "high",
+      "caveat": null
+    },
+    {
+      "title_pt": "Magusto de São Martinho (exemplo)",
+      "title_en": "St Martin's chestnut feast (sample)",
+      "category": "festival",
+      "kind": "single",
+      "start_date": "2026-11-11",
+      "end_date": null,
+      "start_time": "15:00",
+      "dates": null,
+      "recurrence": null,
+      "date_tbc": false,
+      "venue": "Praça 25 de Abril",
+      "town": "Alcobaça",
+      "drive_min": 30,
+      "price": {
+        "free": true,
+        "text": "Free"
+      },
+      "kids": true,
+      "description_en": "Sample entry. Roast chestnuts and água-pé in the square.",
+      "sources": [
+        {
+          "name": "Alcobaça — Agenda Cultural",
+          "url": "https://example.org/alcobaca#magusto"
+        }
+      ],
+      "confidence": "high",
+      "caveat": null
+    },
+    {
+      "title_pt": "Oficina de Cestaria (exemplo)",
+      "title_en": "Basket-weaving workshop (sample)",
+      "category": "workshop",
+      "kind": "single",
+      "start_date": "2026-11-14",
+      "end_date": null,
+      "start_time": "10:00",
+      "dates": null,
+      "recurrence": null,
+      "date_tbc": false,
+      "venue": "Associação Cultural",
+      "town": "Rio Maior",
+      "drive_min": 4,
+      "price": {
+        "free": false,
+        "text": "€20"
+      },
+      "kids": false,
+      "description_en": "Sample entry. Three-hour hands-on session; materials included. 12 places.",
+      "sources": [
+        {
+          "name": "Facebook page: Associação local",
+          "url": "https://example.org/fb-assoc#cestaria"
+        }
+      ],
+      "confidence": "low",
+      "caveat": "Only on social media; price unconfirmed"
+    },
+    {
+      "title_pt": "Palestra: 800 anos de Salinas (exemplo)",
+      "title_en": "Talk: 800 years of the salt pans (sample)",
+      "category": "other",
+      "kind": "single",
+      "start_date": "2026-11-16",
+      "end_date": null,
+      "start_time": "18:30",
+      "dates": null,
+      "recurrence": null,
+      "date_tbc": false,
+      "venue": "Biblioteca Municipal",
+      "town": "Rio Maior",
+      "drive_min": 3,
+      "price": null,
+      "kids": false,
+      "description_en": "Sample entry. Local historian, in Portuguese.",
+      "sources": [
+        {
+          "name": "Biblioteca Municipal",
+          "url": "https://example.org/biblioteca#palestra"
+        }
+      ],
+      "confidence": "high",
+      "caveat": null
+    },
+    {
+      "title_pt": "Concerto da Banda Filarmónica (exemplo)",
+      "title_en": "Town band concert at the monastery (sample)",
+      "category": "music",
+      "kind": "single",
+      "start_date": "2026-11-22",
+      "end_date": null,
+      "start_time": "17:00",
+      "dates": null,
+      "recurrence": null,
+      "date_tbc": false,
+      "venue": "Mosteiro de Alcobaça",
+      "town": "Alcobaça",
+      "drive_min": 30,
+      "price": {
+        "free": true,
+        "text": "Free"
+      },
+      "kids": true,
+      "description_en": "Sample entry. Autumn concert in the monastery church.",
+      "sources": [
+        {
+          "name": "Alcobaça — Agenda Cultural",
+          "url": "https://example.org/alcobaca#banda"
+        }
+      ],
+      "confidence": "high",
+      "caveat": null
+    },
+    {
+      "title_pt": "Mercado de Natal (exemplo)",
+      "title_en": "Christmas market (sample)",
+      "category": "market",
+      "kind": "single",
+      "start_date": "2026-11",
+      "end_date": null,
+      "start_time": null,
+      "dates": null,
+      "recurrence": null,
+      "date_tbc": true,
+      "venue": null,
+      "town": "Óbidos",
+      "drive_min": 35,
+      "price": null,
+      "kids": true,
+      "description_en": "Sample entry. Announced for 'late November'; exact dates not yet published.",
+      "sources": [
+        {
+          "name": "Óbidos — Eventos",
+          "url": "https://example.org/obidos#natal"
+        }
+      ],
+      "confidence": "low",
+      "caveat": "Dates not yet announced"
+    }
+  ]
+}

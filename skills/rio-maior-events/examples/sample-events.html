@@ -1,0 +1,1484 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>What's on around Rio Maior</title>
+<style>
+/* ==========================================================================
+   Rio Maior agenda — "Salt & Stone"
+   Inlined by scripts/render.py. Only #events-data changes between runs.
+   ========================================================================== */
+:root {
+  /* surfaces — salt-pan white, limestone */
+  --bg: #F7F4EE;
+  --surface: #FFFFFF;
+  --surface-2: #EFEBE3;
+  --line: #DED8CD;
+  --line-strong: #C9C1B3;
+  /* text */
+  --text: #1E2226;          /* 14.6:1 on bg, 16.0 on surface */
+  --text-muted: #5A5751;    /* 6.6:1 on bg, 7.2 on surface */
+  /* accents — terracotta tile, Atlantic blue */
+  --accent: #A8461F;        /* 5.4:1 on bg — weekend, today, stars */
+  --accent-soft: #F8E9DF;   /* weekend band background */
+  --accent-line: #EBCBB8;
+  --link: #1C5A8A;          /* 6.6:1 on bg */
+  --new: #1C5A8A;
+  --new-soft: #E3EEF7;
+  --warn: #7A4F00;          /* 6.5:1 on bg */
+  --warn-soft: #FBF0D9;
+  --warn-line: #E8CF93;
+  --focus: #1C5A8A;
+  --shadow: 0 1px 2px rgba(40, 32, 20, .06), 0 1px 1px rgba(40, 32, 20, .04);
+  /* category colours (icons, card edge) — all >= 4.3:1 on surface & band */
+  --c-music: #5B4BB0; --c-theatre: #8A3F8E; --c-cinema: #2E6577;
+  --c-festival: #B04A1E; --c-market: #86621A; --c-sport: #167260;
+  --c-exhibition: #2860A0; --c-kids: #B23A72; --c-food: #8A2E44;
+  --c-nature: #4C7A2A; --c-workshop: #7A5236; --c-other: #5E6166;
+
+  /* type — system stacks, no network */
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", "Helvetica Neue", Arial, sans-serif;
+  --font-serif: "Iowan Old Style", Charter, "Bitstream Charter", "Sitka Text", Cambria, Georgia, "Noto Serif", serif;
+  --fs-xs: .8125rem;  /* 13 — only uppercase micro-labels */
+  --fs-sm: .875rem;   /* 14 — meta */
+  --fs-md: 1rem;      /* 16 — body, titles in cards */
+  --fs-lg: 1.125rem;  /* 18 — day headers */
+  --fs-xl: 1.375rem;  /* 22 — band headers */
+  --fs-2xl: 1.75rem;  /* 28 — page title */
+  /* spacing — 4px base */
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px; --s7: 48px;
+  --r-sm: 6px; --r-md: 10px; --r-lg: 16px; --r-pill: 999px;
+  --tap: 44px;
+  --gutter: 16px;
+  --sticky-top: 0px;   /* set by JS: height of the phone day strip */
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #141619; --surface: #1D2024; --surface-2: #262A2F; --line: #31363C; --line-strong: #454B52;
+    --text: #ECE7DF; --text-muted: #ABA59B;
+    --accent: #EE9670; --accent-soft: #2B211C; --accent-line: #4A3428;
+    --link: #86BDE8; --new: #86BDE8; --new-soft: #1C2B38;
+    --warn: #E9C46A; --warn-soft: #2E2716; --warn-line: #57471F;
+    --focus: #86BDE8; --shadow: none;
+    --c-music: #A99CF0; --c-theatre: #D59BD8; --c-cinema: #7FC2D6;
+    --c-festival: #F0956A; --c-market: #D9B25E; --c-sport: #5FCDB3;
+    --c-exhibition: #82B4EE; --c-kids: #F08DBA; --c-food: #EE8FA3;
+    --c-nature: #A2CF7C; --c-workshop: #D4A27E; --c-other: #B3B6BB;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #141619; --surface: #1D2024; --surface-2: #262A2F; --line: #31363C; --line-strong: #454B52;
+  --text: #ECE7DF; --text-muted: #ABA59B;
+  --accent: #EE9670; --accent-soft: #2B211C; --accent-line: #4A3428;
+  --link: #86BDE8; --new: #86BDE8; --new-soft: #1C2B38;
+  --warn: #E9C46A; --warn-soft: #2E2716; --warn-line: #57471F;
+  --focus: #86BDE8; --shadow: none;
+  --c-music: #A99CF0; --c-theatre: #D59BD8; --c-cinema: #7FC2D6;
+  --c-festival: #F0956A; --c-market: #D9B25E; --c-sport: #5FCDB3;
+  --c-exhibition: #82B4EE; --c-kids: #F08DBA; --c-food: #EE8FA3;
+  --c-nature: #A2CF7C; --c-workshop: #D4A27E; --c-other: #B3B6BB;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; scroll-padding-top: var(--sticky-top); }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font-family: var(--font-sans); font-size: var(--fs-md); line-height: 1.5;
+  overflow-x: hidden;
+}
+a { color: var(--link); text-underline-offset: 2px; }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; border-radius: var(--r-sm); }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.icon { width: 24px; height: 24px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+.icon-sm { width: 18px; height: 18px; }
+[lang="pt"] { font-style: normal; }
+
+/* ---------- layout ---------- */
+.page { max-width: 1180px; margin: 0 auto; padding: 0 var(--gutter) var(--s7); }
+.masthead { padding: var(--s5) 0 var(--s4); display: flex; gap: var(--s3); align-items: flex-start; justify-content: space-between; }
+.masthead h1 { font-family: var(--font-serif); font-weight: 600; font-size: var(--fs-2xl); line-height: 1.15; margin: 0 0 var(--s1); letter-spacing: -.01em; }
+.masthead .meta { margin: 0; color: var(--text-muted); font-size: var(--fs-sm); }
+.masthead .meta a { color: inherit; }
+.theme-btn { min-width: var(--tap); min-height: var(--tap); border: 1px solid var(--line); background: var(--surface); border-radius: var(--r-pill); display: inline-flex; align-items: center; justify-content: center; gap: var(--s1); padding: 0 var(--s3); cursor: pointer; color: var(--text-muted); font-size: var(--fs-sm); flex: none; }
+.notice { margin: 0 0 var(--s4); padding: var(--s3) var(--s4); border-radius: var(--r-md); background: var(--warn-soft); border: 1px solid var(--warn-line); color: var(--text); font-size: var(--fs-sm); }
+
+.layout { display: block; }
+.rail { display: none; }
+@media (min-width: 900px) {
+  .layout { display: grid; grid-template-columns: 324px minmax(0, 1fr); gap: var(--s6); align-items: start; }
+  .rail { display: block; position: sticky; top: var(--s4); max-height: calc(100vh - 2 * var(--s4)); overflow-y: auto; padding-bottom: var(--s4); }
+  .strip-wrap { display: none; }
+}
+
+/* ---------- mini month grid (desktop) ---------- */
+.month { margin-bottom: var(--s5); }
+.month h2 { font-family: var(--font-serif); font-size: var(--fs-lg); font-weight: 600; margin: 0 0 var(--s2); }
+.grid { display: grid; grid-template-columns: repeat(7, 44px); gap: 0; }
+.grid .dow { font-size: var(--fs-xs); color: var(--text-muted); text-align: center; height: 24px; line-height: 24px; text-transform: uppercase; letter-spacing: .04em; }
+.grid .dow.we { color: var(--accent); font-weight: 600; }
+.day-btn {
+  position: relative; width: 44px; height: 48px; border: 0; background: none; border-radius: var(--r-md);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; cursor: pointer; padding: 0;
+  font-variant-numeric: tabular-nums;
+}
+.day-btn .num { font-size: var(--fs-sm); line-height: 1; }
+.day-btn.we .num { font-weight: 600; }
+.day-btn:hover { background: var(--surface-2); }
+.day-btn.out { color: var(--text-muted); opacity: .45; cursor: default; }
+.day-btn.empty .num { color: var(--text-muted); }
+.day-btn.past { opacity: .4; }
+.day-btn.today .num { box-shadow: 0 0 0 2px var(--accent); border-radius: var(--r-pill); padding: 4px 6px; margin: -4px -6px; }
+.day-btn.active { background: var(--text); color: var(--bg); }
+.day-btn.active .num { color: var(--bg); }
+.day-btn.active .dot { background: var(--bg); }
+.day-btn.active .dot.star { color: var(--bg); }
+.dots { display: flex; gap: 3px; height: 8px; align-items: center; }
+.dot { width: 5px; height: 5px; border-radius: 50%; background: var(--text-muted); }
+.dot.star { width: 9px; height: 9px; background: none; color: var(--accent); }
+.dot.star svg { width: 9px; height: 9px; display: block; fill: currentColor; stroke: none; }
+.legend { font-size: var(--fs-sm); color: var(--text-muted); display: grid; gap: var(--s1); margin-top: var(--s2); }
+.legend > span { display: inline-flex; align-items: center; gap: var(--s2); }
+
+/* ---------- day strip (phone) ---------- */
+.strip-wrap {
+  position: sticky; top: 0; z-index: 20; background: var(--bg);
+  margin: 0 calc(-1 * var(--gutter)); padding: var(--s1) 0 var(--s1);
+  border-bottom: 1px solid var(--line);
+}
+.strip { display: flex; overflow-x: auto; scroll-snap-type: x proximity; padding: 0 var(--gutter); gap: 2px; scrollbar-width: none; overscroll-behavior-x: contain; }
+.strip::-webkit-scrollbar { display: none; }
+.strip .day-btn { width: 46px; height: 64px; flex: none; scroll-snap-align: start; }
+.strip .wd { font-size: var(--fs-xs); color: var(--text-muted); line-height: 1; text-transform: uppercase; letter-spacing: .03em; }
+.strip .day-btn.we .wd { color: var(--accent); font-weight: 600; }
+.strip .day-btn.active .wd { color: var(--bg); }
+.strip .mlabel { flex: none; writing-mode: vertical-rl; transform: rotate(180deg); font-size: var(--fs-xs); color: var(--text-muted); text-transform: uppercase; letter-spacing: .08em; padding: 0 2px; align-self: center; }
+
+/* ---------- filters ---------- */
+.filters { padding: var(--s3) 0 var(--s2); display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s3); }
+.search { position: relative; }
+.search input {
+  width: 100%; min-height: var(--tap); font-size: var(--fs-md); padding: 0 var(--s4) 0 42px;
+  border: 1px solid var(--line-strong); border-radius: var(--r-pill); background: var(--surface); color: var(--text);
+}
+.search input::placeholder { color: var(--text-muted); }
+.search .icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); width: 20px; height: 20px; }
+.chips { display: flex; flex-wrap: wrap; gap: var(--s2); align-items: center; }
+.chip-sep { flex-basis: 100%; height: 0; }
+.chip {
+  min-height: var(--tap); display: inline-flex; align-items: center; gap: 6px; padding: 0 14px;
+  border: 1px solid var(--line-strong); border-radius: var(--r-pill); background: var(--surface); cursor: pointer;
+  font-size: var(--fs-sm); line-height: 1.2; white-space: nowrap;
+}
+.chip .icon { width: 18px; height: 18px; }
+.chip .n { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.chip[aria-pressed="true"] { background: var(--text); color: var(--bg); border-color: var(--text); }
+.chip[aria-pressed="true"] .n, .chip[aria-pressed="true"] .icon { color: var(--bg); }
+.chip[aria-pressed="true"]::before { content: ""; width: 12px; height: 7px; border-left: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(-45deg) translate(1px, -2px); margin-right: 2px; }
+.chip.cat .icon { color: var(--cat); }
+.chip.cat[aria-pressed="true"] .icon { color: var(--bg); }
+.result-line { font-size: var(--fs-sm); color: var(--text-muted); display: flex; gap: var(--s3); align-items: center; flex-wrap: wrap; min-height: var(--tap); }
+.linkish { background: none; border: 0; color: var(--link); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; min-height: var(--tap); padding: 0 var(--s1); font-size: var(--fs-sm); }
+
+/* ---------- collapsible blocks: ongoing / regulars ---------- */
+.block { margin: var(--s3) 0; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); }
+.block > summary {
+  list-style: none; cursor: pointer; min-height: 52px; padding: var(--s3) var(--s4); display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: var(--s3);
+  font-family: var(--font-serif); font-size: var(--fs-lg); font-weight: 600;
+}
+.block > summary::-webkit-details-marker { display: none; }
+.block > summary .count { font-family: var(--font-sans); font-size: var(--fs-sm); font-weight: 400; color: var(--text-muted); }
+.block > summary .chev { grid-column: 2; grid-row: 1 / span 2; transition: transform .2s; color: var(--text-muted); }
+.block[open] > summary .chev { transform: rotate(180deg); }
+.block > summary .hint { font-family: var(--font-sans); font-size: var(--fs-sm); font-weight: 400; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; grid-column: 1; }
+.block .block-body { padding: 0 var(--s3) var(--s3); display: grid; gap: var(--s2); }
+
+/* ---------- bands & days ---------- */
+.band { margin: var(--s5) 0 0; }
+.band > h2 { font-family: var(--font-serif); font-size: var(--fs-xl); font-weight: 600; margin: 0 0 var(--s1); display: flex; align-items: baseline; gap: var(--s3); flex-wrap: wrap; }
+.band > h2 small { font-family: var(--font-sans); font-size: var(--fs-sm); font-weight: 400; color: var(--text-muted); }
+.band.weekend { background: var(--accent-soft); border: 1px solid var(--accent-line); border-radius: var(--r-lg); padding: var(--s4) var(--s3) var(--s2); margin-left: calc(-1 * var(--s1)); margin-right: calc(-1 * var(--s1)); }
+.band.weekend > h2 { color: var(--accent); padding: 0 var(--s1); }
+.band.weekend > h2::before { content: ""; width: 10px; height: 10px; background: var(--accent); border-radius: 2px; transform: rotate(45deg); align-self: center; }
+.day { scroll-margin-top: var(--sticky-top); padding-bottom: var(--s2); }
+.day-h {
+  position: sticky; top: var(--sticky-top); z-index: 5; margin: 0; padding: var(--s3) var(--s1) var(--s2);
+  background: var(--bg); font-size: var(--fs-lg); font-weight: 650; display: flex; align-items: baseline; gap: var(--s2);
+  font-variant-numeric: tabular-nums;
+}
+.band.weekend .day-h { background: var(--accent-soft); }
+.day-h .we-tag { font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: .06em; color: var(--accent); font-weight: 700; }
+.day-h .today-tag { font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: .06em; font-weight: 700; color: var(--bg); background: var(--accent); padding: 2px 8px; border-radius: var(--r-pill); }
+.day-list { display: grid; gap: var(--s2); }
+
+/* ---------- card ---------- */
+.card {
+  position: relative; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md);
+  box-shadow: var(--shadow); border-left: 4px solid var(--cat, var(--line-strong));
+}
+.card.starred { border-color: var(--accent-line); border-left-color: var(--cat); box-shadow: inset 0 0 0 1px var(--accent), var(--shadow); }
+.card-toggle {
+  display: grid; grid-template-columns: 24px minmax(0, 1fr); column-gap: var(--s3); row-gap: 2px; width: 100%; text-align: left;
+  background: none; border: 0; padding: var(--s3) var(--s3) var(--s1); cursor: pointer; border-radius: var(--r-md) var(--r-md) 0 0;
+}
+.card-toggle > .icon { color: var(--cat); margin-top: 1px; }
+.t-en { font-weight: 650; font-size: var(--fs-md); line-height: 1.3; display: block; }
+.t-pt { display: block; color: var(--text-muted); font-size: var(--fs-sm); line-height: 1.35; }
+.line2 { grid-column: 2; font-size: var(--fs-sm); color: var(--text); font-variant-numeric: tabular-nums; margin-top: 2px; }
+.line2 .sep { color: var(--text-muted); padding: 0 2px; }
+.line2 .dist { color: var(--text-muted); }
+.tbc { color: var(--text-muted); font-style: italic; }
+.span-tag { display: inline-block; font-size: var(--fs-xs); font-weight: 700; letter-spacing: .02em; color: var(--accent); border: 1px solid var(--accent-line); border-radius: var(--r-pill); padding: 0 7px; margin-right: 6px; vertical-align: 1px; }
+.new-tag { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-xs); font-weight: 700; color: var(--new); background: var(--new-soft); border-radius: var(--r-pill); padding: 0 7px 0 6px; margin-left: 6px; vertical-align: 2px; text-transform: uppercase; letter-spacing: .04em; }
+.new-tag::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--new); }
+.line3 { display: flex; align-items: center; gap: var(--s2); padding: 0 var(--s1) var(--s1) calc(var(--s3) + 24px + var(--s3)); flex-wrap: wrap; font-size: var(--fs-sm); }
+.price { display: inline-flex; align-items: center; min-height: 26px; padding: 0 10px; border-radius: var(--r-pill); background: var(--surface-2); font-weight: 600; font-variant-numeric: tabular-nums; }
+.price.free { background: none; border: 1px solid var(--line-strong); }
+.fam { color: var(--text-muted); }
+.src { display: inline-flex; align-items: center; min-height: var(--tap); padding: 0 4px; }
+.star {
+  margin-left: auto; width: var(--tap); height: var(--tap); border: 0; background: none; border-radius: var(--r-pill);
+  display: inline-flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-muted);
+}
+.star:hover { background: var(--surface-2); }
+.star svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linejoin: round; }
+.star[aria-pressed="true"] { color: var(--accent); }
+.star[aria-pressed="true"] svg { fill: currentColor; }
+.warn { display: flex; gap: var(--s2); align-items: flex-start; margin: 0 var(--s3) var(--s2) calc(var(--s3) + 24px + var(--s3) - var(--s2)); padding: 6px var(--s2); background: var(--warn-soft); border: 1px solid var(--warn-line); border-radius: var(--r-sm); font-size: var(--fs-sm); color: var(--text); }
+.warn .icon { width: 18px; height: 18px; color: var(--warn); margin-top: 1px; }
+.warn b { color: var(--warn); font-weight: 700; }
+.card-more { display: none; padding: var(--s1) var(--s4) var(--s4) calc(var(--s3) + 24px + var(--s3)); font-size: var(--fs-md); border-top: 1px dashed var(--line); margin-top: var(--s1); }
+.card.open .card-more { display: block; }
+.card-more p { margin: var(--s3) 0; max-width: 62ch; }
+.card-more dl { display: grid; grid-template-columns: auto 1fr; gap: var(--s1) var(--s3); margin: 0 0 var(--s3); font-size: var(--fs-sm); }
+.card-more dt { color: var(--text-muted); }
+.card-more dd { margin: 0; }
+.card-more ul { margin: 0; padding-left: 1.1em; font-size: var(--fs-sm); }
+.card-more li a { display: inline-block; padding: 6px 0; }
+.btn {
+  display: inline-flex; align-items: center; gap: var(--s2); min-height: var(--tap); padding: 0 var(--s4); border-radius: var(--r-pill);
+  border: 1px solid var(--line-strong); background: var(--surface-2); cursor: pointer; font-size: var(--fs-sm); font-weight: 600; margin: 0 var(--s2) var(--s3) 0; text-decoration: none; color: var(--text);
+}
+.btn .icon { width: 18px; height: 18px; }
+.continues {
+  display: flex; align-items: center; gap: var(--s2); min-height: var(--tap); padding: 0 var(--s3); border: 1px dashed var(--line-strong);
+  border-radius: var(--r-md); color: var(--text-muted); font-size: var(--fs-sm); text-decoration: none; background: transparent;
+}
+.continues .icon { width: 18px; height: 18px; color: var(--cat); }
+.continues b { color: var(--text); font-weight: 600; }
+.empty-state { text-align: center; padding: var(--s7) var(--s4); color: var(--text-muted); }
+.past-note { color: var(--text-muted); font-size: var(--fs-sm); }
+
+footer.sources { margin-top: var(--s7); border-top: 1px solid var(--line); padding-top: var(--s4); font-size: var(--fs-sm); color: var(--text-muted); }
+footer.sources h2 { font-size: var(--fs-md); color: var(--text); margin: 0 0 var(--s2); }
+footer.sources ul { list-style: none; padding: 0; margin: 0; columns: 2 220px; column-gap: var(--s5); }
+footer.sources li { padding: 4px 0; break-inside: avoid; }
+footer.sources .bad { color: var(--warn); font-weight: 600; }
+
+@media (max-width: 699px) {
+  /* one row of chips that scrolls sideways inside itself; the page never does */
+  .chips { flex-wrap: nowrap; overflow-x: auto; margin: 0 calc(-1 * var(--gutter)); padding: 3px var(--gutter); scrollbar-width: none; overscroll-behavior-x: contain; }
+  .chips::-webkit-scrollbar { display: none; }
+  .chip { flex: none; }
+  .chip-sep { flex: none; flex-basis: auto; width: 1px; height: 24px; background: var(--line-strong); }
+}
+@media (max-width: 899px) {
+  .band.weekend { margin-left: calc(-1 * var(--s2)); margin-right: calc(-1 * var(--s2)); padding-left: var(--s2); padding-right: var(--s2); }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
+}
+/* ---------- no-script list ---------- */
+.plain { max-width: 70ch; margin: 0 auto; padding: var(--s4); }
+.plain h1 { font-family: var(--font-serif); font-size: var(--fs-2xl); }
+.plain li { margin: var(--s2) 0; }
+
+@media print {
+  .strip-wrap, .rail, .filters, .star, .theme-btn { display: none !important; }
+  .card-more { display: block !important; }
+}
+</style>
+</head>
+<body>
+<noscript><div class="plain"><h1>What's on around Rio Maior</h1><p>2026-10-20 to 2026-11-30. This page draws its calendar with a script; the events are listed here by date.</p><ul>
+<li><strong>2026-09-12 to 2026-11-30</strong> Sal: o Ouro Branco da Serra (exemplo) / Salt: White Gold of the Hills (sample), Rio Maior. <a href="https://example.org/rio-maior/agenda#sal">Município de Rio Maior</a></li>
+<li><strong>2026-10-01 to 2026-11-15</strong> Olhares do Ribatejo — fotografia (exemplo) / Views of the Ribatejo — photography (sample), Santarém. <a href="https://example.org/santarem#foto">Santarém — Agenda</a></li>
+<li><strong>Every morning, Mon–Sat 07:00</strong> Praça da Fruta (exemplo) / Daily fruit market (sample), Caldas da Rainha. <a href="https://example.org/caldas#praca">Caldas da Rainha — Agenda</a></li>
+<li><strong>2026-10-23 to 2026-10-25 18:00</strong> Feira do Sal e dos Sabores (exemplo) / Salt &amp; Flavours Fair (sample), Rio Maior. <a href="https://example.org/rio-maior/feira">Município de Rio Maior</a></li>
+<li><strong>Every Sat morning 08:00</strong> Mercado Semanal (exemplo) / Weekly market (sample), Rio Maior. <a href="https://example.org/rio-maior/mercado">Município de Rio Maior</a></li>
+<li><strong>2026-10-24 11:00</strong> Hora do Conto: Histórias do Sal (exemplo) / Story hour: tales of salt (sample), Rio Maior. <a href="https://example.org/biblioteca#conto">Biblioteca Municipal</a></li>
+<li><strong>2026-10-24 21:30</strong> Noite de Fado no Cineteatro (exemplo) / Fado night at the Cineteatro (sample), Rio Maior. <a href="https://example.org/cineteatro#fado">Cineteatro de Rio Maior</a></li>
+<li><strong>2026-10-25 09:00</strong> Trail das Salinas 15 km (exemplo) / Salt Pans Trail 15 km (sample), Rio Maior. <a href="https://example.org/corridas#salinas">Running calendar PT</a></li>
+<li><strong>2026-10-27</strong> Cineclube: Sessão de Outono (exemplo) / Film club: autumn screening (sample), Peniche. <a href="https://example.org/peniche#cine">Peniche — Agenda</a></li>
+<li><strong>2026-10-29 21:30</strong> Auto da Barca do Inferno (exemplo) / The Ship of Hell — Gil Vicente (sample), Caldas da Rainha. <a href="https://example.org/teatro-rainha#auto">Teatro da Rainha</a></li>
+<li><strong>2026-11-01 09:30</strong> Caminhada na Serra dos Candeeiros (exemplo) / Walk in the Candeeiros hills (sample), Alcobertas. <a href="https://example.org/pnsac#walk">PNSAC</a></li>
+<li><strong>2026-11-07 to 2026-11-08 15:00</strong> Mostra de Vinhos do Tejo (exemplo) / Tejo Wine Show (sample), Santarém. <a href="https://example.org/santarem#vinhos">Santarém — Agenda</a></li>
+<li><strong>2026-11-11 15:00</strong> Magusto de São Martinho (exemplo) / St Martin&#x27;s chestnut feast (sample), Alcobaça. <a href="https://example.org/alcobaca#magusto">Alcobaça — Agenda Cultural</a></li>
+<li><strong>2026-11-14 10:00</strong> Oficina de Cestaria (exemplo) / Basket-weaving workshop (sample), Rio Maior. <a href="https://example.org/fb-assoc#cestaria">Facebook page: Associação local</a></li>
+<li><strong>2026-11-16 18:30</strong> Palestra: 800 anos de Salinas (exemplo) / Talk: 800 years of the salt pans (sample), Rio Maior. <a href="https://example.org/biblioteca#palestra">Biblioteca Municipal</a></li>
+<li><strong>2026-11-22 17:00</strong> Concerto da Banda Filarmónica (exemplo) / Town band concert at the monastery (sample), Alcobaça. <a href="https://example.org/alcobaca#banda">Alcobaça — Agenda Cultural</a></li>
+<li><strong>Date to be confirmed (2026-11)</strong> Mercado de Natal (exemplo) / Christmas market (sample), Óbidos. <a href="https://example.org/obidos#natal">Óbidos — Eventos</a></li>
+</ul></div></noscript>
+<div class="page">
+  <header class="masthead">
+    <div>
+      <h1 id="title">What's on around Rio Maior</h1>
+      <p class="meta" id="meta"></p>
+    </div>
+    <button class="theme-btn" id="theme-btn" type="button" aria-label="Colour theme"></button>
+  </header>
+  <div id="notice"></div>
+  <div class="strip-wrap" id="strip-wrap"><nav class="strip" id="strip" aria-label="Jump to day"></nav></div>
+  <div class="layout">
+    <aside class="rail" id="rail" aria-label="Calendar"></aside>
+    <main id="main">
+      <section class="filters" id="filters" aria-label="Filters"></section>
+      <div id="blocks"></div>
+      <div id="list"></div>
+      <div id="tbc"></div>
+      <footer class="sources" id="sources"></footer>
+    </main>
+  </div>
+</div>
+<script type="application/json" id="events-data">
+{
+ "generated_at": "2026-10-20T08:15:00+01:00",
+ "window": {
+  "start": "2026-10-20",
+  "end": "2026-11-30"
+ },
+ "origin": "Rio Maior",
+ "note": "Sample page with invented events. Past mid-November, a real agenda comes mostly from the municipality and the Cineteatro.",
+ "sources_checked": [
+  {
+   "name": "Município de Rio Maior — Agenda",
+   "url": "https://example.org/rio-maior/agenda",
+   "ok": true
+  },
+  {
+   "name": "Cineteatro de Rio Maior",
+   "url": "https://example.org/cineteatro",
+   "ok": true
+  },
+  {
+   "name": "Biblioteca Municipal",
+   "url": "https://example.org/biblioteca",
+   "ok": true
+  },
+  {
+   "name": "Caldas da Rainha — Agenda",
+   "url": "https://example.org/caldas",
+   "ok": true
+  },
+  {
+   "name": "Teatro da Rainha",
+   "url": "https://example.org/teatro-rainha",
+   "ok": true
+  },
+  {
+   "name": "Óbidos — Eventos",
+   "url": "https://example.org/obidos",
+   "ok": true
+  },
+  {
+   "name": "Alcobaça — Agenda Cultural",
+   "url": "https://example.org/alcobaca",
+   "ok": true
+  },
+  {
+   "name": "Santarém — Agenda",
+   "url": "https://example.org/santarem",
+   "ok": true
+  },
+  {
+   "name": "Peniche — Agenda",
+   "url": "https://example.org/peniche",
+   "ok": true
+  },
+  {
+   "name": "Running calendar PT",
+   "url": "https://example.org/corridas",
+   "ok": true
+  },
+  {
+   "name": "Parque Natural Serras de Aire e Candeeiros",
+   "url": "https://example.org/pnsac",
+   "ok": true
+  },
+  {
+   "name": "Regional newspaper",
+   "url": "https://example.org/jornal",
+   "ok": true
+  },
+  {
+   "name": "Facebook page: Associação local",
+   "url": "https://example.org/fb-assoc",
+   "ok": false,
+   "error": "could not be read (sample)"
+  },
+  {
+   "name": "Tourism office PDF",
+   "url": "https://example.org/turismo.pdf",
+   "ok": false,
+   "error": "could not be read (sample)"
+  }
+ ],
+ "events": [
+  {
+   "id": "3c6197d449",
+   "title_pt": "Sal: o Ouro Branco da Serra (exemplo)",
+   "title_en": "Salt: White Gold of the Hills (sample)",
+   "category": "exhibition",
+   "kind": "ongoing",
+   "start_date": "2026-09-12",
+   "end_date": "2026-11-30",
+   "start_time": null,
+   "dates": null,
+   "recurrence": null,
+   "date_tbc": false,
+   "venue": "Casa Municipal da Cultura",
+   "town": "Rio Maior",
+   "drive_min": 3,
+   "price": {
+    "free": true,
+    "text": "Free"
+   },
+   "kids": true,
+   "description_en": "Sample entry. Photographs, tools and oral histories from the inland salt pans. Tue–Sun 10:00–18:00.",
+   "sources": [
+    {
+     "name": "Município de Rio Maior",
+     "url": "https://example.org/rio-maior/agenda#sal"
+    }
+   ],
+   "confidence": "high",
+   "caveat": null
+  },
+  {
+   "id": "166429c96b",
+   "title_pt": "Olhares do Ribatejo — fotografia (exemplo)",
+   "title_en": "Views of the Ribatejo — photography (sample)",
+   "category": "exhibition",
+   "kind": "ongoing",
+   "start_date": "2026-10-01",
+   "end_date": "2026-11-15",
+   "start_time": null,
+   "dates": null,
+   "recurrence": null,
+   "date_tbc": false,
+   "venue": "Convento de São Francisco",
+   "town": "Santarém",
+   "drive_min": 30,
+   "price": {
+    "free": false,
+    "text": "€3"
+   },
+   "kids": false,
+   "description_en": "Sample entry. Group show of regional photographers.",
+   "sources": [
+    {
+     "name": "Santarém — Agenda",
+     "url": "https://example.org/santarem#foto"
+    }
+   ],
+   "confidence": "high",
+   "caveat": null
+  },
+  {
+   "id": "c674fc8fca",
+   "title_pt": "Mercado Semanal (exemplo)",
+   "title_en": "Weekly market (sample)",
+   "category": "market",
+   "kind": "recurring",
+   "start_date": "2026-10-24",
+   "end_date": null,
+   "start_time": "08:00",
+   "dates": [
+    "2026-10-24",
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14",
+    "2026-11-21",
+    "2026-11-28"
+   ],
+   "recurrence": "Every Sat morning",
+   "date_tbc": false,
+   "venue": "Largo do Mercado",
+   "town": "Rio Maior",
+   "drive_min": 2,
+   "price": {
+    "free": true,
+    "text": "Free"
+   },
+   "kids": true,
+   "description_en": "Sample entry. Fruit, vegetables, cheese, bread and plants from local growers.",
+   "sources": [
+    {
+     "name": "Município de Rio Maior",
+     "url": "https://example.org/rio-maior/mercado"
+    }
+   ],
+   "confidence": "high",
+   "caveat": null
+  },
+  {
+   "id": "36020dbddf",
+   "title_pt": "Praça da Fruta (exemplo)",
+   "title_en": "Daily fruit market (sample)",
+   "category": "market",
+   "kind": "recurring",
+   "start_date": "2026-10-20",
+   "end_date": null,
+   "start_time": "07:00",
+   "dates": null,
+   "recurrence": "Every morning, Mon–Sat",
+   "date_tbc": false,
+   "venue": "Praça da República",
+   "town": "Caldas da Rainha",
+   "drive_min": 30,
+   "price": null,
+   "kids": true,
+   "description_en": "Sample entry. Open-air produce market in the town square.",
+   "sources": [
+    {
+     "name": "Caldas da Rainha — Agenda",
+     "url": "https://example.org/caldas#praca"
+    }
+   ],
+   "confidence": "high",
+   "caveat": null
+  },
+  {
+   "id": "5a7afa1152",
+   "title_pt": "Noite de Fado no Cineteatro (exemplo)",
+   "title_en": "Fado night at the Cineteatro (sample)",
+   "category": "music",
+   "kind": "single",
+   "start_date": "2026-10-24",
+   "end_date": null,
+   "start_time": "21:30",
+   "dates": null,
+   "recurrence": null,
+   "date_tbc": false,
+   "venue": "Cineteatro de Rio Maior",
+   "town": "Rio Maior",
+   "drive_min": 3,
+   "price": {
+    "free": false,
+    "text": "€8"
+   },
+   "kids": false,
+   "description_en": "Sample entry. Two fadistas with Portuguese guitar and viola.",
+   "sources": [
+    {
+     "name": "Cineteatro de Rio Maior",
+     "url": "https://example.org/cineteatro#fado"
+    },
+    {
+     "name": "Regional newspaper",
+     "url": "https://example.org/jornal#fado"
+    }
+   ],
+   "confidence": "high",
+   "caveat": null
+  },
+  {
+   "id": "f75dbf4a2a",
+   "title_pt": "Feira do Sal e dos Sabores (exemplo)",
+   "title_en": "Salt \u0026 Flavours Fair (sample)",
+   "category": "festival",
+   "kind": "multi_day",
+   "start_date": "2026-10-23",
+   "end_date": "2026-10-25",
+   "start_time": "18:00",
+   "dates": null,
+   "recurrence": null,
+   "date_tbc": false,
+   "venue": "Salinas de Rio Maior",
+   "town": "Rio Maior",
+   "drive_min": 8,
+   "price": {
+    "free": true,
+    "text": "Free"
+   },
+   "kids": true,
+   "description_en": "Sample entry. Stalls of salt, sweets and charcuterie, live music each evening, salt-raking demonstrations on Saturday.",
+   "sources": [
+    {
+     "name": "Município de Rio Maior",
+     "url": "https://example.org/rio-maior/feira"
+    }
+   ],
+   "confidence": "high",
+   "caveat": null
+  },
+  {
+   "id": "082e721c3f",
+   "title_pt": "Hora do Conto: Histórias do Sal (exemplo)",
+   "title_en": "Story hour: tales of salt (sample)",
+   "category": "kids",
+   "kind": "single",
+   "start_date": "2026-10-24",
+   "end_date": null,
+   "start_time": "11:00",
+   "dates": null,
+   "recurrence": null,
+   "date_tbc": false,
+   "venue": "Biblioteca Municipal",
+   "town": "Rio Maior",
+   "drive_min": 3,
+   "price": {
+    "free": true,
+    "text": "Free"
+   },
+   "kids": true,
+   "description_en": "Sample entry. Storytelling in Portuguese for ages 4–8. Booking advised.",
+   "sources": [
+    {
+     "name": "Biblioteca Municipal",
+     "url": "https://example.org/biblioteca#conto"
+    }
+   ],
+   "confidence": "high",
+   "caveat": null
+  },
+  {
+   "id": "c779a78dec",
+   "title_pt": "Trail das Salinas 15 km (exemplo)",
+   "title_en": "Salt Pans Trail 15 km (sample)",
+   "category": "sport",
+   "kind": "single",
+   "start_date": "2026-10-25",
+   "end_date": null,
+   "start_time": "09:00",
+   "dates": null,
+   "recurrence": null,
+   "date_tbc": false,
+   "venue": "Salinas de Rio Maior",
+   "town": "Rio Maior",
+   "drive_min": 8,
+   "price": {
+    "free": false,
+    "text": "€15"
+   },
+   "kids": false,
+   "description_en": "Sample entry. 15 km trail plus a 6 km walk. Online registration closes Thursday.",
+   "sources": [
+    {
+     "name": "Running calendar PT",
+     "url": "https://example.org/corridas#salinas"
+    }
+   ],
+   "confidence": "high",
+   "caveat": null
+  },
+  {
+   "id": "b3268fcaf1",
+   "title_pt": "Cineclube: Sessão de Outono (exemplo)",
+   "title_en": "Film club: autumn screening (sample)",
+   "category": "cinema",
+   "kind": "single",
+   "start_date": "2026-10-27",
+   "end_date": null,
+   "start_time": null,
+   "dates": null,
+   "recurrence": null,
+   "date_tbc": false,
+   "venue": "Auditório Municipal",
+   "town": "Peniche",
+   "drive_min": 50,
+   "price": {
+    "free": false,
+    "text": "€4"
+   },
+   "kids": false,
+   "description_en": "Sample entry. Portuguese film with English subtitles.",
+   "sources": [
+    {
+     "name": "Peniche — Agenda",
+     "url": "https://example.org/peniche#cine"
+    }
+   ],
+   "confidence": "low",
+   "caveat": "Date from last year's poster"
+  },
+  {
+   "id": "b60bd67a77",
+   "title_pt": "Auto da Barca do Inferno (exemplo)",
+   "title_en": "The Ship of Hell — Gil Vicente (sample)",
+   "category": "theatre",
+   "kind": "single",
+   "start_date": "2026-10-29",
+   "end_date": null,
+   "start_time": "21:30",
+   "dates": null,
+   "recurrence": null,
+   "date_tbc": false,
+   "venue": "Teatro da Rainha",
+   "town": "Caldas da Rainha",
+   "drive_min": 30,
+   "price": {
+    "free": false,
+    "text": "€10"
+   },
+   "kids": false,
+   "description_en": "Sample entry. Classic 16th-century satire, in Portuguese.",
+   "sources": [
+    {
+     "name": "Teatro da Rainha",
+     "url": "https://example.org/teatro-rainha#auto"
+    }
+   ],
+   "confidence": "high",
+   "caveat": null
+  },
+  {
+   "id": "f015520a7c",
+   "title_pt": "Caminhada na Serra dos Candeeiros (exemplo)",
+   "title_en": "Walk in the Candeeiros hills (sample)",
+   "category": "nature",
+   "kind": "single",
+   "start_date": "2026-11-01",
+   "end_date": null,
+   "start_time": "09:30",
+   "dates": null,
+   "recurrence": null,
+   "date_tbc": false,
+   "venue": "Centro de Interpretação, Alcobertas",
+   "town": "Alcobertas",
+   "drive_min": 15,
+   "price": {
+    "free": true,
+    "text": "Free"
+   },
+   "kids": true,
+   "description_en": "Sample entry. 9 km guided walk over limestone plateau. Bring water and boots.",
+   "sources": [
+    {
+     "name": "PNSAC",
+     "url": "https://example.org/pnsac#walk"
+    }
+   ],
+   "confidence": "high",
+   "caveat": null
+  },
+  {
+   "id": "880cd1d863",
+   "title_pt": "Mostra de Vinhos do Tejo (exemplo)",
+   "title_en": "Tejo Wine Show (sample)",
+   "category": "food",
+   "kind": "multi_day",
+   "start_date": "2026-11-07",
+   "end_date": "2026-11-08",
+   "start_time": "15:00",
+   "dates": null,
+   "recurrence": null,
+   "date_tbc": false,
+   "venue": "Mercado Municipal",
+   "town": "Santarém",
+   "drive_min": 30,
+   "price": {
+    "free": false,
+    "text": "€5 with glass"
+   },
+   "kids": false,
+   "description_en": "Sample entry. Tastings from around 30 producers.",
+   "sources": [
+    {
+     "name": "Santarém — Agenda",
+     "url": "https://example.org/santarem#vinhos"
+    }
+   ],
+   "confidence": "high",
+   "caveat": null
+  },
+  {
+   "id": "2b911b2222",
+   "title_pt": "Magusto de São Martinho (exemplo)",
+   "title_en": "St Martin's chestnut feast (sample)",
+   "category": "festival",
+   "kind": "single",
+   "start_date": "2026-11-11",
+   "end_date": null,
+   "start_time": "15:00",
+   "dates": null,
+   "recurrence": null,
+   "date_tbc": false,
+   "venue": "Praça 25 de Abril",
+   "town": "Alcobaça",
+   "drive_min": 30,
+   "price": {
+    "free": true,
+    "text": "Free"
+   },
+   "kids": true,
+   "description_en": "Sample entry. Roast chestnuts and água-pé in the square.",
+   "sources": [
+    {
+     "name": "Alcobaça — Agenda Cultural",
+     "url": "https://example.org/alcobaca#magusto"
+    }
+   ],
+   "confidence": "high",
+   "caveat": null
+  },
+  {
+   "id": "30e463d1df",
+   "title_pt": "Oficina de Cestaria (exemplo)",
+   "title_en": "Basket-weaving workshop (sample)",
+   "category": "workshop",
+   "kind": "single",
+   "start_date": "2026-11-14",
+   "end_date": null,
+   "start_time": "10:00",
+   "dates": null,
+   "recurrence": null,
+   "date_tbc": false,
+   "venue": "Associação Cultural",
+   "town": "Rio Maior",
+   "drive_min": 4,
+   "price": {
+    "free": false,
+    "text": "€20"
+   },
+   "kids": false,
+   "description_en": "Sample entry. Three-hour hands-on session; materials included. 12 places.",
+   "sources": [
+    {
+     "name": "Facebook page: Associação local",
+     "url": "https://example.org/fb-assoc#cestaria"
+    }
+   ],
+   "confidence": "low",
+   "caveat": "Only on social media; price unconfirmed"
+  },
+  {
+   "id": "43df57a0f6",
+   "title_pt": "Palestra: 800 anos de Salinas (exemplo)",
+   "title_en": "Talk: 800 years of the salt pans (sample)",
+   "category": "other",
+   "kind": "single",
+   "start_date": "2026-11-16",
+   "end_date": null,
+   "start_time": "18:30",
+   "dates": null,
+   "recurrence": null,
+   "date_tbc": false,
+   "venue": "Biblioteca Municipal",
+   "town": "Rio Maior",
+   "drive_min": 3,
+   "price": null,
+   "kids": false,
+   "description_en": "Sample entry. Local historian, in Portuguese.",
+   "sources": [
+    {
+     "name": "Biblioteca Municipal",
+     "url": "https://example.org/biblioteca#palestra"
+    }
+   ],
+   "confidence": "high",
+   "caveat": null
+  },
+  {
+   "id": "543a106311",
+   "title_pt": "Concerto da Banda Filarmónica (exemplo)",
+   "title_en": "Town band concert at the monastery (sample)",
+   "category": "music",
+   "kind": "single",
+   "start_date": "2026-11-22",
+   "end_date": null,
+   "start_time": "17:00",
+   "dates": null,
+   "recurrence": null,
+   "date_tbc": false,
+   "venue": "Mosteiro de Alcobaça",
+   "town": "Alcobaça",
+   "drive_min": 30,
+   "price": {
+    "free": true,
+    "text": "Free"
+   },
+   "kids": true,
+   "description_en": "Sample entry. Autumn concert in the monastery church.",
+   "sources": [
+    {
+     "name": "Alcobaça — Agenda Cultural",
+     "url": "https://example.org/alcobaca#banda"
+    }
+   ],
+   "confidence": "high",
+   "caveat": null
+  },
+  {
+   "id": "d7e8f5599d",
+   "title_pt": "Mercado de Natal (exemplo)",
+   "title_en": "Christmas market (sample)",
+   "category": "market",
+   "kind": "single",
+   "start_date": "2026-11",
+   "end_date": null,
+   "start_time": null,
+   "dates": null,
+   "recurrence": null,
+   "date_tbc": true,
+   "venue": null,
+   "town": "Óbidos",
+   "drive_min": 35,
+   "price": null,
+   "kids": true,
+   "description_en": "Sample entry. Announced for 'late November'; exact dates not yet published.",
+   "sources": [
+    {
+     "name": "Óbidos — Eventos",
+     "url": "https://example.org/obidos#natal"
+    }
+   ],
+   "confidence": "low",
+   "caveat": "Dates not yet announced"
+  }
+ ]
+}
+</script>
+<script>
+(function () {
+  "use strict";
+
+  /* ------------------------------------------------------------------ data */
+  var DATA;
+  try { DATA = JSON.parse(document.getElementById("events-data").textContent); }
+  catch (e) { document.getElementById("list").textContent = "Could not read the event data."; return; }
+  var EVENTS = DATA.events || [];
+
+  /* -------------------------------------------------------------- storage */
+  var store = {
+    get: function (k, d) { try { var v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+    set: function (k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+  };
+  var NS = "rmagenda:";
+
+  /* ---------------------------------------------------------------- icons */
+  var ICONS = {
+    music: '<path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/>',
+    theatre: '<path d="M4 4h16v6a8 8 0 0 1-16 0z"/><path d="M8.5 9h1M14.5 9h1"/><path d="M9 13.5a4 4 0 0 0 6 0"/>',
+    cinema: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 4v16M17 4v16M3 9h4M3 15h4M17 9h4M17 15h4"/>',
+    festival: '<path d="M2 5h20"/><path d="M3.5 5l2.5 6 2.5-6M9.5 5l2.5 6 2.5-6M15.5 5l2.5 6 2.5-6"/><path d="M6 16h12M8 20h8"/>',
+    market: '<path d="M3 9l2-5h14l2 5"/><path d="M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0"/><path d="M5 12v8h14v-8"/><path d="M10 20v-4h4v4"/>',
+    sport: '<circle cx="12" cy="14" r="7"/><path d="M12 14v-4M10 3h4M12 3v4M18.5 7.5l1.5-1.5"/>',
+    exhibition: '<rect x="3" y="4" width="18" height="16" rx="1.5"/><path d="M3 16l5-5 4 4 3-3 6 6"/><circle cx="15.5" cy="8.5" r="1.5"/>',
+    kids: '<path d="M12 3a6 6 0 0 1 6 6c0 4-3.5 7-6 7s-6-3-6-7a6 6 0 0 1 6-6z"/><path d="M11 18h2l-1-2z"/><path d="M12 18c0 2 1.5 2 .5 4"/>',
+    food: '<path d="M8 3h8l-.5 5a3.5 3.5 0 0 1-7 0z"/><path d="M12 11.5V20M8 21h8"/>',
+    nature: '<path d="M2 20l7-11 4 6 3-4 6 9z"/><circle cx="17" cy="5" r="2"/>',
+    workshop: '<path d="M14.5 4.5l5 5L9 20H4v-5z"/><path d="M12 7l5 5"/>',
+    other: '<circle cx="12" cy="12" r="9"/><path d="M8 12h.01M12 12h.01M16 12h.01" stroke-width="2.5"/>'
+  };
+  var UI = {
+    search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>',
+    warn: '<path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18h.01"/>',
+    chev: '<path d="M6 9l6 6 6-6"/>',
+    cal: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+    pin: '<path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>',
+    cont: '<path d="M5 4v8a4 4 0 0 0 4 4h10"/><path d="M15 12l4 4-4 4"/>',
+    sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+    moon: '<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>',
+    auto: '<circle cx="12" cy="12" r="9"/><path d="M12 3v18a9 9 0 0 0 0-18z" fill="currentColor"/>'
+  };
+  var STAR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></svg>';
+  function icon(name, cls) {
+    var p = ICONS[name] || UI[name] || ICONS.other;
+    return '<svg class="icon' + (cls ? " " + cls : "") + '" viewBox="0 0 24 24" aria-hidden="true">' + p + "</svg>";
+  }
+  var CATS = {
+    music: "Music", theatre: "Theatre", cinema: "Cinema", festival: "Festival & fair", market: "Market",
+    sport: "Sport & running", exhibition: "Exhibition", kids: "Kids & family", food: "Food & wine",
+    nature: "Nature & walks", workshop: "Workshop", other: "Other"
+  };
+  var CAT_ALIASES = { "festival/fair": "festival", "sport/running": "sport", "kids/family": "kids", "food & wine": "food", "food_wine": "food", "nature/walk": "nature" };
+  EVENTS.forEach(function (e) { e.category = CAT_ALIASES[e.category] || e.category; if (!CATS[e.category]) e.category = "other"; });
+
+  /* ---------------------------------------------------------------- dates */
+  var WD = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  var MO = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  var MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  function parse(s) { var p = s.split("-"); return new Date(+p[0], +p[1] - 1, +p[2]); }
+  function p2(n) { return (n < 10 ? "0" : "") + n; }
+  function iso(d) { return d.getFullYear() + "-" + p2(d.getMonth() + 1) + "-" + p2(d.getDate()); }
+  function add(s, n) { var d = parse(s); d.setDate(d.getDate() + n); return iso(d); }
+  function dow(s) { return parse(s).getDay(); }
+  function diff(a, b) { return Math.round((parse(b) - parse(a)) / 864e5); }
+  function fmtDay(s) { var d = parse(s); return WD[d.getDay()] + " " + d.getDate() + " " + MO[d.getMonth()]; }
+  function fmtShort(s) { var d = parse(s); return d.getDate() + " " + MO[d.getMonth()]; }
+  function isWeekend(s) { var w = dow(s); return w === 0 || w === 6; }
+  var WIN = DATA.window;
+  var realToday = iso(new Date());
+  var stale = realToday > WIN.end;
+  var TODAY = realToday < WIN.start || stale ? WIN.start : realToday;
+
+  /* expand each event to the dated days it appears on */
+  EVENTS.forEach(function (e) {
+    e._days = [];
+    if (e.date_tbc) return;
+    if (e.kind === "recurring") { e._days = (e.dates || []).slice(); return; }
+    if (e.kind === "ongoing") return;
+    if (!e.start_date) { e.date_tbc = true; return; }
+    var end = e.end_date || e.start_date;
+    for (var d = e.start_date; d <= end; d = add(d, 1)) e._days.push(d);
+  });
+
+  /* -------------------------------------------------- stars & "new" state */
+  var stars = new Set(store.get(NS + "stars", []));
+  function saveStars() { store.set(NS + "stars", Array.from(stars)); }
+  var newIds = (function () {
+    var cur = EVENTS.map(function (e) { return e.id; });
+    var rec = store.get(NS + "visit", null);
+    var prev;
+    if (rec && rec.generated_at === DATA.generated_at) prev = rec.prev;   // reload of same edition: keep markers
+    else if (rec) prev = rec.ids;
+    else prev = null;                                                       // first ever visit: nothing is "new"
+    store.set(NS + "visit", { generated_at: DATA.generated_at, ids: cur, prev: prev });
+    if (!prev) return new Set();
+    var p = new Set(prev);
+    return new Set(cur.filter(function (id) { return !p.has(id); }));
+  })();
+
+  /* -------------------------------------------------------------- filters */
+  var F = { cats: new Set(), dist: "any", free: false, weekend: false, picks: false, q: "" };
+  function norm(s) { return (s || "").toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""); }
+  EVENTS.forEach(function (e) { e._hay = norm([e.title_en, e.title_pt, e.town, e.venue, e.description_en, CATS[e.category]].join(" ")); });
+  function matchBase(e) {
+    if (F.cats.size && !F.cats.has(e.category)) return false;
+    if (F.dist === "20" && !(e.drive_min != null && e.drive_min <= 20)) return false;
+    if (F.dist === "45" && !(e.drive_min != null && e.drive_min <= 45)) return false;
+    if (F.free && !(e.price && e.price.free)) return false;
+    if (F.picks && !stars.has(e.id)) return false;
+    if (F.q && e._hay.indexOf(norm(F.q)) < 0) return false;
+    return true;
+  }
+  function dayOk(d) { return d >= TODAY && (!F.weekend || isWeekend(d)); }
+  function visibleDays(e) { return e._days.filter(dayOk); }
+
+  /* --------------------------------------------------------------- helpers */
+  function esc(s) { return (s == null ? "" : String(s)).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+  function safeUrl(u) { return /^https?:\/\//i.test(u || "") ? u : ""; }
+  function link(u, inner, cls) { var h = safeUrl(u); return h ? '<a' + (cls ? ' class="' + cls + '"' : "") + ' href="' + esc(h) + '" target="_blank" rel="noopener">' + inner + "</a>" : inner; }
+  function mapsUrl(e) { return "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent([e.venue, e.town, "Portugal"].filter(Boolean).join(", ")); }
+  function spanLabel(e) {
+    if (e.kind !== "multi_day" || !e.end_date || e.end_date === e.start_date) return "";
+    var n = diff(e.start_date, e.end_date) + 1;
+    if (n <= 7) return WD[dow(e.start_date)] + "–" + WD[dow(e.end_date)];
+    return fmtShort(e.start_date) + "–" + fmtShort(e.end_date);
+  }
+  function placeLine(e, timeText) {
+    var bits = [];
+    bits.push(timeText);
+    if (e.town) bits.push(esc(e.town));
+    if (e.drive_min != null) bits.push('<span class="dist">' + (e.drive_min <= 5 ? "in town" : e.drive_min + " min") + '<span class="sr-only"> drive</span></span>');
+    return bits.join('<span class="sep" aria-hidden="true"> · </span>');
+  }
+  function timeText(e) { return e.start_time ? '<time>' + esc(e.start_time) + "</time>" : '<span class="tbc">time tbc</span>'; }
+
+  /* ------------------------------------------------------------------ card */
+  function card(e, opts) {
+    opts = opts || {};
+    var starred = stars.has(e.id);
+    var lead = opts.lead || timeText(e);
+    var span = opts.noSpan ? "" : spanLabel(e);
+    var srcLinks = (e.sources || []).filter(function (s) { return safeUrl(s.url); }).slice(0, 2).map(function (s, i) {
+      return link(s.url, (i === 0 ? "Source" : "Source " + (i + 1)) + '<span class="sr-only">: ' + esc(s.name) + "</span>", "src");
+    }).join("");
+    var price = e.price ? '<span class="price' + (e.price.free ? " free" : "") + '">' + esc(e.price.free ? "Free" : e.price.text) + "</span>" : "";
+    var warn = e.confidence === "low" ? '<div class="warn">' + icon("warn") + "<span><b>Check source</b> — " + esc(e.caveat || "details may be out of date") + "</span></div>" : "";
+    var isNew = newIds.has(e.id) ? '<span class="new-tag">New</span>' : "";
+    var cal = e.date_tbc ? '<p class="past-note">No calendar file until the date is confirmed.</p>'
+      : e.kind === "recurring" && !(e.dates && e.dates.length) ? '<p class="past-note">No calendar file: this regular event has no listed dates.</p>'
+      : '<a class="btn" href="#" download="event.ics" data-ics="' + esc(e.id) + '">' + icon("cal") + "Add to calendar (.ics)</a>";
+    var venue = e.venue || e.town ? '<a class="btn" href="' + esc(mapsUrl(e)) + '" target="_blank" rel="noopener">' + icon("pin") + "Map</a>" : "";
+    var when = whenText(e);
+    var id = (opts.idPrefix || "c-") + e.id;
+    return '<article class="card' + (starred ? " starred" : "") + '" id="' + esc(id) + '" data-id="' + esc(e.id) + '" style="--cat: var(--c-' + e.category + ')">' +
+      '<button class="card-toggle" type="button" aria-expanded="false" aria-controls="' + esc(id) + '-more">' +
+        icon(e.category) +
+        '<span><span class="sr-only">' + esc(CATS[e.category]) + ": </span>" +
+          '<span class="t-en">' + (span ? '<span class="span-tag">' + span + "</span>" : "") + esc(e.title_en || e.title_pt) + isNew + "</span>" +
+          (e.title_pt && e.title_pt !== e.title_en ? '<span class="t-pt" lang="pt">' + esc(e.title_pt) + "</span>" : "") +
+        "</span>" +
+        '<span class="line2">' + placeLine(e, lead) + "</span>" +
+      "</button>" +
+      '<div class="line3">' + price + (e.kids && e.category !== "kids" ? '<span class="fam">Family-friendly</span>' : "") + srcLinks +
+        '<button class="star" type="button" data-star="' + esc(e.id) + '" aria-pressed="' + starred + '" aria-label="My pick: ' + esc(e.title_en || e.title_pt) + '">' + STAR + "</button>" +
+      "</div>" + warn +
+      '<div class="card-more" id="' + esc(id) + '-more">' +
+        (e.description_en ? "<p>" + esc(e.description_en) + "</p>" : "") +
+        "<dl><dt>When</dt><dd>" + when + "</dd>" +
+        "<dt>Where</dt><dd>" + esc([e.venue, e.town].filter(Boolean).join(", ") || "tbc") + (e.drive_min != null ? " · " + e.drive_min + " min drive" : "") + "</dd>" +
+        "<dt>Type</dt><dd>" + esc(CATS[e.category]) + "</dd>" +
+        "<dt>Price</dt><dd>" + (e.price ? esc(e.price.text || (e.price.free ? "Free" : "")) : '<span class="tbc">not stated</span>') + "</dd></dl>" +
+        venue + cal +
+        "<ul>" + (e.sources || []).map(function (s) { return "<li>" + link(s.url, esc(s.name)) + "</li>"; }).join("") + "</ul>" +
+      "</div>" +
+    "</article>";
+  }
+  function whenText(e) {
+    if (e.date_tbc) return '<span class="tbc">date to be confirmed</span>';
+    var t = e.start_time ? " · " + esc(e.start_time) : ' · <span class="tbc">time tbc</span>';
+    if (e.kind === "recurring") return esc(e.recurrence || "Recurring") + (e.start_time ? " · from " + esc(e.start_time) : "");
+    if (e.kind === "ongoing") return (e.start_date ? fmtShort(e.start_date) + "–" : "until ") + fmtShort(e.end_date);
+    if (e.end_date && e.end_date !== e.start_date) return fmtDay(e.start_date) + " – " + fmtDay(e.end_date) + t;
+    return fmtDay(e.start_date) + t;
+  }
+
+  /* ------------------------------------------------------- header & notes */
+  var okSources = (DATA.sources_checked || []).filter(function (s) { return s.ok; }).length;
+  var nSources = (DATA.sources_checked || []).length;
+  var gen = (DATA.generated_at || "").slice(0, 10);
+  document.getElementById("meta").innerHTML =
+    "Collected " + (gen ? fmtShort(gen) + " " + gen.slice(0, 4) : "?") + " · covers " + fmtShort(WIN.start) + "–" + fmtShort(WIN.end) +
+    ' · <a href="#sources">' + nSources + " sources</a>" + (okSources < nSources ? " (" + (nSources - okSources) + " unreachable)" : "");
+  if (DATA.note) { var np = document.createElement("p"); np.className = "meta"; np.id = "note"; np.textContent = DATA.note; document.getElementById("meta").insertAdjacentElement("afterend", np); }
+  if (DATA.origin) document.getElementById("title").textContent = "What's on around " + DATA.origin;
+  if (stale) document.getElementById("notice").innerHTML = '<p class="notice">This agenda covered ' + fmtShort(WIN.start) + "–" + fmtShort(WIN.end) + " and is out of date. Ask for a fresh one.</p>";
+
+  /* theme button: auto → light → dark */
+  var themeBtn = document.getElementById("theme-btn");
+  function applyTheme(t) {
+    if (t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t);
+    else document.documentElement.removeAttribute("data-theme");
+    themeBtn.innerHTML = icon(t === "light" ? "sun" : t === "dark" ? "moon" : "auto", "icon-sm") + "<span>" + (t === "light" ? "Light" : t === "dark" ? "Dark" : "Auto") + "</span>";
+    themeBtn.setAttribute("aria-label", "Colour theme: " + (t || "auto") + ". Change");
+  }
+  var theme = store.get(NS + "theme", document.documentElement.getAttribute("data-theme") || "auto");
+  applyTheme(theme);
+  themeBtn.addEventListener("click", function () {
+    theme = theme === "auto" ? "light" : theme === "light" ? "dark" : "auto";
+    store.set(NS + "theme", theme); applyTheme(theme);
+  });
+
+  /* --------------------------------------------------------- filter chips */
+  var present = {};
+  EVENTS.forEach(function (e) { present[e.category] = (present[e.category] || 0) + 1; });
+  function chip(attrs, inner, pressed, extraCls) {
+    return '<button type="button" class="chip' + (extraCls ? " " + extraCls : "") + '" aria-pressed="' + !!pressed + '" ' + attrs + ">" + inner + "</button>";
+  }
+  function renderFilters() {
+    var catChips = Object.keys(CATS).filter(function (k) { return present[k]; }).map(function (k) {
+      return chip('data-cat="' + k + '" style="--cat: var(--c-' + k + ')"', icon(k) + esc(CATS[k]) + ' <span class="n">' + present[k] + "</span>", F.cats.has(k), "cat");
+    }).join("");
+    var distChips = [["20", "≤ 20 min"], ["45", "≤ 45 min"], ["any", "Any distance"]].map(function (d) {
+      return chip('data-dist="' + d[0] + '"', d[1], F.dist === d[0]);
+    }).join("");
+    var nPicks = EVENTS.filter(function (e) { return stars.has(e.id); }).length;
+    document.getElementById("filters").innerHTML =
+      '<div class="search"><label class="sr-only" for="q">Search events</label>' + icon("search") +
+        '<input id="q" type="search" placeholder="Search title, town, venue…" autocomplete="off" value="' + esc(F.q) + '"></div>' +
+      '<div class="chips" role="group" aria-label="Filters">' +
+        chip('data-toggle="weekend"', "Weekend", F.weekend) + chip('data-toggle="free"', "Free", F.free) +
+        chip('data-toggle="picks" id="picks-chip"', '<span aria-hidden="true">★</span> My picks <span class="n">(' + nPicks + ")</span>", F.picks) +
+        distChips + '<span class="chip-sep" aria-hidden="true"></span>' + catChips + "</div>" +
+      '<div class="result-line" id="result-line" aria-live="polite"></div>';
+  }
+  function updatePicksChip() {
+    var n = EVENTS.filter(function (e) { return stars.has(e.id); }).length;
+    var c = document.getElementById("picks-chip");
+    if (c) c.querySelector(".n").textContent = "(" + n + ")";
+  }
+  renderFilters();
+  var filtersEl = document.getElementById("filters");
+  filtersEl.addEventListener("click", function (ev) {
+    var b = ev.target.closest(".chip"); if (!b) return;
+    if (b.dataset.cat) { F.cats.has(b.dataset.cat) ? F.cats.delete(b.dataset.cat) : F.cats.add(b.dataset.cat); b.setAttribute("aria-pressed", F.cats.has(b.dataset.cat)); }
+    else if (b.dataset.dist) { F.dist = b.dataset.dist; filtersEl.querySelectorAll("[data-dist]").forEach(function (x) { x.setAttribute("aria-pressed", x.dataset.dist === F.dist); }); }
+    else if (b.dataset.toggle) { F[b.dataset.toggle] = !F[b.dataset.toggle]; b.setAttribute("aria-pressed", F[b.dataset.toggle]); }
+    renderAll();
+  });
+  var qTimer;
+  filtersEl.addEventListener("input", function (ev) {
+    if (ev.target.id !== "q") return;
+    clearTimeout(qTimer); qTimer = setTimeout(function () { F.q = ev.target.value.trim(); renderAll(); }, 120);
+  });
+  filtersEl.addEventListener("click", function (ev) {
+    if (ev.target.id !== "clear-filters") return;
+    F = { cats: new Set(), dist: "any", free: false, weekend: false, picks: false, q: "" };
+    renderFilters(); renderAll();
+  });
+
+  /* ------------------------------------------------------------ bands */
+  function bandsFor(today) {
+    var w = dow(today);                         // 0 Sun..6 Sat
+    var mon = add(today, -((w + 6) % 7));       // Monday of this week
+    var fri = add(mon, 4), sun = add(mon, 6), nextSun = add(mon, 13);
+    var list = [];
+    if (today < fri) list.push({ key: "week", title: "This week", from: today, to: add(fri, -1) });
+    list.push({ key: "weekend", title: "This weekend", from: today > fri ? today : fri, to: sun, weekend: true });
+    list.push({ key: "next", title: "Next week", from: add(sun, 1), to: nextSun });
+    list.push({ key: "later", title: "Later", from: add(nextSun, 1), to: "9999-12-31" });
+    return list;
+  }
+
+  /* ------------------------------------------------------- main render */
+  var dayCounts = {};   // date -> {n, star}
+  function renderAll() {
+    var base = EVENTS.filter(matchBase);
+    var dated = base.filter(function (e) { return e.kind === "single" || e.kind === "multi_day"; });
+    var ongoing = base.filter(function (e) { return e.kind === "ongoing" && e.end_date >= TODAY; });
+    var regulars = base.filter(function (e) { return e.kind === "recurring" && (!e.dates || !e.dates.length || e.dates.some(function (d) { return d >= TODAY; })) && (!F.weekend || !e.dates || e.dates.some(isWeekend) || /sat|sun|weekend/i.test(e.recurrence || "")); });
+    var tbc = base.filter(function (e) { return e.date_tbc; });
+
+    /* day -> entries */
+    var byDay = {}; dayCounts = {};
+    dated.forEach(function (e) {
+      if (e.date_tbc) return;
+      var vis = visibleDays(e); if (!vis.length) return;
+      vis.forEach(function (d, i) {
+        (byDay[d] = byDay[d] || []).push({ e: e, first: i === 0, idx: e._days.indexOf(d) + 1, total: e._days.length });
+        var c = dayCounts[d] = dayCounts[d] || { n: 0, star: false };
+        c.n++; if (stars.has(e.id)) c.star = true;
+      });
+    });
+    /* regular dated occurrences add dots (not list rows) */
+    regulars.forEach(function (e) { visibleDays(e).forEach(function (d) { var c = dayCounts[d] = dayCounts[d] || { n: 0, star: false }; c.n++; if (stars.has(e.id)) c.star = true; }); });
+
+    /* blocks */
+    var blocks = "";
+    var openOngoing = store.get(NS + "open-ongoing", false), openReg = store.get(NS + "open-regulars", false);
+    if (ongoing.length) blocks += '<details class="block" id="blk-ongoing"' + (openOngoing ? " open" : "") + '><summary><span>Ongoing — exhibitions &amp; runs <span class="count">· ' + ongoing.length + '</span></span><span class="hint">' + esc(ongoing.map(function (e) { return e.title_en; }).join(" · ")) + "</span>" + icon("chev", "chev") + '</summary><div class="block-body">' +
+      ongoing.map(function (e) { return card(e, { lead: "until " + fmtShort(e.end_date), idPrefix: "o-" }); }).join("") + "</div></details>";
+    if (regulars.length) blocks += '<details class="block" id="blk-regulars"' + (openReg ? " open" : "") + '><summary><span>Regulars <span class="count">· ' + regulars.length + '</span></span><span class="hint">' + esc(regulars.map(function (e) { return e.recurrence; }).join(" · ")) + "</span>" + icon("chev", "chev") + '</summary><div class="block-body">' +
+      regulars.map(function (e) { return card(e, { lead: esc(e.recurrence || "Recurring") + (e.start_time ? ", from " + esc(e.start_time) : ""), idPrefix: "r-" }); }).join("") + "</div></details>";
+    document.getElementById("blocks").innerHTML = blocks;
+
+    /* bands */
+    var days = Object.keys(byDay).sort();
+    var html = "";
+    bandsFor(TODAY).forEach(function (b) {
+      var ds = days.filter(function (d) { return d >= b.from && d <= b.to; });
+      if (!ds.length && !b.weekend) return;
+      var range = b.to === "9999-12-31" ? "" : fmtShort(b.from) + (b.from !== b.to ? "–" + fmtShort(b.to) : "");
+      html += '<section class="band' + (b.weekend ? " weekend" : "") + '" aria-labelledby="band-' + b.key + '"><h2 id="band-' + b.key + '">' + b.title + (range ? " <small>" + range + "</small>" : "") + "</h2>";
+      if (!ds.length) html += '<p class="past-note" style="padding:0 4px 8px">Nothing dated matches your filters this weekend' + (regulars.length ? " — see Regulars above." : ".") + "</p>";
+      ds.forEach(function (d) {
+        html += '<section class="day" id="d-' + d + '" data-day="' + d + '"><h3 class="day-h">' + (d === TODAY && !stale ? '<span class="today-tag">Today</span>' : "") + fmtDay(d) +
+          (isWeekend(d) && !b.weekend ? '<span class="we-tag">weekend</span>' : "") + '</h3><div class="day-list">';
+        byDay[d].sort(function (x, y) {
+          if (x.first !== y.first) return x.first ? -1 : 1;
+          return (x.e.start_time || "99").localeCompare(y.e.start_time || "99");
+        }).forEach(function (r) {
+          if (r.first) html += card(r.e, r.idx > 1 ? { lead: timeText(r.e), noSpan: false } : null);
+          else html += '<a class="continues" href="#c-' + esc(r.e.id) + '" style="--cat: var(--c-' + r.e.category + ')">' + icon("cont") +
+            "<span>continues: <b>" + esc(r.e.title_en) + "</b> (day " + r.idx + " of " + r.total + ")</span></a>";
+        });
+        html += "</div></section>";
+      });
+      html += "</section>";
+    });
+    var nShown = dated.filter(function (e) { return visibleDays(e).length; }).length + ongoing.length + regulars.length + tbc.length;
+    if (!nShown) html = '<div class="empty-state"><p>No events match these filters.</p><button class="btn" type="button" onclick="document.getElementById(\'clear-filters\').click()">Clear filters</button></div>';
+    document.getElementById("list").innerHTML = html;
+
+    /* tbc */
+    document.getElementById("tbc").innerHTML = tbc.length ? '<section class="band" aria-labelledby="band-tbc"><h2 id="band-tbc">Date to be confirmed</h2><div class="day-list">' +
+      tbc.map(function (e) { return card(e, { lead: '<span class="tbc">date tbc</span>', idPrefix: "t-" }); }).join("") + "</div></section>" : "";
+
+    /* result line */
+    var filtered = F.cats.size || F.dist !== "any" || F.free || F.weekend || F.picks || F.q;
+    document.getElementById("result-line").innerHTML = "<span>" + nShown + " of " + EVENTS.length + " events" + (filtered ? " match" : "") + "</span>" +
+      (filtered ? '<button type="button" class="linkish" id="clear-filters">Clear filters</button>' : "") +
+      (F.picks && !stars.size ? "<span>Tap ☆ on any event to add it to My picks.</span>" : "");
+
+    renderNav();
+    measure();
+    syncActive();
+  }
+
+  /* ------------------------------------------------- strip & month grids */
+  function dayBtn(d, extra) {
+    var c = dayCounts[d];
+    var cls = "day-btn" + (isWeekend(d) ? " we" : "") + (d === TODAY && !stale ? " today" : "") + (d < TODAY ? " past" : "") + (!c ? " empty" : "");
+    var dots = "";
+    if (c) { for (var i = 0; i < Math.min(c.n, 3); i++) dots += '<span class="dot"></span>'; if (c.star) dots = '<span class="dot star">' + STAR + "</span>" + dots.slice(0, dots.lastIndexOf("<span")); }
+    var label = fmtDay(d) + (d === TODAY ? ", today" : "") + ": " + (c ? c.n + (c.n === 1 ? " event" : " events") + (c.star ? ", includes a pick" : "") : "no events");
+    return '<button type="button" class="' + cls + '" data-go="' + d + '" aria-label="' + label + '">' + (extra || "") + '<span class="num">' + parse(d).getDate() + '</span><span class="dots" aria-hidden="true">' + dots + "</span></button>";
+  }
+  function renderNav() {
+    /* phone strip: window start..end */
+    var s = "", prevM = -1;
+    for (var d = WIN.start; d <= WIN.end; d = add(d, 1)) {
+      var m = parse(d).getMonth();
+      if (m !== prevM) { s += '<span class="mlabel" aria-hidden="true">' + MO[m] + "</span>"; prevM = m; }
+      s += dayBtn(d, '<span class="wd" aria-hidden="true">' + WD[dow(d)].slice(0, 2) + "</span>");
+    }
+    document.getElementById("strip").innerHTML = s;
+
+    /* desktop: one grid per month in the window */
+    var r = "", cur = WIN.start.slice(0, 7) + "-01";
+    while (cur <= WIN.end) {
+      var dt = parse(cur), y = dt.getFullYear(), mo = dt.getMonth();
+      r += '<div class="month"><h2>' + MONTHS[mo] + " " + y + '</h2><div class="grid" role="group" aria-label="' + MONTHS[mo] + '">';
+      ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"].forEach(function (x, i) { r += '<span class="dow' + (i > 4 ? " we" : "") + '" aria-hidden="true">' + x + "</span>"; });
+      var lead = (dow(cur) + 6) % 7;
+      for (var i = 0; i < lead; i++) r += "<span></span>";
+      for (var dd = cur; parse(dd).getMonth() === mo; dd = add(dd, 1)) {
+        if (dd < WIN.start || dd > WIN.end) r += '<span class="day-btn out" aria-hidden="true"><span class="num">' + parse(dd).getDate() + "</span></span>";
+        else r += dayBtn(dd);
+      }
+      r += "</div></div>";
+      cur = add(cur, 32).slice(0, 7) + "-01";
+    }
+    r += '<div class="legend"><span><span class="dots"><span class="dot"></span></span>one event (up to 3 shown)</span><span><span class="dots"><span class="dot star">' + STAR + '</span></span>a day with one of your picks</span><span><span class="day-btn today" style="height:auto;width:auto;display:inline-flex"><span class="num">' + parse(TODAY).getDate() + '</span></span>&nbsp; today</span></div>';
+    document.getElementById("rail").innerHTML = r;
+  }
+
+  /* ----------------------------------------------- scroll sync & jumping */
+  var stripWrap = document.getElementById("strip-wrap");
+  var stickyTop = 0;
+  function measure() {
+    stickyTop = getComputedStyle(stripWrap).display === "none" ? 0 : stripWrap.offsetHeight;
+    document.documentElement.style.setProperty("--sticky-top", stickyTop + "px");
+  }
+  var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var activeDay = null, jumping = 0;
+  function setActive(d) {
+    if (d === activeDay) return;
+    activeDay = d;
+    document.querySelectorAll(".day-btn.active").forEach(function (b) { b.classList.remove("active"); b.removeAttribute("aria-current"); });
+    if (!d) return;
+    document.querySelectorAll('.day-btn[data-go="' + d + '"]').forEach(function (b) { b.classList.add("active"); b.setAttribute("aria-current", "date"); });
+    var sb = document.querySelector('#strip .day-btn[data-go="' + d + '"]');
+    if (sb && stickyTop) {
+      var strip = document.getElementById("strip");
+      var left = sb.offsetLeft - strip.clientWidth / 2 + sb.offsetWidth / 2;
+      strip.scrollTo({ left: Math.max(0, left), behavior: reduceMotion ? "auto" : "smooth" });
+    }
+  }
+  function syncActive() {
+    var secs = document.querySelectorAll("#list .day");
+    var line = stickyTop + 60, best = null;
+    for (var i = 0; i < secs.length; i++) { if (secs[i].getBoundingClientRect().top <= line) best = secs[i].dataset.day; else break; }
+    if (!best && secs.length) best = secs[0].dataset.day;
+    setActive(best);
+  }
+  var ticking = false;
+  window.addEventListener("scroll", function () {
+    if (jumping || ticking) return; ticking = true;
+    requestAnimationFrame(function () { ticking = false; syncActive(); });
+  }, { passive: true });
+  window.addEventListener("resize", function () { measure(); syncActive(); });
+
+  document.addEventListener("click", function (ev) {
+    var go = ev.target.closest("[data-go]");
+    if (go) {
+      var d = go.dataset.go, secs = document.querySelectorAll("#list .day"), target = null;
+      for (var i = 0; i < secs.length; i++) if (secs[i].dataset.day >= d) { target = secs[i]; break; }
+      if (!target) return;
+      var y = target.getBoundingClientRect().top + window.scrollY - stickyTop + 1;
+      jumping++; setActive(target.dataset.day);
+      window.scrollTo({ top: y, behavior: reduceMotion ? "auto" : "smooth" });
+      setTimeout(function () { jumping--; }, reduceMotion ? 50 : 700);
+      return;
+    }
+    var st = ev.target.closest("[data-star]");
+    if (st) {
+      var id = st.dataset.star;
+      stars.has(id) ? stars.delete(id) : stars.add(id); saveStars();
+      var on = stars.has(id);
+      document.querySelectorAll('[data-star="' + CSS.escape(id) + '"]').forEach(function (b) { b.setAttribute("aria-pressed", on); b.closest(".card").classList.toggle("starred", on); });
+      updatePicksChip();
+      if (F.picks) renderAll(); else { recountStars(); }
+      return;
+    }
+    var tg = ev.target.closest(".card-toggle");
+    if (tg) {
+      var c = tg.closest(".card"), open = !c.classList.contains("open");
+      c.classList.toggle("open", open); tg.setAttribute("aria-expanded", open);
+      var ia = open && c.querySelector("[data-ics]"); if (ia) fillIcs(ia);
+      return;
+    }
+    var ics = ev.target.closest("[data-ics]");
+    if (ics) { fillIcs(ics); return; }
+    var cont = ev.target.closest(".continues");
+    if (cont) {
+      var tgt = document.querySelector(cont.getAttribute("href"));
+      if (tgt) { ev.preventDefault(); tgt.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" }); tgt.querySelector(".card-toggle").focus({ preventScroll: true }); }
+    }
+  });
+  function recountStars() { renderNav(); var a = activeDay; activeDay = null; setActive(a); }
+  document.addEventListener("toggle", function (ev) {
+    if (ev.target.id === "blk-ongoing") store.set(NS + "open-ongoing", ev.target.open);
+    if (ev.target.id === "blk-regulars") store.set(NS + "open-regulars", ev.target.open);
+  }, true);
+
+  /* ----------------------------------------------------------------- .ics */
+  function icsEsc(s) { return String(s || "").replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n"); }
+  function fold(line) {
+    var out = [], cur = "", bytes = 0, enc = new TextEncoder();
+    for (var ch of line) {
+      var b = enc.encode(ch).length;
+      if (bytes + b > (out.length ? 74 : 75)) { out.push(cur); cur = ""; bytes = 0; }
+      cur += ch; bytes += b;
+    }
+    out.push(cur); return out.join("\r\n ");
+  }
+  function ymd(d) { return d.replace(/-/g, ""); }
+  function hm(t) { return t.replace(":", "") + "00"; }
+  function addHours(d, t, h) {
+    var p = t.split(":"), mins = +p[0] * 60 + +p[1] + h * 60, dd = d;
+    while (mins >= 1440) { mins -= 1440; dd = add(dd, 1); }
+    return { d: dd, t: String(Math.floor(mins / 60)).padStart(2, "0") + ":" + String(mins % 60).padStart(2, "0") };
+  }
+  function stampNow() { var n = new Date(); return n.getUTCFullYear() + p2(n.getUTCMonth() + 1) + p2(n.getUTCDate()) + "T" + p2(n.getUTCHours()) + p2(n.getUTCMinutes()) + p2(n.getUTCSeconds()) + "Z"; }
+  /* Times are floating local times, with no zone attached: they are the clock in Portugal. */
+  function vevent(e, start, end, uidSuffix) {
+    var L = ["BEGIN:VEVENT", "UID:" + e.id + (uidSuffix || "") + "@rio-maior-events", "DTSTAMP:" + stampNow()];
+    var note = "";
+    if (e.start_time && start === end) {
+      var en = addHours(start, e.start_time, 2);
+      L.push("DTSTART:" + ymd(start) + "T" + hm(e.start_time));
+      L.push("DTEND:" + ymd(en.d) + "T" + hm(en.t));
+      note = "End time assumed (2 h). ";
+    } else {
+      L.push("DTSTART;VALUE=DATE:" + ymd(start));
+      L.push("DTEND;VALUE=DATE:" + ymd(add(end, 1)));
+      if (e.start_time) note = "Starts " + e.start_time + " each day. "; else if (start === end) note = "Time to be confirmed. ";
+    }
+    L.push("SUMMARY:" + icsEsc(e.title_en + (e.title_pt && e.title_pt !== e.title_en ? " / " + e.title_pt : "")));
+    L.push("LOCATION:" + icsEsc([e.venue, e.town].filter(Boolean).join(", ")));
+    var desc = note + (e.description_en || "") + (e.confidence === "low" ? "\nCHECK SOURCE: " + (e.caveat || "low confidence") : "") +
+      (e.sources || []).map(function (s) { return "\n" + s.name + (safeUrl(s.url) ? ": " + s.url : ""); }).join("");
+    L.push("DESCRIPTION:" + icsEsc(desc));
+    if (e.sources && e.sources[0] && safeUrl(e.sources[0].url)) L.push("URL:" + e.sources[0].url);
+    L.push("END:VEVENT");
+    return L;
+  }
+  function icsText(e) {
+    var lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//rio-maior-events//EN", "CALSCALE:GREGORIAN", "METHOD:PUBLISH"];
+    if (e.kind === "recurring") {
+      var ds = visibleDays(e).length ? visibleDays(e) : (e.dates || []);
+      ds.slice(0, 12).forEach(function (d, i) { lines = lines.concat(vevent(e, d, d, "-" + i)); });
+    } else if (e.kind === "ongoing") {
+      lines = lines.concat(vevent(Object.assign({}, e, { start_time: null }), e.start_date > TODAY ? e.start_date : TODAY, e.end_date));
+    } else {
+      lines = lines.concat(vevent(e, e.start_date, e.end_date || e.start_date));
+    }
+    lines.push("END:VCALENDAR");
+    return lines.map(fold).join("\r\n") + "\r\n";
+  }
+  /* A data: link, so it still saves where Blob downloads are blocked. Built when the card opens or the link is pressed. */
+  function fillIcs(a) {
+    var e = EVENTS.find(function (x) { return x.id === a.dataset.ics; });
+    if (!e || e.date_tbc) return;
+    a.href = "data:text/calendar;charset=utf-8," + encodeURIComponent(icsText(e));
+    a.setAttribute("download", norm(e.title_en || e.id).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60) + ".ics");
+  }
+
+  /* -------------------------------------------------------------- sources */
+  document.getElementById("sources").innerHTML = '<h2 id="sources-h">Sources checked</h2><ul>' +
+    (DATA.sources_checked || []).map(function (s) {
+      return "<li>" + link(s.url, esc(s.name)) + (s.ok ? "" : ' — <span class="bad">unreachable</span>' + (s.error ? " (" + esc(s.error) + ")" : "")) + "</li>";
+    }).join("") + "</ul><p>Times are local, Portugal. Drive times are estimates from " + esc(DATA.origin || "the town centre") + ".</p>";
+  document.getElementById("sources").id = "sources";
+
+  renderAll();
+})();
+</script>
+</body>
+</html>
