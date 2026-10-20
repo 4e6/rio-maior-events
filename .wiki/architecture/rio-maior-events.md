@@ -6,7 +6,7 @@ tags: [architecture, skill, network, page]
 sources:
   - resource: skills/rio-maior-events/**
   - resource: evals/rio-maior-events/**
-sources_digest: 2db0c6469e760e38
+sources_digest: a266ef51af1cd077
 ---
 
 # What it is
@@ -23,11 +23,13 @@ and each has its own traps.
 - **`collect.py` fetches.** The municipal calendar is a JSON endpoint that
   takes a POST, which a page-reading tool cannot send, and a script makes a run
   repeatable and testable. It fetches each source once, in turn, and writes for
-  each the JSON-LD events it found and the page's visible text, capped at
-  30,000 characters. It parses no site's layout: layouts change, and a model
-  reads changed text better than a regex does.
+  each the events it found (JSON-LD, or the items of a JSON or Next.js source)
+  and the page's visible text, capped at 30,000 characters. It parses no HTML
+  layout: layouts change, and a model reads changed text better than a regex
+  does. Only data a site publishes as data (JSON, a framework's embedded list)
+  is read by field.
 - **The model reads.** Portuguese dates with no year, a misleading "Hoje!"
-  label, times that are an hour off, the same race on two calendars, far-away
+  label, times that are an hour off, the same event on two sources, far-away
   Eventbrite listings: `references/sources.md` lists them
   ([below](#the-sources)), and judging them is the model's job. It writes
   `rio-maior-events.json` to `references/events-schema.json`.
@@ -37,30 +39,16 @@ and each has its own traps.
 
 # The sources
 
-Checked by fetching on 2026-10-20; the full list with how to read each is
+The municipal calendar (its times are UTC, which first looked an hour off
+against the Cineteatro; `collect.py` converts them to Portugal time, the
+summer-time rule written out so no time-zone database is needed), the
+Cineteatro, Viral Agenda, one race calendar, and the own agenda of every
+municipality within about 45 minutes whose site a plain GET can read: HTML
+pages, two JSON endpoints and three Next.js sites. Per source, how it was
+verified, how to check it by hand, why it was chosen, and the sites that could
+not be read, by municipality, are on
+[the sources page](rio-maior-events-sources.md); how to read each is
 `references/sources.md`.
-
-- **Backbone**: the Rio Maior municipal calendar (its times are UTC, which
-  first looked an hour off against the Cineteatro; `collect.py` converts them
-  to Portugal time, the summer-time rule written out so no time-zone database is
-  needed), the Cineteatro de Rio Maior agenda, Viral Agenda's page for
-  each of nine nearby municipalities, and Portugal Running's district pages
-  for Santarém, Leiria and Lisboa.
-- **One race calendar.** Race calendars list the same races, so the skill reads
-  one. Portugal Running won: it lists road races, trails and walks months
-  ahead with each race's town, and lets a script in. GoTrail and Running.life
-  answer the script with a 403; Racefinder's only listing by area is a filter
-  its robots.txt asks automated visitors not to use.
-- **Supplementary**: the agendas of Santarém, Caldas da Rainha, Torres Novas and
-  Cartaxo, and Eventbrite filtered to the towns in `towns.md`.
-- **Not used**: the local paper (stale since 2019), O Mirante's agenda (HTTP
-  500), Alcobaça's site and Visit Alentejo (built by script), Porto de Mós and
-  Azambuja (PDF or image agendas), Facebook and Instagram (login; the Cineteatro
-  now announces mostly there), Ticketline and the local TV site (unreachable).
-  No municipal app or digital street screens were found.
-- **Viral Agenda's district pages** were rejected for its municipality pages:
-  a district page runs to towns over an hour away and a text cap cuts it after a
-  few days; a municipality page is 3–5k characters and about two weeks.
 
 Most agendas show the current month only and Viral Agenda about two weeks, so
 later weeks rest on few sources; the page says which in its `note`.
@@ -69,7 +57,7 @@ later weeks rest on few sources; the page says which in its `note`.
 
 [The overview](/overview.md) calls a skill a payload that runs on the user's
 host. This one reaches the network by its own code, so `compatibility` says
-what and how much: about 19 public pages per run, one POST and the rest GETs,
+what and how much: about 41 public pages per run, one POST and the rest GETs,
 read-only.
 
 - `collect.py` is the only script that imports `urllib`. `render.py` reads its

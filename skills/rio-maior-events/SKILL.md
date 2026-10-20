@@ -13,7 +13,7 @@ description: >-
 license: MIT
 compatibility: >-
   Needs web access. With Python 3.9 or newer (standard library only), the
-  collect script fetches about 19 public pages per run (one POST to the Rio
+  collect script fetches about 41 public pages per run (one POST to the Rio
   Maior municipal calendar, the rest GETs), read-only, once each, and the
   render script turns the events into the page offline. Without Python, the
   sources are read with the host's own web tools and the events come as a list
@@ -62,6 +62,8 @@ address, and a new name loses both.
 python3 <this skill's directory>/scripts/collect.py rio-maior-collected.json --from <start> --to <end>
 ```
 
+A run fetches about 41 pages and takes a few minutes.
+
 It prints one line per source and exits 0 if any source was read. Exit 2 means
 every source failed, or a usage error; read the message.
 
@@ -78,7 +80,8 @@ the Cineteatro page covers part of it.
 ## Step 3 — Write rio-maior-events.json
 
 Read [references/sources.md](references/sources.md) now, then the collected
-file. Write one JSON document to
+file source by source, in parts if it is long, and check that every source
+marked `ok` was read. Write one JSON document to
 [references/events-schema.json](references/events-schema.json):
 
 - `window` as in step 1; `generated_at` now, with offset; `origin` "Rio Maior".

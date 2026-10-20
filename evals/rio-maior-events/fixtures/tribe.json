@@ -1,0 +1,51 @@
+{
+ "events": [
+  {
+   "id": 1,
+   "title": "Feira &#8211; Santa &amp; Iria",
+   "description": "<p>Quatro dias de <b>feira</b>.</p>",
+   "start_date": "2026-10-22 18:00:00",
+   "end_date": "2026-10-25 22:30:00",
+   "venue": [],
+   "cost": "",
+   "url": "https://www.example.pt/evento/feira/"
+  },
+  {
+   "id": 2,
+   "title": "Aula",
+   "description": "",
+   "start_date": "2026-10-30 20:00:00",
+   "end_date": "2026-10-30 21:00:00",
+   "venue": {
+    "id": 9,
+    "venue": "Auditório &amp; Sala",
+    "city": "Ourém"
+   },
+   "cost": "5 €",
+   "url": "https://www.example.pt/evento/aula/"
+  },
+  {
+   "id": 3,
+   "title": "Passado",
+   "description": "",
+   "start_date": "2026-03-01 10:00:00",
+   "end_date": "2026-03-01 12:00:00",
+   "venue": [],
+   "cost": "",
+   "url": "https://www.example.pt/evento/passado/"
+  },
+  {
+   "id": 4,
+   "title": "Muito longo",
+   "description": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+   "start_date": "2026-11-15 08:00:00",
+   "end_date": "2026-11-16 08:00:00",
+   "venue": [],
+   "cost": "",
+   "url": "https://www.example.pt/evento/longo/"
+  }
+ ],
+ "rest_url": "x",
+ "total": 4,
+ "total_pages": 1
+}

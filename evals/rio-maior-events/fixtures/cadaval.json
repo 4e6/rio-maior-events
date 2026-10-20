@@ -1,0 +1,35 @@
+{
+ "items": [
+  {
+   "title": "Festa das Adiafas &amp; Vinho",
+   "date": "2026-10-17T00:00:00",
+   "datef": "2026-10-25T00:00:00",
+   "link": {
+    "external": false,
+    "url": "/2716/festa-das-adiafas"
+   },
+   "category": {
+    "title": "Festas",
+    "id": 398
+   }
+  },
+  {
+   "title": "Sem link",
+   "date": "2026-11-02T00:00:00",
+   "datef": null,
+   "link": null
+  },
+  {
+   "title": "Velho",
+   "date": "2026-01-02T00:00:00",
+   "datef": "2026-01-03T00:00:00",
+   "link": {
+    "external": false,
+    "url": "/1/velho"
+   }
+  }
+ ],
+ "metaTags": "<title>x</title>",
+ "count": 3,
+ "totalPages": 1
+}

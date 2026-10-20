@@ -5,15 +5,22 @@
 
 The window is --from (default today) to --to (default 42 days later); events
 outside it are dropped where their dates can be read. Each source is fetched
-once, in turn, with a 20 second timeout and a pause between two requests to
-the same site; after a refusal (403, 429, a 5xx), a timeout or a connection
-error the rest of that site's pages are skipped. The reason this is a script: the cm
-calendar needs a POST, and a script makes the run repeatable. A source that
-fails is recorded with ok false and an error and the rest carry on. For every
-page the file holds the schema.org Event objects found in its JSON-LD and the
-visible text, capped; the cm-riomaior calendar is a JSON endpoint and holds
-items only. Reading, dating and merging the events is left to whoever reads the
-file.
+once, in turn, with a 20 second timeout and a pause of 1.5 seconds between two
+requests to the same site; after a refusal (403, 429, a 5xx), a timeout or a
+connection error the rest of that site's pages are skipped. A run makes about
+41 requests (one per source) and takes a few minutes. The reason this is a
+script: the cm calendar needs a POST, and a script makes the run repeatable. A
+source that fails is recorded with ok false and an error and the rest carry on.
+
+Kinds of source: html_text and html_jsonld give, for every page, the
+schema.org Event objects found in its JSON-LD and the visible text, capped
+(TEXT_CAP, or the source's own `cap`); cm_json is the cm-riomaior calendar, a
+POST that returns items only; json_get is a GET that returns JSON, mapped to
+items by a per-source mapper (the Events Calendar plugin at Ourem, the Cadaval
+portal); nextjs reads the events a Next.js page embeds in its
+self.__next_f.push chunks (the `eventsList` key; dates are midnight, so the
+items carry a day and no time). Reading, dating and merging the events is left
+to whoever reads the file.
 
 Exit 0 when at least one source was read, even if others failed. Exit 2, with a
 message on stderr, for a usage error or when every source failed.
@@ -55,8 +62,11 @@ USER_AGENT = (
 CM_BASE = "https://www.cm-riomaior.pt"
 CM_CATEGORIES = "116,121,122,134,135,136,137,138,139"
 
-# kind: cm_json (JSON endpoint), html_text (text only), html_jsonld (text and
-# JSON-LD events; every html page gets both, the kind says what to expect).
+# kind: cm_json (JSON endpoint, POST), html_text (text only), html_jsonld (text
+# and JSON-LD events; every html page gets both, the kind says what to expect),
+# json_get (GET returning JSON, `mapper` names the field map, `window_params`
+# the query parameters that take the window), nextjs (events embedded in a
+# Next.js page). `cap` overrides TEXT_CAP for a page that is mostly noise.
 SOURCES = [
     {"name": "cm-riomaior", "kind": "cm_json", "town": "Rio Maior",
      "url": CM_BASE + "/index.php?option=com_ajax&module=calendar&method=getEvents&format=json"},
@@ -96,6 +106,51 @@ SOURCES = [
      "url": "https://www.cm-cartaxo.pt/informacao/agenda"},
     {"name": "eventbrite", "kind": "html_jsonld", "town": "Rio Maior",
      "url": "https://www.eventbrite.pt/d/portugal--rio-maior/events/"},
+    {"name": "leiriagenda", "kind": "html_text", "town": "Leiria",
+     "url": "https://leiriagenda.cm-leiria.pt/pt"},
+    {"name": "teatro-virginia", "kind": "html_text", "town": "Torres Novas",
+     "url": "https://www.teatrovirginia.pt/"},
+    {"name": "cm-tvedras-musica", "kind": "html_text", "town": "Torres Vedras",
+     "url": "https://www.cm-tvedras.pt/agenda/categoria/37"},
+    {"name": "teatrocine-tvedras", "kind": "html_text", "town": "Torres Vedras",
+     "url": "https://teatrocine-tvedras.pt/"},
+    {"name": "cm-alcobaca", "kind": "html_text", "town": "Alcobaça",
+     "url": "https://cm-alcobaca.pt/"},
+    {"name": "cineteatro-alcobaca", "kind": "html_text", "town": "Alcobaça",
+     "url": "https://www.cineteatro.cm-alcobaca.pt/"},
+    {"name": "ccc-caldas", "kind": "html_text", "town": "Caldas da Rainha",
+     "url": "https://ccc.com.pt/"},
+    {"name": "agenda-obidos", "kind": "html_text", "town": "Óbidos",
+     "url": "https://agenda.obidos.pt/"},
+    {"name": "cm-portodemos", "kind": "html_text", "town": "Porto de Mós",
+     "url": "https://www.municipio-portodemos.pt/"},
+    {"name": "cm-alcanena", "kind": "html_text", "town": "Alcanena",
+     "url": "https://cm-alcanena.pt/index.php/comunicacao/agenda"},
+    {"name": "cm-almeirim", "kind": "html_text", "town": "Almeirim",
+     "url": "https://www.cm-almeirim.pt/informacoes/eventos"},
+    {"name": "cm-batalha", "kind": "html_text", "town": "Batalha",
+     "url": "https://www.cm-batalha.pt/municipe/comunicacao/agenda-cultural"},
+    {"name": "cm-entroncamento", "kind": "html_text", "town": "Entroncamento",
+     "url": "https://www.cm-entroncamento.pt/index.php/agenda"},
+    {"name": "cm-nazare", "kind": "html_text", "town": "Nazaré",
+     "url": "https://www.cm-nazare.pt/visitar/todos-os-eventos"},
+    {"name": "cm-peniche", "kind": "html_text", "town": "Peniche", "cap": 4000,
+     "url": "https://www.cm-peniche.pt/visitar/agenda-de-eventos"},
+    {"name": "cm-chamusca", "kind": "html_text", "town": "Chamusca",
+     "url": "https://www.cm-chamusca.pt/informacoes/comunicacao-institucional/eventos"},
+    {"name": "cm-vnbarquinha", "kind": "html_text", "town": "Vila Nova da Barquinha",
+     "url": "https://www.cm-vnbarquinha.pt/index.php/viver/agenda"},
+    {"name": "ourem", "kind": "json_get", "town": "Ourém", "mapper": "tribe",
+     "window_params": ("start_date", "end_date"),
+     "url": "https://www.ourem.pt/wp-json/tribe/events/v1/events?per_page=50"},
+    {"name": "cm-cadaval", "kind": "json_get", "town": "Cadaval", "mapper": "cadaval",
+     "url": "https://api.cm-cadaval.pt.stage.vf-portal.com/website/Events/1?page=1&lang=pt"},
+    {"name": "cm-bombarral", "kind": "nextjs", "town": "Bombarral",
+     "url": "https://www.cm-bombarral.pt/agenda"},
+    {"name": "cm-lourinha", "kind": "nextjs", "town": "Lourinhã",
+     "url": "https://www.cm-lourinha.pt/agenda"},
+    {"name": "cm-alenquer", "kind": "nextjs", "town": "Alenquer",
+     "url": "https://www.alenquer.pt/agenda"},
 ]
 
 CM_NOTE = (
@@ -187,15 +242,21 @@ class _TextParser(HTMLParser):
         self.parts.append(data)
 
 
+def _markup_line(line):
+    """A line that is leftover markup (an Office conditional comment, say)."""
+    return line.startswith("<") or "mso-" in line or "w:Lsd" in line
+
+
 def visible_text(page, cap=TEXT_CAP):
-    """Visible text of an HTML page as (text, truncated)."""
+    """Visible text of an HTML page as (text, truncated), without lines that
+    are leftover markup."""
     parser = _TextParser()
     parser.feed(page)
     parser.close()
     lines = []
     for line in "".join(parser.parts).split("\n"):
         line = re.sub(r"[ \t\r\f\v ]+", " ", html.unescape(line)).strip()
-        if line:
+        if line and not _markup_line(line):
             lines.append(line)
     text = "\n".join(lines)
     if len(text) > cap:
@@ -334,6 +395,97 @@ def parse_cm_json(raw, window):
     return items
 
 
+def _plain(value, cap=None):
+    """Text of a string that may hold entities and tags, on one line."""
+    if not isinstance(value, str):
+        return None
+    value = html.unescape(re.sub(r"<[^>]*>", " ", html.unescape(value)))
+    value = re.sub(r"\s+", " ", value).strip()
+    return (value[:cap] if cap else value) or None
+
+
+def _item(title, start, end, venue=None, url=None, price=None, description=None):
+    return {"title": _plain(title), "start": start, "end": end, "venue": _plain(venue),
+            "url": url, "price": price or None, "description": _plain(description, DESCRIPTION_CAP)}
+
+
+def _keep_window(items, window):
+    return [i for i in items if in_window(i["start"], i["end"], window)]
+
+
+def map_tribe(data, base):
+    """The Events Calendar (WordPress) REST answer; `venue` is [] without one."""
+    events = data.get("events") if isinstance(data, dict) else None
+    if not isinstance(events, list):
+        raise ValueError("expected an object with an events array")
+    items = []
+    for event in events:
+        venue = event.get("venue")
+        name = venue.get("venue") if isinstance(venue, dict) else None
+        items.append(_item(event.get("title"), event.get("start_date"), event.get("end_date"),
+                           name, event.get("url"), event.get("cost"), event.get("description")))
+    return items
+
+
+def map_cadaval(data, base):
+    """The Cadaval portal's event list: dates are midnight, links site-relative."""
+    events = data.get("items") if isinstance(data, dict) else None
+    if not isinstance(events, list):
+        raise ValueError("expected an object with an items array")
+    items = []
+    for event in events:
+        link = event.get("link")
+        link = link.get("url") if isinstance(link, dict) else link
+        url = urllib.parse.urljoin(base + "/", link) if isinstance(link, str) and link else base + "/"
+        items.append(_item(event.get("title"), _day(event.get("date")), _day(event.get("datef")),
+                           url=url))
+    return items
+
+
+# The public site that serves each portal's pages ("/2716/slug" under it).
+CADAVAL_SITE = "https://www.cm-cadaval.pt"
+MAPPERS = {"tribe": (map_tribe, None), "cadaval": (map_cadaval, CADAVAL_SITE)}
+
+
+def parse_json_get(raw, source, window):
+    """Items of a json_get source inside the window."""
+    mapper, base = MAPPERS[source["mapper"]]
+    data = json.loads(raw.decode("utf-8"))
+    return _keep_window(mapper(data, base), window)
+
+
+NEXT_CHUNK_RE = re.compile(r'self\.__next_f\.push\(\[1,"((?:[^"\\]|\\.)*)"\]\)')
+
+
+def parse_nextjs(page, url, window):
+    """Items of a Next.js agenda page inside the window.
+
+    The page streams its data as self.__next_f.push([1,"..."]) string chunks;
+    one JSON value can span several. Join them all, then read the value after
+    "eventsList". Dates are midnight, so only the day is kept.
+    """
+    chunks = NEXT_CHUNK_RE.findall(page)
+    data = "".join(json.loads('"%s"' % chunk, strict=False) for chunk in chunks)
+    at = data.find('"eventsList":')
+    if at < 0:
+        raise ValueError("no eventsList in the page data (layout may have changed)")
+    at += len('"eventsList":')
+    at += len(data[at:]) - len(data[at:].lstrip())
+    value, _ = json.JSONDecoder().raw_decode(data, at)
+    events = value.get("items") if isinstance(value, dict) else None
+    if not isinstance(events, list):
+        raise ValueError("eventsList has no items array")
+    parts = urllib.parse.urlsplit(url)
+    site = "%s://%s/" % (parts.scheme, parts.netloc)
+    items = []
+    for event in events:
+        link = event.get("link")
+        items.append(_item(event.get("title"), _day(event.get("startDate")), _day(event.get("endDate")),
+                           event.get("location"),
+                           urllib.parse.urljoin(site, link) if isinstance(link, str) and link else None))
+    return _keep_window(items, window)
+
+
 def _decode(body, content_type):
     match = re.search(r"charset=([\w-]+)", content_type or "", re.I)
     for charset in (match.group(1) if match else None, "utf-8"):
@@ -360,6 +512,15 @@ def cm_request_body():
     return urllib.parse.urlencode(fields).encode("ascii")
 
 
+def request_url(source, window):
+    """The URL to GET: the source's own, plus the window in the query if it takes it."""
+    names = source.get("window_params")
+    if not names:
+        return source["url"]
+    joiner = "&" if "?" in source["url"] else "?"
+    return source["url"] + joiner + urllib.parse.urlencode(list(zip(names, window)))
+
+
 def collect_source(source, window):
     result = {
         "name": source["name"], "url": source["url"], "town": source["town"],
@@ -367,20 +528,33 @@ def collect_source(source, window):
         "items": [], "text": None, "truncated": False,
     }
     try:
-        if source["kind"] == "cm_json":
+        kind = source["kind"]
+        if kind == "cm_json":
             status, body, _ = fetch(source["url"], cm_request_body())
             result["status"] = status
             result["items"] = parse_cm_json(body, window)
             result["note"] = CM_NOTE
             if not result["items"]:
                 result["note"] = "0 items in window; " + CM_NOTE
+        elif kind == "json_get":
+            status, body, _ = fetch(request_url(source, window))
+            result["status"] = status
+            result["items"] = parse_json_get(body, source, window)
+            if not result["items"]:
+                result["note"] = "0 items in window"
         else:
             status, body, content_type = fetch(source["url"])
             result["status"] = status
             page = _decode(body, content_type)
-            result["items"] = extract_jsonld_events(page, window)
-            result["text"], result["truncated"] = visible_text(page)
-            if not result["items"] and len(result["text"]) < MIN_TEXT:
+            if kind == "nextjs":
+                result["items"] = parse_nextjs(page, source["url"], window)
+            else:
+                result["items"] = extract_jsonld_events(page, window)
+            result["text"], result["truncated"] = visible_text(page, source.get("cap", TEXT_CAP))
+            if kind == "nextjs":
+                if not result["items"]:
+                    result["note"] = "0 items in window"
+            elif not result["items"] and len(result["text"]) < MIN_TEXT:
                 result["error"] = "no events or text found (layout may have changed)"
                 return result
         result["ok"] = True

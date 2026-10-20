@@ -258,6 +258,136 @@ class InlineText(unittest.TestCase):
         self.assertEqual(self.text("<a href=x>Concerto</a>, hoje"), "Concerto, hoje")
 
 
+class NextJs(unittest.TestCase):
+    URL = "https://www.example.pt/agenda"
+
+    def page(self, name="nextjs.html"):
+        return fixture(name).decode("utf-8")
+
+    def test_event_list_split_over_two_chunks_is_decoded(self):
+        items = collect.parse_nextjs(self.page(), self.URL, None)
+        self.assertEqual([i["title"] for i in items],
+                         ['Concerto "Primavera" | Ensaio \u00e0 luz', "Antigo", "Feira longa"])
+
+    def test_fields_dates_are_days_and_links_are_absolute(self):
+        item = collect.parse_nextjs(self.page(), self.URL, None)[0]
+        self.assertEqual(item["start"], "2026-10-24")
+        self.assertIsNone(item["end"])
+        self.assertEqual(item["venue"], "Teatro S\u00e3o Jo\u00e3o")
+        self.assertEqual(item["url"], "https://www.example.pt/agenda/concerto--primavera")
+
+    def test_window_keeps_running_events_and_drops_past_ones(self):
+        items = collect.parse_nextjs(self.page(), self.URL, WINDOW)
+        self.assertEqual([i["title"] for i in items][1:], ["Feira longa"])
+        self.assertEqual(len(items), 2)
+
+    def test_a_page_without_event_list_is_an_error(self):
+        with self.assertRaises(ValueError):
+            collect.parse_nextjs("<p>nothing</p>", self.URL, WINDOW)
+
+    def test_zero_items_is_ok_with_a_note(self):
+        source = {"name": "s", "url": self.URL, "town": "T", "kind": "nextjs"}
+        with mock.patch.object(collect, "fetch",
+                               return_value=(200, self.page("nextjs_empty.html").encode(), None)):
+            result = collect.collect_source(source, WINDOW)
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["note"], "0 items in window")
+
+    def test_collect_source_returns_items_and_text(self):
+        source = {"name": "s", "url": self.URL, "town": "T", "kind": "nextjs"}
+        with mock.patch.object(collect, "fetch", return_value=(200, fixture("nextjs.html"), None)):
+            result = collect.collect_source(source, WINDOW)
+        self.assertTrue(result["ok"])
+        self.assertEqual(len(result["items"]), 2)
+        self.assertIn("Agenda", result["text"])
+
+
+class JsonGet(unittest.TestCase):
+    tribe = {"name": "t", "kind": "json_get", "town": "T", "mapper": "tribe",
+             "url": "https://www.example.pt/wp-json/tribe/events/v1/events?per_page=50",
+             "window_params": ("start_date", "end_date")}
+    cadaval = {"name": "c", "kind": "json_get", "town": "C", "mapper": "cadaval",
+               "url": "https://api.example.test/website/Events/1?page=1&lang=pt"}
+
+    def test_tribe_titles_are_unescaped_and_venue_may_be_empty(self):
+        items = collect.parse_json_get(fixture("tribe.json"), self.tribe, None)
+        self.assertEqual(items[0]["title"], "Feira \u2013 Santa & Iria")
+        self.assertIsNone(items[0]["venue"])
+        self.assertEqual(items[0]["start"], "2026-10-22 18:00:00")
+        self.assertEqual(items[0]["end"], "2026-10-25 22:30:00")
+        self.assertEqual(items[0]["description"], "Quatro dias de feira .")
+        self.assertEqual(items[1]["venue"], "Audit\u00f3rio & Sala")
+        self.assertEqual(items[1]["price"], "5 \u20ac")
+        self.assertEqual(items[1]["url"], "https://www.example.pt/evento/aula/")
+
+    def test_tribe_window_and_description_cap(self):
+        items = collect.parse_json_get(fixture("tribe.json"), self.tribe, WINDOW)
+        self.assertEqual([i["title"] for i in items], ["Feira \u2013 Santa & Iria", "Aula", "Muito longo"])
+        self.assertEqual(len(items[2]["description"]), 300)
+
+    def test_the_window_is_added_to_the_request_url(self):
+        self.assertEqual(collect.request_url(self.tribe, WINDOW),
+                         self.tribe["url"] + "&start_date=2026-10-20&end_date=2026-12-01")
+        self.assertEqual(collect.request_url(self.cadaval, WINDOW), self.cadaval["url"])
+        bare = dict(self.tribe, url="https://www.example.pt/e")
+        self.assertEqual(collect.request_url(bare, WINDOW),
+                         "https://www.example.pt/e?start_date=2026-10-20&end_date=2026-12-01")
+
+    def test_collect_source_fetches_the_url_with_the_window(self):
+        with mock.patch.object(collect, "fetch", return_value=(200, fixture("tribe.json"), None)) as fetch:
+            result = collect.collect_source(self.tribe, WINDOW)
+        self.assertIn("start_date=2026-10-20", fetch.call_args[0][0])
+        self.assertEqual(result["url"], self.tribe["url"])
+        self.assertTrue(result["ok"])
+        self.assertIsNone(result["text"])
+        self.assertEqual(len(result["items"]), 3)
+
+    def test_cadaval_mapping(self):
+        items = collect.parse_json_get(fixture("cadaval.json"), self.cadaval, WINDOW)
+        self.assertEqual([i["title"] for i in items], ["Festa das Adiafas & Vinho", "Sem link"])
+        self.assertEqual(items[0]["start"], "2026-10-17")
+        self.assertEqual(items[0]["end"], "2026-10-25")
+        self.assertEqual(items[0]["url"], "https://www.cm-cadaval.pt/2716/festa-das-adiafas")
+        self.assertEqual(items[1]["url"], "https://www.cm-cadaval.pt/")
+
+    def test_zero_items_is_ok_with_a_note(self):
+        with mock.patch.object(collect, "fetch", return_value=(200, b'{"items": []}', None)):
+            result = collect.collect_source(self.cadaval, WINDOW)
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["note"], "0 items in window")
+
+    def test_wrong_shape_is_a_failure(self):
+        with mock.patch.object(collect, "fetch", return_value=(200, b"[1]", None)):
+            result = collect.collect_source(self.cadaval, WINDOW)
+        self.assertFalse(result["ok"])
+
+
+class TextCapAndMarkup(unittest.TestCase):
+    def test_markup_lines_are_dropped(self):
+        text, _ = collect.visible_text(fixture("markup.html").decode("utf-8"))
+        self.assertEqual(text, "Agenda de eventos\nConcerto no s\u00e1bado < 18h")
+
+    def test_a_source_cap_overrides_the_default(self):
+        source = {"name": "s", "url": "https://example.org/", "town": "T", "kind": "html_text", "cap": 250}
+        page = "<p>%s</p>" % ("evento " * 100)
+        with mock.patch.object(collect, "fetch", return_value=(200, page.encode(), None)):
+            result = collect.collect_source(source, WINDOW)
+        self.assertEqual(len(result["text"]), 250)
+        self.assertTrue(result["truncated"])
+
+    def test_peniche_has_a_cap(self):
+        peniche = [s for s in collect.SOURCES if s["name"] == "cm-peniche"][0]
+        self.assertEqual(peniche["cap"], 4000)
+
+
+class SourceKinds(unittest.TestCase):
+    def test_every_kind_has_what_it_needs(self):
+        for source in collect.SOURCES:
+            self.assertIn(source["kind"], ("cm_json", "html_text", "html_jsonld", "json_get", "nextjs"))
+            if source["kind"] == "json_get":
+                self.assertIn(source["mapper"], collect.MAPPERS)
+
+
 class SourceList(unittest.TestCase):
     def test_names_are_unique_and_documented(self):
         names = [s["name"] for s in collect.SOURCES]
