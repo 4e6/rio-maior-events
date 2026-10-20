@@ -12,7 +12,7 @@ The source list is kept in the script as data and mirrored here; change both tog
 - cm-riomaior
 - cineteatro
 - viralagenda
-- gotrail and running-life
+- portugalrunning
 - Supplementary municipal agendas
 - eventbrite
 - Known yearly events
@@ -63,9 +63,15 @@ A community aggregator, roughly two weeks of cards per page, with venue and ofte
 - A page lists events of its own municipality, but a card's venue can be in a neighbouring one; take the town from the venue.
 - Use each page's own link for the event, not a guessed one.
 
-## gotrail and running-life
+## portugalrunning
 
-`https://gotrail.run/calendario-trail-running/portugal/santarem/rio-maior` and `https://running.life/calendario-caminhadas/portugal/santarem/rio-maior`: trail races and walks around Rio Maior. The easiest sources: `items` hold JSON-LD `SportsEvent` objects with name, start and end date, place, url. Check `text` for a distance or price the JSON-LD leaves out. The same race often appears on both; keep one.
+Portugal Running's district pages, named `portugalrunning-<district>`: road races, trails and walks for months ahead, each card with its town.
+
+- `portugalrunning-santarem` `https://www.portugalrunning.com/corridas-santarem/`
+- `portugalrunning-leiria` `https://www.portugalrunning.com/corridas-leiria/`
+- `portugalrunning-lisboa` `https://www.portugalrunning.com/corridas-lisboa/` (for Azambuja, Cadaval, Alenquer; the rest of it is Lisbon and too far)
+
+Text only. A card reads: name with year, weekday, day and month ("dom 25 out"), a time where known ("0:00" or "Dia" means none given), `Tipo` and the distances, then "Town, District". Keep only towns in `towns.md`. The one race calendar this skill reads: the others list the same races.
 
 ## Supplementary municipal agendas
 
@@ -92,6 +98,9 @@ From past listings, not from this collection. Use one only as "date to be confir
 - Christmas market and Presépios de Sal at the Salinas: December.
 
 ## Not used, and why
+
+- GoTrail and Running.life (trail races and walks): mostly the same races as Portugal Running, and they refuse this script with a 403.
+- Racefinder (racefinder.pt): race pages are good (date, prices, distances), but the only listing by area is a filter its robots.txt asks automated visitors not to use, and it sends pages compressed in a way Python's standard library cannot read.
 
 - Região de Rio Maior (local paper): stale since 2019.
 - O Mirante agenda: HTTP 500.

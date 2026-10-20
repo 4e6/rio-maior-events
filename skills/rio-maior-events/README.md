@@ -28,8 +28,8 @@ when it opens.
 ## Where the events come from
 
 The Rio Maior municipal calendar, the Cineteatro de Rio Maior, Viral Agenda's
-pages for nine nearby municipalities, the GoTrail and Running.life calendars
-for trail races and walks, the agendas of Santarém, Caldas da Rainha, Torres
+pages for nine nearby municipalities, the Portugal Running calendar
+for races, the agendas of Santarém, Caldas da Rainha, Torres
 Novas and Cartaxo, and Eventbrite. Facebook and Instagram are not read, and the
 Cineteatro now announces mostly there, so some of its events may be missing.
 No municipal app or digital street screens were found online.

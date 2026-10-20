@@ -80,10 +80,12 @@ SOURCES = [
      "url": "https://www.viralagenda.com/pt/leiria/porto-de-mos"},
     {"name": "viralagenda-bombarral", "kind": "html_text", "town": "Bombarral",
      "url": "https://www.viralagenda.com/pt/leiria/bombarral"},
-    {"name": "gotrail", "kind": "html_jsonld", "town": "Rio Maior",
-     "url": "https://gotrail.run/calendario-trail-running/portugal/santarem/rio-maior"},
-    {"name": "running-life", "kind": "html_jsonld", "town": "Rio Maior",
-     "url": "https://running.life/calendario-caminhadas/portugal/santarem/rio-maior"},
+    {"name": "portugalrunning-santarem", "kind": "html_text", "town": "Santarém",
+     "url": "https://www.portugalrunning.com/corridas-santarem/"},
+    {"name": "portugalrunning-leiria", "kind": "html_text", "town": "Leiria",
+     "url": "https://www.portugalrunning.com/corridas-leiria/"},
+    {"name": "portugalrunning-lisboa", "kind": "html_text", "town": "Lisboa",
+     "url": "https://www.portugalrunning.com/corridas-lisboa/"},
     {"name": "cm-santarem", "kind": "html_text", "town": "Santarém",
      "url": "https://www.cm-santarem.pt/agenda"},
     {"name": "mcr-caldas", "kind": "html_text", "town": "Caldas da Rainha",
@@ -145,8 +147,7 @@ class _TextParser(HTMLParser):
             self.skip += not self.content
         elif tag in SKIP_TAGS:
             self.skip += 1
-        if tag in BLOCK_TAGS:
-            self.parts.append("\n")
+        self.parts.append("\n" if tag in BLOCK_TAGS else " ")
 
     def handle_startendtag(self, tag, attrs):
         if tag in BLOCK_TAGS:
@@ -160,8 +161,7 @@ class _TextParser(HTMLParser):
                 self.skip = max(0, self.skip - 1)
         elif tag in SKIP_TAGS:
             self.skip = max(0, self.skip - 1)
-        if tag in BLOCK_TAGS:
-            self.parts.append("\n")
+        self.parts.append("\n" if tag in BLOCK_TAGS else " ")
 
     def handle_data(self, data):
         if not self.skip:

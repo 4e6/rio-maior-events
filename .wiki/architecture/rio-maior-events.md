@@ -6,7 +6,7 @@ tags: [architecture, skill, network, page]
 sources:
   - resource: skills/rio-maior-events/**
   - resource: evals/rio-maior-events/**
-sources_digest: c4e3e7b08e3002cd
+sources_digest: 6ffd419469d50173
 ---
 
 # What it is
@@ -44,8 +44,13 @@ Checked by fetching on 2026-10-20; the full list with how to read each is
   first looked an hour off against the Cineteatro; `collect.py` converts them
   to Portugal time, the summer-time rule written out so no time-zone database is
   needed), the Cineteatro de Rio Maior agenda, Viral Agenda's page for
-  each of nine nearby municipalities, and the GoTrail and Running.life
-  calendars (JSON-LD).
+  each of nine nearby municipalities, and Portugal Running's district pages
+  for Santarém, Leiria and Lisboa.
+- **One race calendar.** Race calendars list the same races, so the skill reads
+  one. Portugal Running won: it lists road races, trails and walks months
+  ahead with each race's town, and lets a script in. GoTrail and Running.life
+  answer the script with a 403; Racefinder's only listing by area is a filter
+  its robots.txt asks automated visitors not to use.
 - **Supplementary**: the agendas of Santarém, Caldas da Rainha, Torres Novas and
   Cartaxo, and Eventbrite filtered to the towns in `towns.md`.
 - **Not used**: the local paper (stale since 2019), O Mirante's agenda (HTTP
@@ -64,7 +69,7 @@ later weeks rest on few sources; the page says which in its `note`.
 
 [The overview](/overview.md) calls a skill a payload that runs on the user's
 host. This one reaches the network by its own code, so `compatibility` says
-what and how much: about 18 public pages per run, one POST and the rest GETs,
+what and how much: about 19 public pages per run, one POST and the rest GETs,
 read-only.
 
 - `collect.py` is the only script that imports `urllib`. `render.py` reads its
@@ -74,9 +79,10 @@ read-only.
 - A site that refuses (a 403) or does not answer is recorded as failed and not
   retried another way. After a refusal (403, 429, a 5xx), a timeout or a
   connection error the rest of that site's pages are skipped, and requests to
-  one site are 1.5 s apart. GoTrail and Running.life answer Python's TLS handshake with a 403
-  while a browser gets the page; a fallback to `curl` was built and removed,
-  because getting round a refusal is not this script's call. The model may read
+  one site are 1.5 s apart. GoTrail and Running.life answered Python's TLS
+  handshake with a 403 while a browser got the page; a fallback to `curl` was
+  built and removed, because getting round a refusal is not this script's call,
+  and both were later dropped for Portugal Running. The model may read
   a failed source once with its own page-reading tool. Viral Agenda stopped
   answering this machine after about four full development passes in an hour,
   so SKILL.md says never to fetch a source repeatedly.

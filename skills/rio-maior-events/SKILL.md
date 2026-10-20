@@ -3,8 +3,8 @@ name: rio-maior-events
 description: >-
   Gathers upcoming leisure events in and around Rio Maior, Portugal (within
   about 45 minutes: Caldas da Rainha, Óbidos, Santarém, Alcobaça and more) from
-  the municipal calendar, the Cineteatro, Viral Agenda, trail-running and
-  walking calendars, neighbouring towns' agendas and Eventbrite, and renders
+  the municipal calendar, the Cineteatro, Viral Agenda, the Portugal Running
+  race calendar, neighbouring towns' agendas and Eventbrite, and renders
   them as one page: an agenda list beside a month calendar, with filters,
   starred picks and calendar (.ics) downloads. Use when someone asks what is
   on, what to do this weekend, or for concerts, fairs, markets, theatre, races
@@ -13,7 +13,7 @@ description: >-
 license: MIT
 compatibility: >-
   Needs web access. With Python 3.9 or newer (standard library only), the
-  collect script fetches about 18 public pages per run (one POST to the Rio
+  collect script fetches about 19 public pages per run (one POST to the Rio
   Maior municipal calendar, the rest GETs), read-only, once each, and the
   render script turns the events into the page offline. Without Python, the
   sources are read with the host's own web tools and the events come as a list
