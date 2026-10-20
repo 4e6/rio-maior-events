@@ -121,11 +121,11 @@ MARATONA" over "50ª Meia Maratona Internacional da Nazaré".
   or on request (Óbidos's, for example) is one `recurring` event with its
   recurrence in words, not one event per date. Dated performances (a play on two or three
   dates) are never `recurring`: write one `single` per date. A run of four or
-  more dates of one show (a play on every weekend of a month) is ONE event, not
-  `recurring`: `multi_day` when the dates are consecutive and span at most 7
-  days, else `ongoing`, with `start_date` the first date and `end_date` the
-  last. Put every date and time in the description; `dates` stays null (the
-  check accepts `dates` only on a `recurring` event).
+  more dates of one show is ONE event: `multi_day` when the dates are
+  consecutive and span at most 7 days; otherwise (a play on every weekend of a
+  month) `recurring`, with every date in `dates`, `start_date` the first,
+  `recurrence` in words ("Fri and Sat, 23 Oct – 14 Nov") and the times in the
+  description. Not `ongoing`: that would show it as on every day of the range.
 - A link is the event's own page: a detail's `url`, else the marker for its
   card (see "Link markers"), else the agenda page it was listed on.
 - `start_time` only where a source states it plainly (a card, or a detail's
