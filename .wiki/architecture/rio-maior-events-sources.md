@@ -6,7 +6,7 @@ tags: [architecture, skill, network]
 sources:
   - resource: skills/rio-maior-events/scripts/collect.py
   - resource: skills/rio-maior-events/references/sources.md
-sources_digest: 7edc135a97c2c9a4
+sources_digest: 10531f583206c87d
 ---
 
 # What this page is for
@@ -14,18 +14,21 @@ sources_digest: 7edc135a97c2c9a4
 [The skill's page](rio-maior-events.md) says why a script collects and the model
 reads. This page is for the person who keeps the list: which sources there are,
 how each was verified, how to check one by hand when a run reports it failed,
-and why a source was taken over its alternatives. **Addresses, layouts and date
-formats are not here**: they are in `references/sources.md`, which the model
-reads at run time, and in `collect.py`. A source added or dropped changes both
+and why a source was taken over its alternatives. **Addresses, layouts, reading traps and date
+formats are not here**: they are in
+[`references/sources.md`](../../skills/rio-maior-events/references/sources.md),
+which the model reads at run time, and in `collect.py`. A source added or dropped changes both
 and this page.
 
 # How everything was verified
 
 On 2026-10-20, one plain GET per page (and `robots.txt` once per host), the
 visible text read by eye. The two JSON sources and the three Next.js sites were
-decoded offline from the saved responses, not run through `collect.py`. Drive
-times in `towns.md` are estimates. A source is only as checked as that: a layout
-that changed since is the usual reason a run reports one failed or empty.
+first decoded offline from the saved responses; then `collect.py` itself was run
+on 2026-10-20 and read 32 of the 32 sources that are not Viral Agenda ok in 46
+seconds (the nine Viral Agenda pages were refused, see [Not reachable](#not-reachable)).
+Drive times in `towns.md` are estimates. A source is only as checked as that: a
+layout that changed since is the usual reason a run reports one failed or empty.
 
 Every page was fetched once, with no retry. None of the robots files disallows
 the paths read (several hold only the commented-out example text). The one
@@ -50,12 +53,10 @@ browser; the page should show dated cards for the coming weeks.
   refusing scripts, as GoTrail and Running.life did.
 - **Joomla agendas (Alcanena, Entroncamento, Vila Nova da Barquinha).** One
   template, so one change breaks three. Entroncamento asks for a crawl delay of
-  3; the collector reads one page of it. The lists open with events that have
-  already begun, so the coming ones are further down the page than the top.
+  3; the collector reads one page of it.
 - **Theatres and cinemas (Torres Novas, Torres Vedras, Alcobaça, Caldas da
-  Rainha).** Small pages, each one venue. The Caldas da Rainha centre's home
-  page is the thinnest: titles with dates only on some, so an empty read is
-  plausible and not a failure. Breaks when a venue moves to a ticketing service
+  Rainha).** Small pages, each one venue; the Caldas da Rainha centre's is the
+  thinnest, so an empty read there is plausible. Breaks when a venue moves to a ticketing service
   or hides the programme behind a script.
 - **Torres Vedras music category.** Chosen over the municipality's `/agenda/`:
   that listing has 56 pages and its first page held two days of workshops. The
@@ -63,31 +64,28 @@ browser; the page should show dated cards for the coming weeks.
   cinema categories were not fetched; the theatre's own page covers them.
 - **Leiria.** First page of 128 only. The agenda's own site is separate from the
   municipality's; the municipal site was not used. Breaks if the list is
-  loaded by script after the first page, which is why only page 1 is claimed.
+  loaded by script after the first page.
 - **Alcobaça home page.** Chosen over the municipality's agenda page, which is
-  built by script and gives nothing to a plain request. The home page's agenda
-  block is a fixed nine; the Cine-Teatro's own page covers its films.
+  built by script and gives nothing to a plain request. The Cine-Teatro's own page
+  covers its films.
 - **Óbidos.** The agenda site (a separate address from the municipality's) was
-  chosen over the municipality's own `/agenda` page. Few dated events;
-  mostly permanent workshops.
+  chosen over the municipality's own `/agenda` page.
 - **Porto de Mós home page.** Chosen over the agenda page the site links to,
   which holds a 2020 listing. Breaks when the home page's agenda block moves.
 - **Almeirim, Batalha, Nazaré, Peniche, Chamusca.** Municipal listings, one page
-  each. Almeirim's list continues on a second page, Chamusca's behind a load-more
-  button, Leiria's behind pagination: none is followed, by decision (one page
-  per source). Peniche's page carries leftover markup, so its text is capped
-  low and filtered. Nazaré is thin: titles such as "CINEMA" say little.
+  each. None is paged: one page per source, by decision. Peniche's page
+  carries leftover markup, which the collector filters and its text cap guards.
 - **JSON sources (Ourém, Cadaval).** Ourém is a standard events plugin's API,
   steady. Cadaval's host name contains "stage" and may move; the
-  town's own site would then show the new host in its scripts. Cadaval's event link,
-  `https://www.cm-cadaval.pt/<id>/<slug>`, was inferred from a route of the
-  site and answered 200 in the live run of 2026-10-20. Both are decoded by field, so a renamed field breaks them quietly: a
-  run that reports zero items from either is worth a look.
+  town's own site would then show the new host in its scripts. Cadaval's event
+  link is inferred from a route of the site; the inferred link answered 200 in the
+  live run of 2026-10-20. Both are decoded by field, so a renamed field breaks
+  them quietly: a run that reports zero items from either is worth a look.
 - **Next.js sites (Bombarral, Lourinhã, Alenquer).** The events come from data
   embedded in the page, not from its visible text, which is empty. The decoding
   depends on the framework's embedding format and the name of the list inside
-  it; a framework change breaks all three at once. Page 1 only, nine events:
-  Lourinhã and Alenquer have a second page that is not read.
+  it; a framework change breaks all three at once. Only page 1 is read; the source's
+  `note` in a run says how many pages there are.
 - **Supplementary agendas and Eventbrite.** As before: plain text, expect gaps.
 
 # Not reachable
@@ -101,9 +99,18 @@ covered several.
 | Azambuja | cm-azambuja.pt agendas culturais | 404; the agendas are PDFs |
 | Golegã | visitgolega.com/agenda | built by script, nothing to read |
 | Alpiarça | cm-alpiarca.pt | the agenda is a news post whose address changes |
-| Salvaterra de Magos | cm-salvaterrademagos.pt | not examined |
+| Salvaterra de Magos | cm-salvaterrademagos.pt | the home page links an agenda news post whose address changes, the same pattern as Alpiarça |
+| Tomar | none | out of range (about 55 minutes, `towns.md`); no source |
 | Médio Tejo (region) | agenda.mediotejo.pt | built by script, empty to a plain request |
-| Regional | Viral Agenda, other municipality pages | refusing this machine; slugs unverified |
+| Rio Maior | Viral Agenda, municipality page | refused this machine for some hours on 2026-10-20 after development fetches, answering again later; usefulness under research |
+| Santarém | Viral Agenda, municipality page | refused this machine for some hours on 2026-10-20 after development fetches, answering again later; usefulness under research |
+| Caldas da Rainha | Viral Agenda, municipality page | refused this machine for some hours on 2026-10-20 after development fetches, answering again later; usefulness under research |
+| Óbidos | Viral Agenda, municipality page | refused this machine for some hours on 2026-10-20 after development fetches, answering again later; usefulness under research |
+| Alcobaça | Viral Agenda, municipality page | refused this machine for some hours on 2026-10-20 after development fetches, answering again later; usefulness under research |
+| Torres Novas | Viral Agenda, municipality page | refused this machine for some hours on 2026-10-20 after development fetches, answering again later; usefulness under research |
+| Cartaxo | Viral Agenda, municipality page | refused this machine for some hours on 2026-10-20 after development fetches, answering again later; usefulness under research |
+| Porto de Mós | Viral Agenda, municipality page | refused this machine for some hours on 2026-10-20 after development fetches, answering again later; usefulness under research |
+| Bombarral | Viral Agenda, municipality page | refused this machine for some hours on 2026-10-20 after development fetches, answering again later; usefulness under research |
 | Santarém (regional) | O Mirante | HTTP 500 |
 | National | Ticketline | no connection |
 | Rio Maior | riomaiortv.pt | no connection |
@@ -114,8 +121,8 @@ covered several.
 | Any | Facebook, Instagram | need a login |
 | Torres Vedras | theatre and cinema categories of the municipal agenda | not fetched |
 
-Alpiarça has an agenda and only a stable address is missing; it is the most
-likely to be worth a manual re-check. Golegã and the Médio Tejo agenda would
+Alpiarça and Salvaterra de Magos have an agenda and only a stable address is
+missing; they are the most likely to be worth a manual re-check. Golegã and the Médio Tejo agenda would
 need a browser.
 
 # Why

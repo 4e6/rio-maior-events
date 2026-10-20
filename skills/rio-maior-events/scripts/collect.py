@@ -242,9 +242,13 @@ class _TextParser(HTMLParser):
         self.parts.append(data)
 
 
+TAGLIKE_RE = re.compile(r'^<([!?]|/?[A-Za-z][\w:.-]*(\s|/?>|$))|\b\w+="[^"]*"\s+\w+="|="[^"]*"/?>$')
+
+
 def _markup_line(line):
-    """A line that is leftover markup (an Office conditional comment, say)."""
-    return line.startswith("<") or "mso-" in line or "w:Lsd" in line
+    """A line that is leftover markup (Office XML, say): a tag, attributes, mso- styles.
+    "<18 anos" is text."""
+    return bool(TAGLIKE_RE.search(line)) or "mso-" in line or "w:Lsd" in line or "UnhideWhenUsed=" in line
 
 
 def visible_text(page, cap=TEXT_CAP):
@@ -420,6 +424,8 @@ def map_tribe(data, base):
         raise ValueError("expected an object with an events array")
     items = []
     for event in events:
+        if not isinstance(event, dict) or not event.get("title"):
+            continue
         venue = event.get("venue")
         name = venue.get("venue") if isinstance(venue, dict) else None
         items.append(_item(event.get("title"), event.get("start_date"), event.get("end_date"),
@@ -434,6 +440,8 @@ def map_cadaval(data, base):
         raise ValueError("expected an object with an items array")
     items = []
     for event in events:
+        if not isinstance(event, dict) or not event.get("title"):
+            continue
         link = event.get("link")
         link = link.get("url") if isinstance(link, dict) else link
         url = urllib.parse.urljoin(base + "/", link) if isinstance(link, str) and link else base + "/"
@@ -458,7 +466,9 @@ NEXT_CHUNK_RE = re.compile(r'self\.__next_f\.push\(\[1,"((?:[^"\\]|\\.)*)"\]\)')
 
 
 def parse_nextjs(page, url, window):
-    """Items of a Next.js agenda page inside the window.
+    """(items inside the window, note) of a Next.js agenda page.
+
+    The note says when the page holds only the first of several pages.
 
     The page streams its data as self.__next_f.push([1,"..."]) string chunks;
     one JSON value can span several. Join them all, then read the value after
@@ -479,11 +489,18 @@ def parse_nextjs(page, url, window):
     site = "%s://%s/" % (parts.scheme, parts.netloc)
     items = []
     for event in events:
+        if not isinstance(event, dict) or not event.get("title"):
+            continue
         link = event.get("link")
         items.append(_item(event.get("title"), _day(event.get("startDate")), _day(event.get("endDate")),
                            event.get("location"),
                            urllib.parse.urljoin(site, link) if isinstance(link, str) and link else None))
-    return _keep_window(items, window)
+    note = None
+    pages, count = value.get("totalPages"), value.get("count")
+    if isinstance(pages, int) and pages > 1:
+        note = "page 1 of %d%s; later events are not in this file" % (
+            pages, ", %d events in all" % count if isinstance(count, int) else "")
+    return _keep_window(items, window), note
 
 
 def _decode(body, content_type):
@@ -513,12 +530,14 @@ def cm_request_body():
 
 
 def request_url(source, window):
-    """The URL to GET: the source's own, plus the window in the query if it takes it."""
+    """The URL to GET: the source's own, plus the window in the query if it takes it
+    (the last day to its end, so that day's events are in)."""
     names = source.get("window_params")
     if not names:
         return source["url"]
     joiner = "&" if "?" in source["url"] else "?"
-    return source["url"] + joiner + urllib.parse.urlencode(list(zip(names, window)))
+    start, end = window
+    return source["url"] + joiner + urllib.parse.urlencode(list(zip(names, (start, end + " 23:59:59"))))
 
 
 def collect_source(source, window):
@@ -547,13 +566,15 @@ def collect_source(source, window):
             result["status"] = status
             page = _decode(body, content_type)
             if kind == "nextjs":
-                result["items"] = parse_nextjs(page, source["url"], window)
+                result["items"], paging = parse_nextjs(page, source["url"], window)
+                if paging:
+                    result["note"] = paging
             else:
                 result["items"] = extract_jsonld_events(page, window)
             result["text"], result["truncated"] = visible_text(page, source.get("cap", TEXT_CAP))
             if kind == "nextjs":
                 if not result["items"]:
-                    result["note"] = "0 items in window"
+                    result["note"] = "; ".join(["0 items in window"] + ([result["note"]] if result.get("note") else []))
             elif not result["items"] and len(result["text"]) < MIN_TEXT:
                 result["error"] = "no events or text found (layout may have changed)"
                 return result

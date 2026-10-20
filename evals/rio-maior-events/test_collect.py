@@ -265,21 +265,36 @@ class NextJs(unittest.TestCase):
         return fixture(name).decode("utf-8")
 
     def test_event_list_split_over_two_chunks_is_decoded(self):
-        items = collect.parse_nextjs(self.page(), self.URL, None)
+        items = collect.parse_nextjs(self.page(), self.URL, None)[0]
         self.assertEqual([i["title"] for i in items],
                          ['Concerto "Primavera" | Ensaio \u00e0 luz', "Antigo", "Feira longa"])
 
     def test_fields_dates_are_days_and_links_are_absolute(self):
-        item = collect.parse_nextjs(self.page(), self.URL, None)[0]
+        item = collect.parse_nextjs(self.page(), self.URL, None)[0][0]
         self.assertEqual(item["start"], "2026-10-24")
         self.assertIsNone(item["end"])
         self.assertEqual(item["venue"], "Teatro S\u00e3o Jo\u00e3o")
         self.assertEqual(item["url"], "https://www.example.pt/agenda/concerto--primavera")
 
     def test_window_keeps_running_events_and_drops_past_ones(self):
-        items = collect.parse_nextjs(self.page(), self.URL, WINDOW)
+        items, _ = collect.parse_nextjs(self.page(), self.URL, WINDOW)
         self.assertEqual([i["title"] for i in items][1:], ["Feira longa"])
         self.assertEqual(len(items), 2)
+
+    def test_later_pages_are_noted(self):
+        paged = self.page().replace('\\"count\\": 3, \\"totalPages\\": 1', '\\"count\\": 17, \\"totalPages\\": 2')
+        self.assertEqual(collect.parse_nextjs(paged, self.URL, None)[1],
+                         "page 1 of 2, 17 events in all; later events are not in this file")
+        self.assertIsNone(collect.parse_nextjs(self.page(), self.URL, None)[1])
+        source = {"name": "s", "url": self.URL, "town": "T", "kind": "nextjs"}
+        with mock.patch.object(collect, "fetch", return_value=(200, paged.encode(), None)):
+            result = collect.collect_source(source, WINDOW)
+        self.assertEqual(result["note"], "page 1 of 2, 17 events in all; later events are not in this file")
+
+    def test_odd_entries_are_skipped(self):
+        odd = self.page().replace('[{\\"id\\": 1,', '[7, null, {\\"id\\": 9}, {\\"id\\": 1,')
+        items, _ = collect.parse_nextjs(odd, self.URL, None)
+        self.assertEqual(len(items), 3)
 
     def test_a_page_without_event_list_is_an_error(self):
         with self.assertRaises(ValueError):
@@ -327,11 +342,11 @@ class JsonGet(unittest.TestCase):
 
     def test_the_window_is_added_to_the_request_url(self):
         self.assertEqual(collect.request_url(self.tribe, WINDOW),
-                         self.tribe["url"] + "&start_date=2026-10-20&end_date=2026-12-01")
+                         self.tribe["url"] + "&start_date=2026-10-20&end_date=2026-12-01+23%3A59%3A59")
         self.assertEqual(collect.request_url(self.cadaval, WINDOW), self.cadaval["url"])
         bare = dict(self.tribe, url="https://www.example.pt/e")
         self.assertEqual(collect.request_url(bare, WINDOW),
-                         "https://www.example.pt/e?start_date=2026-10-20&end_date=2026-12-01")
+                         "https://www.example.pt/e?start_date=2026-10-20&end_date=2026-12-01+23%3A59%3A59")
 
     def test_collect_source_fetches_the_url_with_the_window(self):
         with mock.patch.object(collect, "fetch", return_value=(200, fixture("tribe.json"), None)) as fetch:
@@ -341,6 +356,13 @@ class JsonGet(unittest.TestCase):
         self.assertTrue(result["ok"])
         self.assertIsNone(result["text"])
         self.assertEqual(len(result["items"]), 3)
+
+    def test_odd_entries_are_skipped(self):
+        for mapper, key in (("tribe", "events"), ("cadaval", "items")):
+            raw = json.dumps({key: [3, None, {"start_date": "2026-10-22"}, {"title": "Bom", "date": "2026-10-22T00:00:00"}]}).encode()
+            source = dict(self.tribe, mapper=mapper)
+            items = collect.parse_json_get(raw, source, None)
+            self.assertEqual([i["title"] for i in items], ["Bom"])
 
     def test_cadaval_mapping(self):
         items = collect.parse_json_get(fixture("cadaval.json"), self.cadaval, WINDOW)
@@ -363,6 +385,16 @@ class JsonGet(unittest.TestCase):
 
 
 class TextCapAndMarkup(unittest.TestCase):
+    def test_office_xml_spread_over_lines_is_dropped_but_less_than_survives(self):
+        page = ("<p>Agenda</p><p>&lt;18 anos: entrada gratuita</p>"
+                "<p>&lt;w:LsdException Locked=\"false\" Priority=\"9\"</p>"
+                "<p>UnhideWhenUsed=\"true\" QFormat=\"true\" Name=\"heading 2\"/&gt;</p>"
+                "<p>SemiHidden=\"false\" Name=\"x\" Priority=\"1\"</p>"
+                "<p>&lt;!--[if gte mso 9]&gt;&lt;xml&gt;</p><p>&lt;![endif]--&gt;</p>"
+                "<p>&lt;/w:LatentStyles&gt;</p><p>Concerto &lt;b&gt; &gt; dia 3</p>")
+        text, _ = collect.visible_text(page)
+        self.assertEqual(text, "Agenda\n<18 anos: entrada gratuita\nConcerto <b> > dia 3")
+
     def test_markup_lines_are_dropped(self):
         text, _ = collect.visible_text(fixture("markup.html").decode("utf-8"))
         self.assertEqual(text, "Agenda de eventos\nConcerto no s\u00e1bado < 18h")

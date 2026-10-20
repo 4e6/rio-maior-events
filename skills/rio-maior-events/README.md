@@ -27,16 +27,27 @@ when it opens.
 
 ## Where the events come from
 
-The Rio Maior municipal calendar, the Cineteatro de Rio Maior, Viral Agenda's
-pages for nine nearby municipalities, the Portugal Running calendar
-for races, the agendas of Santarém, Caldas da Rainha, Torres
-Novas and Cartaxo, and Eventbrite. Facebook and Instagram are not read, and the
-Cineteatro now announces mostly there, so some of its events may be missing.
-No municipal app or digital street screens were found online.
+About 40 pages a run, each read once:
 
-Most agendas list only the current month, so weeks further ahead rest on fewer
-sources (mainly the municipality, the race calendars and Cartaxo); the page
-says so at the top.
+- **Municipal agendas** of Rio Maior, Santarém, Caldas da Rainha, Torres Novas,
+  Cartaxo, Torres Vedras, Alcobaça, Óbidos, Porto de Mós, Alcanena,
+  Entroncamento, Vila Nova da Barquinha, Almeirim, Batalha, Nazaré, Peniche,
+  Chamusca, Ourém, Cadaval, Bombarral, Lourinhã and Alenquer, and Leiria's
+  agenda site.
+- **Theatres and cinemas**: the Cineteatro de Rio Maior, Teatro Virgínia
+  (Torres Novas), Teatro-Cine (Torres Vedras), Cine-Teatro de Alcobaça and the
+  Centro Cultural e de Congressos in Caldas da Rainha.
+- **The race calendar** of Portugal Running, for road races and trails.
+- **Eventbrite**, and **Viral Agenda**'s community pages for nine municipalities.
+
+Gaps: Facebook and Instagram are not read, and the Cineteatro now announces
+mostly there. Azambuja, Alpiarça, Salvaterra de Magos, Golegã and Tomar have no
+source. Only the first page of a long list is read (Lourinhã and Alenquer have a
+second page; Leiria's list runs to 128). No municipal app or digital street
+screens were found online.
+
+Most agendas list only the next few weeks, so weeks further ahead rest on fewer
+sources, and the page says so at the top.
 
 ## Requirements
 

@@ -6,7 +6,7 @@ tags: [architecture, skill, network, page]
 sources:
   - resource: skills/rio-maior-events/**
   - resource: evals/rio-maior-events/**
-sources_digest: a266ef51af1cd077
+sources_digest: e8b90b22df3096fd
 ---
 
 # What it is
@@ -24,7 +24,7 @@ and each has its own traps.
   takes a POST, which a page-reading tool cannot send, and a script makes a run
   repeatable and testable. It fetches each source once, in turn, and writes for
   each the events it found (JSON-LD, or the items of a JSON or Next.js source)
-  and the page's visible text, capped at 30,000 characters. It parses no HTML
+  and the page's visible text, capped at 30,000 characters (or the source's own cap). It parses no HTML
   layout: layouts change, and a model reads changed text better than a regex
   does. Only data a site publishes as data (JSON, a framework's embedded list)
   is read by field.
