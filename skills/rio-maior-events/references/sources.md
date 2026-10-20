@@ -218,7 +218,7 @@ From past listings, not from this collection. Use one only as "date to be confir
 
 ## Not used, and why
 
-- Viral Agenda (viralagenda.com): refuses scripts with a 403 whatever the User-Agent, though its pages load in a browser. It would add nightlife and private venues (clubs, bars, galleries), guided walks, and municipal events past the first page of a town's own agenda: about 20 events in three weeks.
+- Viral Agenda (viralagenda.com): refuses scripts with a 403 whatever the User-Agent, though its pages load in a browser. It would add nightlife and private venues (clubs, bars, galleries), guided walks, and municipal events past the first page of a town's own agenda: about 22 events over two to three weeks.
 - GoTrail and Running.life (trail races and walks): mostly the same races as Portugal Running, and they refuse this script with a 403.
 - Racefinder (racefinder.pt): race pages are good (date, prices, distances), but the only listing by area is a filter its robots.txt asks automated visitors not to use, and it sends pages compressed in a way Python's standard library cannot read.
 - Região de Rio Maior (local paper): stale since 2019.

@@ -7,7 +7,7 @@ sources:
   - resource: skills/rio-maior-events/scripts/sources.json
   - resource: skills/rio-maior-events/scripts/adapters/**
   - resource: skills/rio-maior-events/references/sources.md
-sources_digest: 40ac2eb056b8dba6
+sources_digest: 4af4e513513d2543
 ---
 
 # What this page is for

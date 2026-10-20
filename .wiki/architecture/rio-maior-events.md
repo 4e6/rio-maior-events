@@ -6,7 +6,7 @@ tags: [architecture, skill, network, page]
 sources:
   - resource: skills/rio-maior-events/**
   - resource: evals/rio-maior-events/**
-sources_digest: 183dcc535580c1e9
+sources_digest: 5f717181f9d918c3
 ---
 
 # What it is
@@ -28,7 +28,7 @@ and each has its own traps.
   the source's own cap). It parses no HTML layout: layouts change, and a model
   reads changed text better than a regex does. Only data a site publishes as
   data (JSON-LD, JSON, a framework's embedded list) is read by field.
-- **Readers read.** Portuguese dates with no year, a misleading "Hoje!" label,
+- **Readers read.** Portuguese dates with no year, two-digit years,
   times that are an hour off, the same event on two sources, far-away
   Eventbrite listings: `references/sources.md` lists them
   ([below](#the-sources)), and judging them is the model's job. One reader per
