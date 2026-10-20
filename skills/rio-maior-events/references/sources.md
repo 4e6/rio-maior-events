@@ -198,7 +198,7 @@ The pages have no readable text; the script takes the events from the page's emb
 
 From past listings, not from this collection. Use one only as "date to be confirmed" when its usual dates overlap the window (not merely its month) and no source lists a date for it; say it is expected, never state a date. A hint's `title_pt` is the `title_pt` column. The Title column says whether that is a name seen in a listing (`name`) or our own description of the event (`descriptive`, a translation or a gloss): a descriptive title is still the hint's `title_pt`, and its caveat says the name is not confirmed. Its source is the municipality's own site named in the last column; a hint rests on one sighting, so it is always low confidence.
 
-| Event | `title_pt` | Usual time | Town | Source  Title |
+| Event | `title_pt` | Usual time | Town | Source | Title |
 |---|---|---|---|---|---|
 | Frimor, Feira Nacional da Cebola (Pavilhão Multiusos) | Frimor, Feira Nacional da Cebola | early September | Rio Maior | Município de Rio Maior, `https://www.cm-riomaior.pt/` | name |
 | Tasquinhas | Tasquinhas | around March | Rio Maior | Município de Rio Maior, `https://www.cm-riomaior.pt/` | name |
