@@ -205,7 +205,7 @@ Not pages: the `events_calendar` and `cadaval_api` adapters read the JSON and ke
 - `cm-lourinha` `https://www.cm-lourinha.pt/agenda`
 - `cm-alenquer` `https://www.alenquer.pt/agenda`
 
-The pages have no readable text; the script takes the events from the page's embedded data and gives them as `items`: title, start and end date, and a link (joined to the site). Dates only, no times: do not state a time. Lourinhã and Alenquer also give a venue.
+The pages have no readable text; the script takes the events from the page's embedded data and gives them as `items`: title, start and end date, and a link (joined to the site). The list has dates only, no times. Each in-window event's own page is followed (follow 10, in date order) and read from its embedded data into `details`: the description (an excerpt) says the time, the venue and the price when the town gives them ("a partir das 15 horas", "entrada gratuita"), and the start is a date with a time when the event's `schedule` field says one clock time ("15 horas", "10h30"; a range "10h às 18h" gives start and end). The excerpt begins "Horário: <schedule>" whenever the field is filled, so read vaguer ones ("Todo o dia") there. Take time, venue and price from the excerpt; without a detail, do not state a time. Lourinhã and Alenquer also give a venue in the list.
 
 - Trap: only page 1 is read, nine events. Lourinhã and Alenquer have more (17 at the time of checking) on page 2, and Bombarral had three. The source's `note` says "page 1 of N, M events in all" when there are more pages.
 - Many are long runs (an exhibition for months, a project to December): ongoing.

@@ -42,8 +42,8 @@
     {"name": "cm-vnbarquinha", "label": "Município de Vila Nova da Barquinha", "adapter": "text", "town": "Vila Nova da Barquinha", "group": "medio-tejo", "url": "https://www.cm-vnbarquinha.pt/index.php/viver/agenda", "links": "^/index\\.php/viver/agenda/[^/?]+/[^/?]+$", "follow": 10},
     {"name": "ourem", "label": "Município de Ourém", "adapter": "events_calendar", "town": "Ourém", "group": "medio-tejo", "url": "https://www.ourem.pt/wp-json/tribe/events/v1/events?per_page=50", "options": {"window_params": ["start_date", "end_date"]}},
     {"name": "cm-cadaval", "label": "Município do Cadaval", "adapter": "cadaval_api", "town": "Cadaval", "group": "oeste-sul", "url": "https://api.cm-cadaval.pt.stage.vf-portal.com/website/Events/1?page=1&lang=pt", "options": {"site": "https://www.cm-cadaval.pt"}},
-    {"name": "cm-bombarral", "label": "Município do Bombarral", "adapter": "nextjs", "town": "Bombarral", "group": "oeste-norte", "url": "https://www.cm-bombarral.pt/agenda"},
-    {"name": "cm-lourinha", "label": "Município da Lourinhã", "adapter": "nextjs", "town": "Lourinhã", "group": "oeste-sul", "url": "https://www.cm-lourinha.pt/agenda"},
-    {"name": "cm-alenquer", "label": "Município de Alenquer", "adapter": "nextjs", "town": "Alenquer", "group": "oeste-sul", "url": "https://www.alenquer.pt/agenda"}
+    {"name": "cm-bombarral", "label": "Município do Bombarral", "adapter": "nextjs", "town": "Bombarral", "group": "oeste-norte", "url": "https://www.cm-bombarral.pt/agenda", "follow": 10},
+    {"name": "cm-lourinha", "label": "Município da Lourinhã", "adapter": "nextjs", "town": "Lourinhã", "group": "oeste-sul", "url": "https://www.cm-lourinha.pt/agenda", "follow": 10},
+    {"name": "cm-alenquer", "label": "Município de Alenquer", "adapter": "nextjs", "town": "Alenquer", "group": "oeste-sul", "url": "https://www.alenquer.pt/agenda", "follow": 10}
   ]
 }

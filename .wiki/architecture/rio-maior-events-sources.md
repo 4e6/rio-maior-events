@@ -7,7 +7,7 @@ sources:
   - resource: skills/rio-maior-events/scripts/sources.json
   - resource: skills/rio-maior-events/scripts/adapters/**
   - resource: skills/rio-maior-events/references/sources.md
-sources_digest: 84f0b45018874bf0
+sources_digest: 1ec653ee25eec989
 ---
 
 # What this page is for
@@ -96,7 +96,12 @@ browser; the page should show dated cards for the coming weeks.
   embedded in the page, not from its visible text, which is empty. The decoding
   depends on the framework's embedding format and the name of the list inside
   it; a framework change breaks all three at once. Only page 1 is read; the source's
-  `note` in a run says how many pages there are.
+  `note` in a run says how many pages there are. The list has midnight dates and
+  no time, and an event page has no text either, so the adapter's `details`
+  reads the page's own payload (`pageData.modules`, the object with a
+  `description`): the description holds the time, venue and price, and its UTC
+  dates become Lisbon time (follow 10 each, in date order). Its `schedule` field, when it is one clock time or a range, gives the start (and end) a time; any non-empty value is put first in the excerpt as "Horário: ...". A page whose payload
+  has another shape is read as any page.
 - **Supplementary agendas and Eventbrite.** As before: plain text, expect gaps.
 
 # Event links and event pages
