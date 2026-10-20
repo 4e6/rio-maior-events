@@ -39,6 +39,7 @@ The source list is `scripts/sources.json`; the sections below describe how to re
 - `riomaior_calendar` (`adapters/riomaior_calendar.py`): the cm-riomaior calendar, a POST that returns JSON.
 - `events_calendar` (`adapters/events_calendar.py`): the WordPress Events Calendar API (ourem).
 - `cadaval_api` (`adapters/cadaval_api.py`): the Cadaval portal's JSON (cm-cadaval).
+- `santarem_rss` (`adapters/santarem_rss.py`): the Município de Santarém events feed, RSS with its own date fields (cm-santarem).
 - `nextjs` (`adapters/nextjs.py`): Next.js sites that embed their events in the page (cm-bombarral, cm-lourinha, cm-alenquer).
 - `adapters/common.py` is not an adapter; it holds what they share: the request shape, a page's visible text, its JSON-LD events, window tests, Portugal time.
 
@@ -79,9 +80,10 @@ Text only; the text carries no link to a race, so the link of a race is the dist
 
 ## Supplementary municipal agendas
 
-Plain text, no `items`; layouts differ and change, so read the text and be ready to find nothing. Most show the current month only. Events here have no link of their own: give the agenda page as the source.
+Plain text, no `items` (except `cm-santarem`, which has them); layouts differ and change, so read the text and be ready to find nothing. Most show the current month only. Events here have no link of their own, except the ones from `cm-santarem`: give the agenda page as the source.
 
-- `cm-santarem` `https://www.cm-santarem.pt/agenda` redirects to a page titled "Página Não Encontrada" that nevertheless holds the current month's calendar, with time and venue. It shows one month only.
+- `cm-santarem` `https://www.cm-santarem.pt/rss_eventos`, the municipality's events feed, read by the `santarem_rss` adapter into `items` with no page text. Dates come from the event's own fields, never from `pubDate` (the day it was published). Start and end are local time ("2026-10-22 21:30"), unlike the UTC municipal calendar; an event with no time has the day alone, and for a run of days the daily hours are in the description ("Horário diário: 17:00–17:30"). The portal splits an event into one entry per period or date, with the same link: periods that touch are joined, sessions on one day become one item (the first time, the others in the description), separate dates stay separate items (a concert on four evenings can be four links). Entries with no date are dropped. The host often answers 500 or times out: the source is then recorded as failed; name it in the hand-over.
+- `santaremcultura` `https://www.santaremcultura.pt/index.php/programacao`, Santarém Acontece, the culture programme (Teatro Sá da Bandeira, libraries, Casa do Campino and others). A list of venues and date filters comes first; the cards follow: weekday, day and month ("Qua, 21 Out"), the time, for a run "a Qui, 31 Dez 2026" and the end time, the venue, the category, the title, then the description repeated in full. Text only; the year shows only in a run's end date. The text is cut at 30000 characters, which reaches about 4 December; the page lists later months too, so say so in the coverage line.
 - `mcr-caldas` `https://mcr.pt/agenda`, the Caldas da Rainha agenda.
 - `cm-cartaxo` `https://www.cm-cartaxo.pt/informacao/agenda`: date line ("23 outubro", "29 outubro - 01 novembro"), title, a cut-short description. Page 1 of 2 only.
 
@@ -207,10 +209,10 @@ From past listings, not from this collection. Use one only as "date to be confir
 | European Outdoor Film Tour (ESDRM) | European Outdoor Film Tour (ESDRM) | June | Rio Maior | Município de Rio Maior, `https://www.cm-riomaior.pt/` |
 | Festival de Patinagem Artística | Festival de Patinagem Artística | December | Rio Maior | Município de Rio Maior, `https://www.cm-riomaior.pt/` |
 | FÓLIO, literary festival | FÓLIO, Festival Literário Internacional de Óbidos | mid October | Óbidos | Agenda Cultural de Óbidos, `https://agenda.obidos.pt/` |
-| Mostra de Doces Conventuais | Mostra de Doces Conventuais | mid October | Santarém | Município de Santarém, `https://www.cm-santarem.pt/agenda` |
-| Semana Cultural nos Cemitérios | Semana Cultural nos Cemitérios | October | Santarém | Município de Santarém, `https://www.cm-santarem.pt/agenda` |
-| FIGS, guitar festival | FIGS, Festival Internacional de Guitarra de Santarém | late September | Santarém | Município de Santarém, `https://www.cm-santarem.pt/agenda` |
-| Festival Internacional de Teatro para a Infância | Festival Internacional de Teatro para a Infância | late September to early October | Santarém | Município de Santarém, `https://www.cm-santarem.pt/agenda` |
+| Mostra de Doces Conventuais | Mostra de Doces Conventuais | mid October | Santarém | Município de Santarém, `https://www.cm-santarem.pt/rss_eventos` |
+| Semana Cultural nos Cemitérios | Semana Cultural nos Cemitérios | October | Santarém | Município de Santarém, `https://www.cm-santarem.pt/rss_eventos` |
+| FIGS, guitar festival | FIGS, Festival Internacional de Guitarra de Santarém | late September | Santarém | Município de Santarém, `https://www.cm-santarem.pt/rss_eventos` |
+| Festival Internacional de Teatro para a Infância | Festival Internacional de Teatro para a Infância | late September to early October | Santarém | Município de Santarém, `https://www.cm-santarem.pt/rss_eventos` |
 | Festa da Bênção do Gado | Festa da Bênção do Gado | late July to August | Riachos | Município de Torres Novas, `https://www.cm-torresnovas.pt/index.php/comunicacao/agenda` |
 | Encontro de Bandas Filarmónicas | Encontro de Bandas Filarmónicas | September | Torres Novas | Município de Torres Novas, `https://www.cm-torresnovas.pt/index.php/comunicacao/agenda` |
 | Encontro de Ranchos | Encontro de Ranchos | September | Torres Novas | Município de Torres Novas, `https://www.cm-torresnovas.pt/index.php/comunicacao/agenda` |

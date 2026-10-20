@@ -13,7 +13,7 @@ description: >-
 license: MIT
 compatibility: >-
   Needs web access. With Python 3.9+ (standard library only), the collect
-  script fetches about 32 public pages per run, read-only, once each (one POST,
+  script fetches about 33 public pages per run, read-only, once each (one POST,
   the rest GETs; under a minute); the merge
   and render scripts run offline. Without subagents the groups are read one after
   another. Without Python, the sources are read with the host's own web tools
@@ -62,7 +62,7 @@ address, and a new name loses both.
 python3 <this skill's directory>/scripts/collect.py rio-maior-collected --from <start> --to <end>
 ```
 
-A run fetches about 32 pages and takes under a minute (the sites are worked in
+A run fetches about 33 pages and takes under a minute (the sites are worked in
 parallel): run it with a timeout of at least 3 minutes and wait for the line
 starting "wrote". It writes the
 folder `rio-maior-collected`: `index.json` and one file per group of sources.

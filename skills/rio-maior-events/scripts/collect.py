@@ -21,7 +21,7 @@ own), counted from the end of the previous response. After a refusal (403, 429,
 a 5xx), a timeout or a connection error the rest of that host's sources are
 skipped; any other failed request, a 404 say, fails only its own source. A
 source that fails is recorded with ok false and an error and the rest carry on.
-A run makes about 32 requests and takes under a minute, the sites being worked
+A run makes about 33 requests and takes under a minute, the sites being worked
 in parallel. Ctrl-C stops the workers between requests, writes nothing
 and exits 130.
 

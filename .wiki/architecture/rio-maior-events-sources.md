@@ -7,7 +7,7 @@ sources:
   - resource: skills/rio-maior-events/scripts/sources.json
   - resource: skills/rio-maior-events/scripts/adapters/**
   - resource: skills/rio-maior-events/references/sources.md
-sources_digest: 76761d547a68946b
+sources_digest: 7a212ac42e9dd69c
 ---
 
 # What this page is for
@@ -68,6 +68,18 @@ browser; the page should show dated cards for the coming weeks.
   covers its films.
 - **Óbidos.** The agenda site (a separate address from the municipality's) was
   chosen over the municipality's own `/agenda` page.
+- **Santarém (the council's feed and the culture site).** The council's
+  `/agenda` is not a page: it redirects to a "not found" page that happened to hold
+  the month, and the site's robots.txt disallows `format=feed` and paging on
+  the agenda, so the feed the portal publishes for calendars (`/rss_eventos`,
+  with start and end dates, times and venue per entry) is the way in, read
+  by its own adapter because the dates are not `pubDate`. That host often
+  answers 500 or times out; a failed row is the usual sign, not a layout
+  change. The culture site (Santarém Acontece) is read as well because it has
+  the theatre, libraries and workshops the feed lacks, and it answers when
+  the council host does not; its own RSS has ten items with no venue or end
+  date, so the programme page is read as text instead. Breaks when the feed's
+  field names change or the culture page's cards move.
 - **Porto de Mós home page.** Chosen over the agenda page the site links to,
   which holds a 2020 listing. Breaks when the home page's agenda block moves.
 - **Almeirim, Batalha, Nazaré, Peniche, Chamusca.** Municipal listings, one page

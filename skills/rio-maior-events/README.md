@@ -27,13 +27,13 @@ when it opens.
 
 ## Where the events come from
 
-About 32 pages a run, each read once:
+About 33 pages a run, each read once:
 
 - **Municipal agendas** of Rio Maior, Santarém, Caldas da Rainha, Torres Novas,
   Cartaxo, Torres Vedras, Alcobaça, Óbidos, Porto de Mós, Alcanena,
   Entroncamento, Vila Nova da Barquinha, Almeirim, Batalha, Nazaré, Peniche,
   Chamusca, Ourém, Cadaval, Bombarral, Lourinhã and Alenquer, and Leiria's
-  agenda site.
+  agenda site, and Santarém's culture programme.
 - **Theatres and cinemas**: the Cineteatro de Rio Maior, Teatro Virgínia
   (Torres Novas), Teatro-Cine (Torres Vedras), Cine-Teatro de Alcobaça and the
   Centro Cultural e de Congressos in Caldas da Rainha.

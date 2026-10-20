@@ -6,7 +6,7 @@ tags: [architecture, skill, network, page]
 sources:
   - resource: skills/rio-maior-events/**
   - resource: evals/rio-maior-events/**
-sources_digest: a7812c759c3007bc
+sources_digest: 0d1b9485559d5bd5
 ---
 
 # What it is
@@ -79,7 +79,7 @@ and each has its own traps.
   human `label` in `sources.json`, copied into the group file for the readers
   to use as the source's name on the page.
 - **Fan-out reading, on the same model by default.** The sources were once
-  read by one model in one pass, and the text of 32 pages does not read well in
+  read by one model in one pass, and the text of 33 pages does not read well in
   one context. A reader per group, run at the same time, keeps each context
   small. A smaller model is used only after an eval on one group shows it
   reads as well; there is none, so the readers use the model of the main

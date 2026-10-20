@@ -1,0 +1,210 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+	<!--RSS EVENTOS | exemplo
+	<item>
+	-->
+	<channel>
+		<title>Eventos - Exemplo</title>
+		<link>https://www.example.pt</link>
+		<atom:link rel="self" type="application/rss+xml" href="https://www.example.pt/rss_eventos" />
+		<language>pt-pt</language>
+	<item>
+		<title>Concerto &amp; Fado</title>
+		<link>https://www.example.pt/agenda-de-eventos/1-concerto</link>
+		<guid isPermaLink="true">https://www.example.pt/agenda-de-eventos/1-concerto</guid>
+		<description><![CDATA[<img src="x.png"><div><strong>Noite de fado</strong>&nbsp;com &amp;guitarra</div>]]></description>
+		<pubDate>Tue, 13 Oct 2026 14:15:31 +0000</pubDate>
+		<santaremEvent>
+			<startTime>21:30</startTime>
+			<endTime>23:00</endTime>
+			<singleDate>2026-10-22</singleDate>
+			<startDate>0000-00-00</startDate>
+			<endDate>0000-00-00</endDate>
+			<imageUrl>https://www.example.pt/a.png</imageUrl>
+			<eventPlace>Teatro Exemplo</eventPlace>
+			<lat>0.0000000000000000</lat>
+			<lng>0.0000000000000000</lng>
+		</santaremEvent>
+	</item>
+	<item>
+		<title>Exposição</title>
+		<link>https://www.example.pt/agenda-de-eventos/2-expo</link>
+		<guid isPermaLink="true">https://www.example.pt/agenda-de-eventos/2-expo</guid>
+		<description><![CDATA[<div>Patente</div>]]></description>
+		<pubDate>Tue, 13 Oct 2026 14:15:31 +0000</pubDate>
+		<santaremEvent>
+			<startTime>17:00</startTime>
+			<endTime>17:30</endTime>
+			<singleDate>0000-00-00</singleDate>
+			<startDate>2026-10-20</startDate>
+			<endDate>2026-10-25</endDate>
+			<imageUrl>https://www.example.pt/a.png</imageUrl>
+			<eventPlace>Casa do Brasil</eventPlace>
+			<lat>0.0000000000000000</lat>
+			<lng>0.0000000000000000</lng>
+		</santaremEvent>
+	</item>
+	<item>
+		<title>Exposição</title>
+		<link>https://www.example.pt/agenda-de-eventos/2-expo</link>
+		<guid isPermaLink="true">https://www.example.pt/agenda-de-eventos/2-expo#1</guid>
+		<description><![CDATA[<div>Patente</div>]]></description>
+		<pubDate>Tue, 13 Oct 2026 14:15:31 +0000</pubDate>
+		<santaremEvent>
+			<startTime>17:00</startTime>
+			<endTime>17:30</endTime>
+			<singleDate>0000-00-00</singleDate>
+			<startDate>2026-10-26</startDate>
+			<endDate>2026-11-10</endDate>
+			<imageUrl>https://www.example.pt/a.png</imageUrl>
+			<eventPlace>Casa do Brasil</eventPlace>
+			<lat>0.0000000000000000</lat>
+			<lng>0.0000000000000000</lng>
+		</santaremEvent>
+	</item>
+	<item>
+		<title>Oficina</title>
+		<link>https://www.example.pt/agenda-de-eventos/3-oficina</link>
+		<guid isPermaLink="true">https://www.example.pt/agenda-de-eventos/3-oficina</guid>
+		<description><![CDATA[Duas datas]]></description>
+		<pubDate>Tue, 13 Oct 2026 14:15:31 +0000</pubDate>
+		<santaremEvent>
+			<startTime>10:00</startTime>
+			<endTime>12:00</endTime>
+			<singleDate>2026-10-24</singleDate>
+			<startDate>0000-00-00</startDate>
+			<endDate>0000-00-00</endDate>
+			<imageUrl>https://www.example.pt/a.png</imageUrl>
+			<eventPlace>Teatro Exemplo</eventPlace>
+			<lat>0.0000000000000000</lat>
+			<lng>0.0000000000000000</lng>
+		</santaremEvent>
+	</item>
+	<item>
+		<title>Oficina</title>
+		<link>https://www.example.pt/agenda-de-eventos/3-oficina</link>
+		<guid isPermaLink="true">https://www.example.pt/agenda-de-eventos/3-oficina</guid>
+		<description><![CDATA[Duas datas]]></description>
+		<pubDate>Tue, 13 Oct 2026 14:15:31 +0000</pubDate>
+		<santaremEvent>
+			<startTime>10:00</startTime>
+			<endTime>12:00</endTime>
+			<singleDate>2026-10-31</singleDate>
+			<startDate>0000-00-00</startDate>
+			<endDate>0000-00-00</endDate>
+			<imageUrl>https://www.example.pt/a.png</imageUrl>
+			<eventPlace>Teatro Exemplo</eventPlace>
+			<lat>0.0000000000000000</lat>
+			<lng>0.0000000000000000</lng>
+		</santaremEvent>
+	</item>
+	<item>
+		<title>Teatro escolar</title>
+		<link>https://www.example.pt/agenda-de-eventos/4-teatro</link>
+		<guid isPermaLink="true">https://www.example.pt/agenda-de-eventos/4-teatro</guid>
+		<description><![CDATA[Duas sessões]]></description>
+		<pubDate>Tue, 13 Oct 2026 14:15:31 +0000</pubDate>
+		<santaremEvent>
+			<startTime>14:00</startTime>
+			<endTime>15:00</endTime>
+			<singleDate>2026-11-17</singleDate>
+			<startDate>0000-00-00</startDate>
+			<endDate>0000-00-00</endDate>
+			<imageUrl>https://www.example.pt/a.png</imageUrl>
+			<eventPlace>Teatro Exemplo</eventPlace>
+			<lat>0.0000000000000000</lat>
+			<lng>0.0000000000000000</lng>
+		</santaremEvent>
+	</item>
+	<item>
+		<title>Teatro escolar</title>
+		<link>https://www.example.pt/agenda-de-eventos/4-teatro</link>
+		<guid isPermaLink="true">https://www.example.pt/agenda-de-eventos/4-teatro#1</guid>
+		<description><![CDATA[Duas sessões]]></description>
+		<pubDate>Tue, 13 Oct 2026 14:15:31 +0000</pubDate>
+		<santaremEvent>
+			<startTime>10:30</startTime>
+			<endTime>11:30</endTime>
+			<singleDate>2026-11-17</singleDate>
+			<startDate>0000-00-00</startDate>
+			<endDate>0000-00-00</endDate>
+			<imageUrl>https://www.example.pt/a.png</imageUrl>
+			<eventPlace>Teatro Exemplo</eventPlace>
+			<lat>0.0000000000000000</lat>
+			<lng>0.0000000000000000</lng>
+		</santaremEvent>
+	</item>
+	<item>
+		<title>Feira</title>
+		<link>https://www.example.pt/agenda-de-eventos/5-feira</link>
+		<guid isPermaLink="true">https://www.example.pt/agenda-de-eventos/5-feira</guid>
+		<description><![CDATA[Sem horas]]></description>
+		<pubDate>Tue, 13 Oct 2026 14:15:31 +0000</pubDate>
+		<santaremEvent>
+			<startTime>00:00</startTime>
+			<endTime>00:00</endTime>
+			<singleDate>0000-00-00</singleDate>
+			<startDate>2026-11-01</startDate>
+			<endDate>2026-11-02</endDate>
+			<imageUrl>https://www.example.pt/a.png</imageUrl>
+			<eventPlace>Largo</eventPlace>
+			<lat>0.0000000000000000</lat>
+			<lng>0.0000000000000000</lng>
+		</santaremEvent>
+	</item>
+	<item>
+		<title>Sem data</title>
+		<link>https://www.example.pt/agenda-de-eventos/6-sem-data</link>
+		<guid isPermaLink="true">https://www.example.pt/agenda-de-eventos/6-sem-data</guid>
+		<description><![CDATA[Nada]]></description>
+		<pubDate>Tue, 13 Oct 2026 14:15:31 +0000</pubDate>
+		<santaremEvent>
+			<startTime></startTime>
+			<endTime></endTime>
+			<singleDate>0000-00-00</singleDate>
+			<startDate>0000-00-00</startDate>
+			<endDate>0000-00-00</endDate>
+			<imageUrl>https://www.example.pt/a.png</imageUrl>
+			<eventPlace>Teatro Exemplo</eventPlace>
+			<lat>0.0000000000000000</lat>
+			<lng>0.0000000000000000</lng>
+		</santaremEvent>
+	</item>
+	<item>
+		<title>Em dezembro</title>
+		<link>https://www.example.pt/agenda-de-eventos/7-dezembro</link>
+		<guid isPermaLink="true">https://www.example.pt/agenda-de-eventos/7-dezembro</guid>
+		<description><![CDATA[Fora]]></description>
+		<pubDate>Tue, 13 Oct 2026 14:15:31 +0000</pubDate>
+		<santaremEvent>
+			<startTime>21:00</startTime>
+			<endTime>22:00</endTime>
+			<singleDate>2026-12-20</singleDate>
+			<startDate>0000-00-00</startDate>
+			<endDate>0000-00-00</endDate>
+			<imageUrl>https://www.example.pt/a.png</imageUrl>
+			<eventPlace>Teatro Exemplo</eventPlace>
+			<lat>0.0000000000000000</lat>
+			<lng>0.0000000000000000</lng>
+		</santaremEvent>
+	</item>
+	<item>
+		<title>Em setembro</title>
+		<link>https://www.example.pt/agenda-de-eventos/8-setembro</link>
+		<guid isPermaLink="true">https://www.example.pt/agenda-de-eventos/8-setembro</guid>
+		<description><![CDATA[Passado]]></description>
+		<pubDate>Tue, 13 Oct 2026 14:15:31 +0000</pubDate>
+		<santaremEvent>
+			<startTime>21:00</startTime>
+			<endTime>22:00</endTime>
+			<singleDate>2026-09-20</singleDate>
+			<startDate>0000-00-00</startDate>
+			<endDate>0000-00-00</endDate>
+			<imageUrl>https://www.example.pt/a.png</imageUrl>
+			<eventPlace>Teatro Exemplo</eventPlace>
+			<lat>0.0000000000000000</lat>
+			<lng>0.0000000000000000</lng>
+		</santaremEvent>
+	</item>
+	</channel>
+</rss>

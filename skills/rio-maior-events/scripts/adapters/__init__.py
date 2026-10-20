@@ -10,7 +10,7 @@ request, in order. parse is pure, with no network, and raises AdapterError when
 the pages cannot be read.
 """
 
-from . import cadaval_api, events_calendar, nextjs, riomaior_calendar, text
+from . import cadaval_api, events_calendar, nextjs, riomaior_calendar, santarem_rss, text
 
 ADAPTERS = {
     "text": text,
@@ -18,4 +18,5 @@ ADAPTERS = {
     "events_calendar": events_calendar,
     "cadaval_api": cadaval_api,
     "nextjs": nextjs,
+    "santarem_rss": santarem_rss,
 }
