@@ -27,7 +27,7 @@ when it opens.
 
 ## Where the events come from
 
-About 40 pages a run, each read once:
+About 32 pages a run, each read once:
 
 - **Municipal agendas** of Rio Maior, Santarém, Caldas da Rainha, Torres Novas,
   Cartaxo, Torres Vedras, Alcobaça, Óbidos, Porto de Mós, Alcanena,
@@ -38,7 +38,7 @@ About 40 pages a run, each read once:
   (Torres Novas), Teatro-Cine (Torres Vedras), Cine-Teatro de Alcobaça and the
   Centro Cultural e de Congressos in Caldas da Rainha.
 - **The race calendar** of Portugal Running, for road races and trails.
-- **Eventbrite**, and **Viral Agenda**'s community pages for nine municipalities.
+- **Eventbrite**.
 
 Gaps: Facebook and Instagram are not read, and the Cineteatro now announces
 mostly there. Azambuja, Alpiarça, Salvaterra de Magos, Golegã and Tomar have no

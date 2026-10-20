@@ -1,11 +1,10 @@
 {
   "default_delay": 1.5,
   "hosts": {
-    "www.viralagenda.com": {"delay": 15},
     "www.cm-entroncamento.pt": {"delay": 3}
   },
   "groups": {
-    "rio-maior": "Rio Maior: the municipality, the Cineteatro and Viral Agenda",
+    "rio-maior": "Rio Maior: the municipality, and the Cineteatro",
     "oeste-norte": "Northern Oeste and the Leiria coast: Caldas da Rainha, Óbidos, Bombarral, Peniche, Nazaré, Alcobaça, Porto de Mós, Batalha, Leiria",
     "oeste-sul": "Southern Oeste: Cadaval, Lourinhã, Torres Vedras, Alenquer",
     "ribatejo": "Ribatejo: Santarém, Cartaxo, Almeirim, Alcanena, Chamusca",
@@ -15,15 +14,6 @@
   "sources": [
     {"name": "cm-riomaior", "label": "Município de Rio Maior", "adapter": "riomaior_calendar", "town": "Rio Maior", "group": "rio-maior", "url": "https://www.cm-riomaior.pt/index.php?option=com_ajax&module=calendar&method=getEvents&format=json", "options": {"categories": ["116", "121", "122", "134", "135", "136", "137", "138", "139"]}},
     {"name": "cineteatro", "label": "Cineteatro de Rio Maior", "adapter": "text", "town": "Rio Maior", "group": "rio-maior", "url": "https://www.cineteatrorm.pt/pt/agenda/"},
-    {"name": "viralagenda-rio-maior", "label": "Viral Agenda – Rio Maior", "adapter": "text", "town": "Rio Maior", "group": "rio-maior", "url": "https://www.viralagenda.com/pt/santarem/rio-maior"},
-    {"name": "viralagenda-santarem", "label": "Viral Agenda – Santarém", "adapter": "text", "town": "Santarém", "group": "ribatejo", "url": "https://www.viralagenda.com/pt/santarem/santarem"},
-    {"name": "viralagenda-caldas-da-rainha", "label": "Viral Agenda – Caldas da Rainha", "adapter": "text", "town": "Caldas da Rainha", "group": "oeste-norte", "url": "https://www.viralagenda.com/pt/leiria/caldas-da-rainha"},
-    {"name": "viralagenda-obidos", "label": "Viral Agenda – Óbidos", "adapter": "text", "town": "Óbidos", "group": "oeste-norte", "url": "https://www.viralagenda.com/pt/leiria/obidos"},
-    {"name": "viralagenda-alcobaca", "label": "Viral Agenda – Alcobaça", "adapter": "text", "town": "Alcobaça", "group": "oeste-norte", "url": "https://www.viralagenda.com/pt/leiria/alcobaca"},
-    {"name": "viralagenda-torres-novas", "label": "Viral Agenda – Torres Novas", "adapter": "text", "town": "Torres Novas", "group": "medio-tejo", "url": "https://www.viralagenda.com/pt/santarem/torres-novas"},
-    {"name": "viralagenda-cartaxo", "label": "Viral Agenda – Cartaxo", "adapter": "text", "town": "Cartaxo", "group": "ribatejo", "url": "https://www.viralagenda.com/pt/santarem/cartaxo"},
-    {"name": "viralagenda-porto-de-mos", "label": "Viral Agenda – Porto de Mós", "adapter": "text", "town": "Porto de Mós", "group": "oeste-norte", "url": "https://www.viralagenda.com/pt/leiria/porto-de-mos"},
-    {"name": "viralagenda-bombarral", "label": "Viral Agenda – Bombarral", "adapter": "text", "town": "Bombarral", "group": "oeste-norte", "url": "https://www.viralagenda.com/pt/leiria/bombarral"},
     {"name": "portugalrunning-santarem", "label": "Portugal Running – Santarém", "adapter": "text", "town": "Santarém", "group": "regional", "url": "https://www.portugalrunning.com/corridas-santarem/"},
     {"name": "portugalrunning-leiria", "label": "Portugal Running – Leiria", "adapter": "text", "town": "Leiria", "group": "regional", "url": "https://www.portugalrunning.com/corridas-leiria/"},
     {"name": "portugalrunning-lisboa", "label": "Portugal Running – Lisboa", "adapter": "text", "town": "Lisboa", "group": "regional", "url": "https://www.portugalrunning.com/corridas-lisboa/"},

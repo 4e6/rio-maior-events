@@ -26,8 +26,8 @@ The group file is `rio-maior-collected/<group>.json`:
   price, description). From the municipal calendar take `local_start`, never
   `start`, which is UTC.
 - `past`: items dated before the window. They are not events to list; they show
-  what a yearly event did last time. It is empty until an adapter fills it (the
-  Viral Agenda adapter is the next); until then, hints come only from the known
+  what a yearly event did last time. It is empty until an adapter fills it (no
+  adapter fills it yet); until then, hints come only from the known
   yearly list in sources.md.
 - `text`: the page's visible text, for sources that give no items.
 - `note`: what the script noticed, such as a page that shows the current month

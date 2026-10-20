@@ -6,7 +6,7 @@ tags: [architecture, skill, network, page]
 sources:
   - resource: skills/rio-maior-events/**
   - resource: evals/rio-maior-events/**
-sources_digest: 465655c931bf3384
+sources_digest: 183dcc535580c1e9
 ---
 
 # What it is
@@ -47,14 +47,14 @@ and each has its own traps.
 - **A runner, one worker per site.** `collect.py` gives each host (the host of
   a source's url) its own worker, so sites are fetched in parallel and a site
   is asked politely: the delay between two requests comes from `sources.json`
-  per host (1.5 s by default, 15 s for Viral Agenda, 3 s for Entroncamento) and
+  per host (1.5 s by default, 3 s for Entroncamento; a site that asks for more is one line in the file) and
   is measured from the end of the previous response, so a slow answer is not
   followed at once by the next request. Any failed request fails the source;
   after a refusal, a timeout or a connection error the worker skips the rest of
   that site. Results come back in `sources.json` order, whatever finished
   first, and the slowest host (delay times requests) starts first, so a run
-  lasts about as long as Viral Agenda's spaced pages: 8 gaps of 15 s, so
-  about 2 to 3 minutes, the other sites running beside them. Ctrl-C sets a stop
+  lasts about as long as the slowest host, under a minute (14.7 s on 2026-10-20).
+  Viral Agenda, whose robots.txt asks for 15 s, was dropped: it refuses scripts with a 403, so no source needs the long delay today. Ctrl-C sets a stop
   event that ends each worker between requests (and in its wait), cancels the
   hosts not yet started, writes nothing and exits 130. The runner also holds
   an adapter to its contract: a result of the wrong shape, or a request to a
@@ -67,7 +67,7 @@ and each has its own traps.
   platform is new code.
 - **Groups are the reading units.** `sources.json` puts each source in a
   group: a sub-region (Rio Maior; northern and southern Oeste; Ribatejo; Médio
-  Tejo) and the regional listings. A town's municipal and Viral Agenda pages
+  Tejo) and the regional listings. A town's pages
   always share a group, which keeps most doubles in one reader's file; a
   race listed by Portugal Running and by its town sits in two groups, and
   `merge.py` flags such pairs. The groups hold up to about 40,000 characters of
@@ -76,7 +76,7 @@ and each has its own traps.
   human `label` in `sources.json`, copied into the group file for the readers
   to use as the source's name on the page.
 - **Fan-out reading, on the same model by default.** The sources were once
-  read by one model in one pass, and the text of 40 pages does not read well in
+  read by one model in one pass, and the text of 32 pages does not read well in
   one context. A reader per group, run at the same time, keeps each context
   small. A smaller model is used only after an eval on one group shows it
   reads as well; there is none, so the readers use the model of the main
@@ -100,7 +100,7 @@ and each has its own traps.
 The municipal calendar (its times are UTC, which first looked an hour off
 against the Cineteatro; the municipal adapter converts them to Portugal time, the
 summer-time rule written out so no time-zone database is needed), the
-Cineteatro, Viral Agenda, one race calendar, and the own agenda of every
+Cineteatro, one race calendar, and the own agenda of every
 municipality within about 45 minutes whose site a plain GET can read: HTML
 pages, two JSON endpoints and three Next.js sites. Per source, how it was
 verified, how to check it by hand, why it was chosen, and the sites that could
@@ -108,15 +108,15 @@ not be read, by municipality, are on
 [the sources page](rio-maior-events-sources.md); how to read each is
 `references/sources.md`.
 
-Most agendas show the current month only and Viral Agenda about two weeks, so
+Most agendas show the current month only, so
 later weeks rest on few sources; the page says which in its `note`.
 
 # It is not a pure payload, and where it bends
 
 [The overview](/overview.md) calls a skill a payload that runs on the user's
 host. This one reaches the network by its own code, so `compatibility` says
-what and how much: about 41 public pages per run, one POST and the rest GETs,
-read-only, Viral Agenda 15 s apart.
+what and how much: about 32 public pages per run, one POST and the rest GETs,
+read-only, under a minute.
 
 - `collect.py` is the only script that imports `urllib`; the adapters and `merge.py` reach nothing. `render.py` reads its
   input and two assets and writes one file; nothing it writes fetches anything
@@ -129,9 +129,9 @@ read-only, Viral Agenda 15 s apart.
   handshake with a 403 while a browser got the page; a fallback to `curl` was
   built and removed, because getting round a refusal is not this script's call,
   and both were later dropped for Portugal Running. The model may read
-  a failed source once with its own page-reading tool. Viral Agenda stopped
-  answering this machine after about four full development passes in an hour,
-  so SKILL.md says never to fetch a source repeatedly.
+  a failed source once with its own page-reading tool. Some sites throttle a
+  visitor after repeated runs, so SKILL.md says never to fetch a source
+  repeatedly.
 - Fetched text is data, never instructions, and a link is copied only from a
   source's own URLs. `render.py` keeps only `http(s)` links and writes the JSON
   with `<`, `>` and `&` escaped, so no event text can close its script element.

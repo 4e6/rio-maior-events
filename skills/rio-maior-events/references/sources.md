@@ -12,7 +12,6 @@ The source list is `scripts/sources.json`; the sections below describe how to re
 - Reading the dates
 - cm-riomaior
 - cineteatro
-- viralagenda
 - portugalrunning
 - Supplementary municipal agendas
 - Theatres and cinemas
@@ -43,7 +42,7 @@ The source list is `scripts/sources.json`; the sections below describe how to re
 - `nextjs` (`adapters/nextjs.py`): Next.js sites that embed their events in the page (cm-bombarral, cm-lourinha, cm-alenquer).
 - `adapters/common.py` is not an adapter; it holds what they share: the request shape, a page's visible text, its JSON-LD events, window tests, Portugal time.
 
-The groups, each read as one unit: `rio-maior`, `oeste-norte`, `oeste-sul`, `ribatejo`, `medio-tejo`, `regional`. A town's municipal and Viral Agenda pages are in the same group, which keeps most listings of one event together; the same event can still turn up in two groups (a race listed by Portugal Running and by the town), and the merge step flags those pairs.
+The groups, each read as one unit: `rio-maior`, `oeste-norte`, `oeste-sul`, `ribatejo`, `medio-tejo`, `regional`. A town's pages are in the same group, which keeps most listings of one event together; the same event can still turn up in two groups (a race listed by Portugal Running and by the town), and the merge step flags those pairs.
 
 ## Reading the dates
 
@@ -67,28 +66,6 @@ The groups, each read as one unit: `rio-maior`, `oeste-norte`, `oeste-sul`, `rib
 `https://www.cineteatrorm.pt/pt/agenda/`, the Cineteatro de Rio Maior: cinema, theatre, dance, music. Text only. Each entry is day, month abbreviation, category, title, time, in that order; the month's programme is named in the heading and the year follows it. Prices are on the detail pages, not here.
 
 Gap: the Cineteatro now announces mainly on Facebook, so this page can lag behind.
-
-## viralagenda
-
-Viral Agenda pages, one per municipality, named `viralagenda-<municipality>`:
-
-- `https://www.viralagenda.com/pt/santarem/rio-maior`
-- `https://www.viralagenda.com/pt/santarem/santarem`
-- `https://www.viralagenda.com/pt/leiria/caldas-da-rainha`
-- `https://www.viralagenda.com/pt/leiria/obidos`
-- `https://www.viralagenda.com/pt/leiria/alcobaca`
-- `https://www.viralagenda.com/pt/santarem/torres-novas`
-- `https://www.viralagenda.com/pt/santarem/cartaxo`
-- `https://www.viralagenda.com/pt/leiria/porto-de-mos`
-- `https://www.viralagenda.com/pt/leiria/bombarral`
-
-A community aggregator, roughly two weeks of cards per page, with venue and often a price; the best single cover of the smaller towns. Alcobaça, Óbidos and Porto de Mós are also read from their own sites, so an event may appear twice: keep one.
-
-- Cards show weekday, day and month with no year; see "Reading the dates".
-- Trap: every card carries a "Hoje!" label ("today") whatever its date. Ignore it.
-- Trap: times in the JSON-LD, where there is any, can be an hour off. Prefer the time shown in the text.
-- A page lists events of its own municipality, but a card's venue can be in a neighbouring one; take the town from the venue.
-- Use each page's own link for the event, not a guessed one.
 
 ## portugalrunning
 
@@ -241,6 +218,7 @@ From past listings, not from this collection. Use one only as "date to be confir
 
 ## Not used, and why
 
+- Viral Agenda (viralagenda.com): refuses scripts with a 403 whatever the User-Agent, though its pages load in a browser. It would add nightlife and private venues (clubs, bars, galleries), guided walks, and municipal events past the first page of a town's own agenda: about 20 events in three weeks.
 - GoTrail and Running.life (trail races and walks): mostly the same races as Portugal Running, and they refuse this script with a 403.
 - Racefinder (racefinder.pt): race pages are good (date, prices, distances), but the only listing by area is a filter its robots.txt asks automated visitors not to use, and it sends pages compressed in a way Python's standard library cannot read.
 - Região de Rio Maior (local paper): stale since 2019.

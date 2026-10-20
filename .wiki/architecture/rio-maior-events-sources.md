@@ -7,7 +7,7 @@ sources:
   - resource: skills/rio-maior-events/scripts/sources.json
   - resource: skills/rio-maior-events/scripts/adapters/**
   - resource: skills/rio-maior-events/references/sources.md
-sources_digest: 9bd14bee2a54bf9d
+sources_digest: 40ac2eb056b8dba6
 ---
 
 # What this page is for
@@ -26,8 +26,7 @@ and this page.
 On 2026-10-20, one plain GET per page (and `robots.txt` once per host), the
 visible text read by eye. The two JSON sources and the three Next.js sites were
 first decoded offline from the saved responses; then `collect.py` itself was run
-on 2026-10-20 and read 32 of the 32 sources that are not Viral Agenda ok in 46
-seconds (the nine Viral Agenda pages were refused, see [Not reachable](#not-reachable)).
+on 2026-10-20 and read all 32 sources ok in 14.7 s (Viral Agenda, left out, see [Not reachable](#not-reachable)).
 Drive times in `towns.md` are estimates. A source is only as checked as that: a
 layout that changed since is the usual reason a run reports one failed or empty.
 
@@ -45,11 +44,6 @@ browser; the page should show dated cards for the coming weeks.
   [the skill's page](rio-maior-events.md#the-sources) for why a POST, and why
   UTC is converted. By hand: the calendar's endpoint must be POSTed, so check
   the municipality's own agenda page instead.
-- **Viral Agenda.** Community cards for nine municipalities. It stopped
-  answering this machine after about four full development passes in an hour,
-  so a refusal there is expected after repeated runs, not a layout change.
-  Alcobaça, Óbidos and Porto de Mós are now also read from their own sites;
-  Viral Agenda stays for the rest.
 - **Portugal Running.** The one race calendar ([why](#why)). Breaks if the site starts
   refusing scripts, as GoTrail and Running.life did. Each month's list is cut
   behind a "Mostrar mais" the collector cannot press, so a month can hold more
@@ -107,15 +101,7 @@ covered several.
 | Salvaterra de Magos | cm-salvaterrademagos.pt | the home page links an agenda news post whose address changes, the same pattern as Alpiarça |
 | Tomar | none | out of range (about 55 minutes, `towns.md`); no source |
 | Médio Tejo (region) | agenda.mediotejo.pt | built by script, empty to a plain request |
-| Rio Maior | Viral Agenda, municipality page | refused this machine for some hours on 2026-10-20 after development fetches, answering again later; usefulness under research |
-| Santarém | Viral Agenda, municipality page | refused this machine for some hours on 2026-10-20 after development fetches, answering again later; usefulness under research |
-| Caldas da Rainha | Viral Agenda, municipality page | refused this machine for some hours on 2026-10-20 after development fetches, answering again later; usefulness under research |
-| Óbidos | Viral Agenda, municipality page | refused this machine for some hours on 2026-10-20 after development fetches, answering again later; usefulness under research |
-| Alcobaça | Viral Agenda, municipality page | refused this machine for some hours on 2026-10-20 after development fetches, answering again later; usefulness under research |
-| Torres Novas | Viral Agenda, municipality page | refused this machine for some hours on 2026-10-20 after development fetches, answering again later; usefulness under research |
-| Cartaxo | Viral Agenda, municipality page | refused this machine for some hours on 2026-10-20 after development fetches, answering again later; usefulness under research |
-| Porto de Mós | Viral Agenda, municipality page | refused this machine for some hours on 2026-10-20 after development fetches, answering again later; usefulness under research |
-| Bombarral | Viral Agenda, municipality page | refused this machine for some hours on 2026-10-20 after development fetches, answering again later; usefulness under research |
+| Rio Maior, Santarém, Caldas da Rainha, Óbidos, Alcobaça, Torres Novas, Cartaxo, Porto de Mós, Bombarral | Viral Agenda (viralagenda.com), nine municipality pages | refuses Python's HTTP client with a 403 whatever the User-Agent (an honest one included), though curl and browsers are answered and its robots.txt allows Claude-User with a 15 s crawl delay; not routed around. It would add nightlife and private venues (clubs, a bar, galleries, a theatre), guided walks and municipal events past the first page of a town's own list: about 22 events over two to three weeks on 2026-10-20 |
 | Santarém (regional) | O Mirante | HTTP 500 |
 | National | Ticketline | no connection |
 | Rio Maior | riomaiortv.pt | no connection |
@@ -136,9 +122,9 @@ need a browser.
   skill is for a person in Rio Maior; a town an hour away is out, and a source
   that needs a browser or a login is out, because the collector does not do
   either ([where it bends](rio-maior-events.md#it-is-not-a-pure-payload-and-where-it-bends)).
-- **Own site before an aggregator.** Viral Agenda is one community's view and
-  refuses repeated runs; a municipality's own listing is the primary, even when
-  thin.
+- **Own site before an aggregator.** A municipality's own listing is the
+  primary, even when thin. Viral Agenda, the one community aggregator tried,
+  refuses scripts ([Not reachable](#not-reachable)).
 - **A source per page, no pagination.** Following page 2 would double the
   requests for a few more events and a politeness cost; the model is told which
   sources are cut at the first page.
@@ -147,7 +133,4 @@ need a browser.
   with each race's town, and lets a script in. GoTrail and Running.life answer
   the script with a 403; Racefinder's only listing by area is a filter its
   robots.txt asks automated visitors not to use.
-- **Viral Agenda's municipality pages, not its district pages.** A district page
-  runs to towns over an hour away and a text cap cuts it after a few days; a
-  municipality page is 3-5k characters and about two weeks.
 - No municipal app or digital street screens were found online.

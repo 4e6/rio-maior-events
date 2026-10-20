@@ -3,8 +3,8 @@ name: rio-maior-events
 description: >-
   Gathers upcoming leisure events in and around Rio Maior, Portugal (within
   about 45 minutes: Caldas da Rainha, Óbidos, Santarém, Alcobaça and more) from
-  the municipal calendar, the Cineteatro, Viral Agenda, the Portugal Running
-  race calendar, neighbouring towns' agendas and Eventbrite, and renders
+  the municipal calendar, the Cineteatro, the Portugal Running race
+  calendar, neighbouring towns' agendas and Eventbrite, and renders
   them as one page: an agenda list beside a month calendar, with filters,
   starred picks and calendar (.ics) downloads. Use when someone asks what is
   on, what to do this weekend, or for concerts, fairs, markets, theatre, races
@@ -13,8 +13,8 @@ description: >-
 license: MIT
 compatibility: >-
   Needs web access. With Python 3.9+ (standard library only), the collect
-  script fetches about 41 public pages per run, read-only, once each (one POST,
-  the rest GETs; Viral Agenda pages 15 s apart, about 2-3 minutes); the merge
+  script fetches about 32 public pages per run, read-only, once each (one POST,
+  the rest GETs; under a minute); the merge
   and render scripts run offline. Without subagents the groups are read one after
   another. Without Python, the sources are read with the host's own web tools
   and the events come as a list in the reply.
@@ -62,10 +62,9 @@ address, and a new name loses both.
 python3 <this skill's directory>/scripts/collect.py rio-maior-collected --from <start> --to <end>
 ```
 
-A run fetches about 41 pages and takes about 2 to 3 minutes (the nine Viral
-Agenda pages are spaced 15 seconds apart, the other sites are worked in
-parallel): run it in the background, or with a timeout of at least 5 minutes,
-and wait for the line starting "wrote". It writes the
+A run fetches about 32 pages and takes under a minute (the sites are worked in
+parallel): run it with a timeout of at least 3 minutes and wait for the line
+starting "wrote". It writes the
 folder `rio-maior-collected`: `index.json` and one file per group of sources.
 
 It prints one line per source as it finishes and exits 0 if any source was read. Exit 2 means
@@ -80,7 +79,7 @@ source repeatedly: some of these sites throttle a visitor who does.
 
 **No Python, or no shell:** read the sources in
 [references/sources.md](references/sources.md) with your own web tools instead,
-as many as you can, but never a Viral Agenda page. The municipal calendar needs
+as many as you can. The municipal calendar needs
 a POST, so it is out of reach; the Cineteatro page covers part of it. Read them
 by the rules of [references/reading.md](references/reading.md), one group of
 sources at a time, with the known yearly list in sources.md for hints (a hint
@@ -111,8 +110,6 @@ group, one reader per group:
 A source that failed (`ok: false`) and that you then read yourself goes in
 `rio-maior-candidates/manual.json`, with its events and a `sources` entry
 `{name, ok}`, using the same `collected_at`; read it by the rules of reading.md.
-Never read a Viral Agenda page with your own tool: the site asks for 15 seconds
-between requests.
 
 When every group has its file, run:
 

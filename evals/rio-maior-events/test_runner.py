@@ -416,16 +416,14 @@ class Config(unittest.TestCase):
 
     def test_hosts_have_delays(self):
         self.assertEqual(self.config["default_delay"], 1.5)
-        self.assertEqual(self.config["hosts"]["www.viralagenda.com"]["delay"], 15)
         self.assertEqual(self.config["hosts"]["www.cm-entroncamento.pt"]["delay"], 3)
 
-    def test_a_towns_pages_share_a_group_with_its_viral_page(self):
+    def test_a_towns_pages_share_a_group(self):
         for source in self.sources:
-            if source["name"].startswith("viralagenda-"):
-                for other in self.sources:
-                    if (other["town"] == source["town"] and other["group"] != "regional"
-                            and other["group"] != source["group"]):
-                        self.fail("%s and %s are in different groups" % (source["name"], other["name"]))
+            for other in self.sources:
+                if (other["town"] == source["town"] and "regional" not in (other["group"], source["group"])
+                        and other["group"] != source["group"]):
+                    self.fail("%s and %s are in different groups" % (source["name"], other["name"]))
 
 
 class Towns(unittest.TestCase):
@@ -450,8 +448,7 @@ class SourceList(unittest.TestCase):
         with open(path, encoding="utf-8") as handle:
             doc = handle.read()
         for source in Config.sources:
-            if not source["name"].startswith("viralagenda-"):
-                self.assertTrue(source["name"] in doc, source["name"])
+            self.assertTrue(source["name"] in doc, source["name"])
             self.assertTrue(source["url"].split("?")[0] in doc, source["url"])
 
     def test_every_adapter_is_named_in_the_docs(self):
