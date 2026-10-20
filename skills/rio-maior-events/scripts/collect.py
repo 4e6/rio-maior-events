@@ -1,31 +1,34 @@
 #!/usr/bin/env python3
-"""Fetch the public event listings around Rio Maior into one JSON file.
+"""Fetch the public event listings around Rio Maior into a folder of JSON files.
 
-    python3 scripts/collect.py rio-maior-collected.json [--from DATE] [--to DATE] [--only NAME ...]
+    python3 scripts/collect.py rio-maior-collected [--from DATE] [--to DATE] [--only NAME ...]
 
 The window is --from (default today) to --to (default 42 days later); events
-outside it are dropped where their dates can be read. Each source is fetched
-once, in turn, with a 20 second timeout and a pause of 1.5 seconds between two
-requests to the same site; after a refusal (403, 429, a 5xx), a timeout or a
-connection error the rest of that site's pages are skipped. A run makes about
-41 requests (one per source) and takes a few minutes. The reason this is a
-script: the cm calendar needs a POST, and a script makes the run repeatable. A
-source that fails is recorded with ok false and an error and the rest carry on.
+outside it are dropped where their dates can be read. scripts/sources.json is
+the list of sources: each names the adapter (a module in scripts/adapters/)
+that knows its kind of site, its town, its reading group and its URL. An
+adapter plans the requests a source needs and turns the pages that come back
+into `items` (events it could parse) and `text` (the visible text, capped), and
+raises an error when the pages cannot be read. Reading, dating and merging the
+events is left to whoever reads the files.
 
-Kinds of source: html_text and html_jsonld give, for every page, the
-schema.org Event objects found in its JSON-LD and the visible text, capped
-(TEXT_CAP, or the source's own `cap`); cm_json is the cm-riomaior calendar, a
-POST that returns items only; json_get is a GET that returns JSON, mapped to
-items by a per-source mapper (the Events Calendar plugin at Ourem, the Cadaval
-portal); nextjs reads the events a Next.js page embeds in its
-self.__next_f.push chunks (the `eventsList` key; dates are midnight, so the
-items carry a day and no time). Reading, dating and merging the events is left
-to whoever reads the file.
+Requests go out with a 20 second timeout. Hosts are worked in parallel, one
+worker per host (at most 8 at a time), and within a host one request at a time,
+spaced by the host's delay in sources.json (1.5 seconds unless the host has its
+own), counted from the end of the previous response. After a refusal (403, 429,
+a 5xx), a timeout or a connection error the rest of that host's sources are
+skipped; any other failed request, a 404 say, fails only its own source. A
+source that fails is recorded with ok false and an error and the rest carry on.
+A run makes about 41 requests and takes about 7 minutes, almost all of it the
+Viral Agenda pages, spaced 15 seconds apart.
+
+The output folder holds index.json (the window, `collected_at`, every group's
+file and sources, and one summary row per source) and one file per reading
+group, <group>.json, with that group's full source results. --only restricts
+both to the sources run.
 
 Exit 0 when at least one source was read, even if others failed. Exit 2, with a
 message on stderr, for a usage error or when every source failed.
-
-The list of sources below is mirrored in references/sources.md; change both.
 
 Python 3.9, standard library only. Read-only requests; TLS is always verified.
 A site that refuses the request (a 403, a timeout) is recorded as failed and
@@ -35,483 +38,38 @@ not retried another way.
 from __future__ import annotations
 
 import argparse
+import concurrent.futures
 import datetime
-import html
 import json
-import re
+import os
 import socket
 import sys
+import threading
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from html.parser import HTMLParser
 
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+
+from adapters import ADAPTERS  # noqa: E402
+from adapters.common import AdapterError, Page, Request  # noqa: E402
+
+SOURCES_PATH = os.path.join(HERE, "sources.json")
 TIMEOUT = 20
-PAUSE = 1.5   # seconds between two requests to the same host
-TEXT_CAP = 30000
-DESCRIPTION_CAP = 300
 DEFAULT_DAYS = 42
-MIN_TEXT = 200
+MAX_WORKERS = 8
 USER_AGENT = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/124.0 Safari/537.36 "
     "rio-maior-events/1.0 (personal events digest; one request per page)"
 )
 
-CM_BASE = "https://www.cm-riomaior.pt"
-CM_CATEGORIES = "116,121,122,134,135,136,137,138,139"
 
-# kind: cm_json (JSON endpoint, POST), html_text (text only), html_jsonld (text
-# and JSON-LD events; every html page gets both, the kind says what to expect),
-# json_get (GET returning JSON, `mapper` names the field map, `window_params`
-# the query parameters that take the window), nextjs (events embedded in a
-# Next.js page). `cap` overrides TEXT_CAP for a page that is mostly noise.
-SOURCES = [
-    {"name": "cm-riomaior", "kind": "cm_json", "town": "Rio Maior",
-     "url": CM_BASE + "/index.php?option=com_ajax&module=calendar&method=getEvents&format=json"},
-    {"name": "cineteatro", "kind": "html_text", "town": "Rio Maior",
-     "url": "https://www.cineteatrorm.pt/pt/agenda/"},
-    {"name": "viralagenda-rio-maior", "kind": "html_text", "town": "Rio Maior",
-     "url": "https://www.viralagenda.com/pt/santarem/rio-maior"},
-    {"name": "viralagenda-santarem", "kind": "html_text", "town": "Santarém",
-     "url": "https://www.viralagenda.com/pt/santarem/santarem"},
-    {"name": "viralagenda-caldas-da-rainha", "kind": "html_text", "town": "Caldas da Rainha",
-     "url": "https://www.viralagenda.com/pt/leiria/caldas-da-rainha"},
-    {"name": "viralagenda-obidos", "kind": "html_text", "town": "Óbidos",
-     "url": "https://www.viralagenda.com/pt/leiria/obidos"},
-    {"name": "viralagenda-alcobaca", "kind": "html_text", "town": "Alcobaça",
-     "url": "https://www.viralagenda.com/pt/leiria/alcobaca"},
-    {"name": "viralagenda-torres-novas", "kind": "html_text", "town": "Torres Novas",
-     "url": "https://www.viralagenda.com/pt/santarem/torres-novas"},
-    {"name": "viralagenda-cartaxo", "kind": "html_text", "town": "Cartaxo",
-     "url": "https://www.viralagenda.com/pt/santarem/cartaxo"},
-    {"name": "viralagenda-porto-de-mos", "kind": "html_text", "town": "Porto de Mós",
-     "url": "https://www.viralagenda.com/pt/leiria/porto-de-mos"},
-    {"name": "viralagenda-bombarral", "kind": "html_text", "town": "Bombarral",
-     "url": "https://www.viralagenda.com/pt/leiria/bombarral"},
-    {"name": "portugalrunning-santarem", "kind": "html_text", "town": "Santarém",
-     "url": "https://www.portugalrunning.com/corridas-santarem/"},
-    {"name": "portugalrunning-leiria", "kind": "html_text", "town": "Leiria",
-     "url": "https://www.portugalrunning.com/corridas-leiria/"},
-    {"name": "portugalrunning-lisboa", "kind": "html_text", "town": "Lisboa",
-     "url": "https://www.portugalrunning.com/corridas-lisboa/"},
-    {"name": "cm-santarem", "kind": "html_text", "town": "Santarém",
-     "url": "https://www.cm-santarem.pt/agenda"},
-    {"name": "mcr-caldas", "kind": "html_text", "town": "Caldas da Rainha",
-     "url": "https://mcr.pt/agenda"},
-    {"name": "cm-torresnovas", "kind": "html_text", "town": "Torres Novas",
-     "url": "https://www.cm-torresnovas.pt/index.php/comunicacao/agenda"},
-    {"name": "cm-cartaxo", "kind": "html_text", "town": "Cartaxo",
-     "url": "https://www.cm-cartaxo.pt/informacao/agenda"},
-    {"name": "eventbrite", "kind": "html_jsonld", "town": "Rio Maior",
-     "url": "https://www.eventbrite.pt/d/portugal--rio-maior/events/"},
-    {"name": "leiriagenda", "kind": "html_text", "town": "Leiria",
-     "url": "https://leiriagenda.cm-leiria.pt/pt"},
-    {"name": "teatro-virginia", "kind": "html_text", "town": "Torres Novas",
-     "url": "https://www.teatrovirginia.pt/"},
-    {"name": "cm-tvedras-musica", "kind": "html_text", "town": "Torres Vedras",
-     "url": "https://www.cm-tvedras.pt/agenda/categoria/37"},
-    {"name": "teatrocine-tvedras", "kind": "html_text", "town": "Torres Vedras",
-     "url": "https://teatrocine-tvedras.pt/"},
-    {"name": "cm-alcobaca", "kind": "html_text", "town": "Alcobaça",
-     "url": "https://cm-alcobaca.pt/"},
-    {"name": "cineteatro-alcobaca", "kind": "html_text", "town": "Alcobaça",
-     "url": "https://www.cineteatro.cm-alcobaca.pt/"},
-    {"name": "ccc-caldas", "kind": "html_text", "town": "Caldas da Rainha",
-     "url": "https://ccc.com.pt/"},
-    {"name": "agenda-obidos", "kind": "html_text", "town": "Óbidos",
-     "url": "https://agenda.obidos.pt/"},
-    {"name": "cm-portodemos", "kind": "html_text", "town": "Porto de Mós",
-     "url": "https://www.municipio-portodemos.pt/"},
-    {"name": "cm-alcanena", "kind": "html_text", "town": "Alcanena",
-     "url": "https://cm-alcanena.pt/index.php/comunicacao/agenda"},
-    {"name": "cm-almeirim", "kind": "html_text", "town": "Almeirim",
-     "url": "https://www.cm-almeirim.pt/informacoes/eventos"},
-    {"name": "cm-batalha", "kind": "html_text", "town": "Batalha",
-     "url": "https://www.cm-batalha.pt/municipe/comunicacao/agenda-cultural"},
-    {"name": "cm-entroncamento", "kind": "html_text", "town": "Entroncamento",
-     "url": "https://www.cm-entroncamento.pt/index.php/agenda"},
-    {"name": "cm-nazare", "kind": "html_text", "town": "Nazaré",
-     "url": "https://www.cm-nazare.pt/visitar/todos-os-eventos"},
-    {"name": "cm-peniche", "kind": "html_text", "town": "Peniche", "cap": 4000,
-     "url": "https://www.cm-peniche.pt/visitar/agenda-de-eventos"},
-    {"name": "cm-chamusca", "kind": "html_text", "town": "Chamusca",
-     "url": "https://www.cm-chamusca.pt/informacoes/comunicacao-institucional/eventos"},
-    {"name": "cm-vnbarquinha", "kind": "html_text", "town": "Vila Nova da Barquinha",
-     "url": "https://www.cm-vnbarquinha.pt/index.php/viver/agenda"},
-    {"name": "ourem", "kind": "json_get", "town": "Ourém", "mapper": "tribe",
-     "window_params": ("start_date", "end_date"),
-     "url": "https://www.ourem.pt/wp-json/tribe/events/v1/events?per_page=50"},
-    {"name": "cm-cadaval", "kind": "json_get", "town": "Cadaval", "mapper": "cadaval",
-     "url": "https://api.cm-cadaval.pt.stage.vf-portal.com/website/Events/1?page=1&lang=pt"},
-    {"name": "cm-bombarral", "kind": "nextjs", "town": "Bombarral",
-     "url": "https://www.cm-bombarral.pt/agenda"},
-    {"name": "cm-lourinha", "kind": "nextjs", "town": "Lourinhã",
-     "url": "https://www.cm-lourinha.pt/agenda"},
-    {"name": "cm-alenquer", "kind": "nextjs", "town": "Alenquer",
-     "url": "https://www.alenquer.pt/agenda"},
-]
-
-CM_NOTE = (
-    "start is UTC as sent; local_start and date are mainland Portugal time. "
-    "An all-day item can show 00:00 or 01:00 local: check it against the event page"
-)
-
-
-def lisbon_time(moment):
-    """A UTC datetime in mainland Portugal time: UTC+1 from the last Sunday of
-    March to the last Sunday of October, at 01:00 UTC both ways, else UTC."""
-    def last_sunday(month):
-        day = datetime.datetime(moment.year, month, 31, 1, tzinfo=datetime.timezone.utc)
-        return day - datetime.timedelta(days=(day.weekday() + 1) % 7)
-    summer = last_sunday(3) <= moment < last_sunday(10)
-    return moment.astimezone(datetime.timezone(datetime.timedelta(hours=1 if summer else 0)))
-
-
-SKIP_TAGS = {"script", "style", "noscript", "svg", "template"}
-# Page chrome, dropped unless inside an article or main, where a card keeps its
-# title and date in a header.
-CHROME_TAGS = {"nav", "header", "footer"}
-CONTENT_TAGS = {"article", "main"}
-# Inline tags that can mark up part of a word or number ("Sá<b>b</b>",
-# "6<sup>ª</sup>"): they part two words only when one ends and the next
-# begins at once ("<em>sab</em><em>24</em>").
-PHRASING_TAGS = {"b", "strong", "i", "em", "u", "sup", "sub", "small", "mark", "abbr", "s"}
-VOID_TAGS = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link",
-             "meta", "source", "track", "wbr"}
-BLOCK_TAGS = {"address", "article", "aside", "blockquote", "br", "dd", "div", "dl",
-              "dt", "fieldset", "figcaption", "figure", "form", "h1", "h2", "h3",
-              "h4", "h5", "h6", "hr", "li", "main", "ol", "p", "pre", "section",
-              "table", "td", "th", "tr", "ul"}
-
-
-class _TextParser(HTMLParser):
-    def __init__(self):
-        super().__init__(convert_charrefs=True)
-        self.skip = 0
-        self.content = 0
-        self.chrome = []
-        self.parts = []
-        self.gap = False
-        self.closed = False
-
-    def handle_starttag(self, tag, attrs):
-        if tag in VOID_TAGS:
-            if tag in BLOCK_TAGS:
-                self.parts.append("\n")
-            return
-        if tag in CONTENT_TAGS:
-            self.content += 1
-        if tag in CHROME_TAGS:
-            self.chrome.append(not self.content)
-            self.skip += not self.content
-        elif tag in SKIP_TAGS:
-            self.skip += 1
-        self._boundary(tag)
-
-    def handle_startendtag(self, tag, attrs):
-        if tag in BLOCK_TAGS:
-            self.parts.append("\n")
-
-    def handle_endtag(self, tag):
-        if tag in CONTENT_TAGS:
-            self.content = max(0, self.content - 1)
-        if tag in CHROME_TAGS:
-            if self.chrome and self.chrome.pop():
-                self.skip = max(0, self.skip - 1)
-        elif tag in SKIP_TAGS:
-            self.skip = max(0, self.skip - 1)
-        self._boundary(tag, end=True)
-
-    def _boundary(self, tag, end=False):
-        if tag in BLOCK_TAGS:
-            self.parts.append("\n")
-        elif tag not in PHRASING_TAGS or (self.closed and not end):
-            self.gap = True
-        self.closed = end
-
-    def handle_data(self, data):
-        if self.skip or not data:
-            return
-        # Another inline element starts a new field ("2026" then "dom"): keep
-        # a space between two letters or digits, but not before "," or ":".
-        if self.gap and self.parts and self.parts[-1][-1:].isalnum() and data[0].isalnum():
-            self.parts.append(" ")
-        self.gap = self.closed = False
-        self.parts.append(data)
-
-
-TAGLIKE_RE = re.compile(r'^<([!?]|/?[A-Za-z][\w:.-]*(\s|/?>|$))|\b\w+="[^"]*"\s+\w+="|="[^"]*"/?>$')
-
-
-def _markup_line(line):
-    """A line that is leftover markup (Office XML, say): a tag, attributes, mso- styles.
-    "<18 anos" is text."""
-    return bool(TAGLIKE_RE.search(line)) or "mso-" in line or "w:Lsd" in line or "UnhideWhenUsed=" in line
-
-
-def visible_text(page, cap=TEXT_CAP):
-    """Visible text of an HTML page as (text, truncated), without lines that
-    are leftover markup."""
-    parser = _TextParser()
-    parser.feed(page)
-    parser.close()
-    lines = []
-    for line in "".join(parser.parts).split("\n"):
-        line = re.sub(r"[ \t\r\f\v ]+", " ", html.unescape(line)).strip()
-        if line and not _markup_line(line):
-            lines.append(line)
-    text = "\n".join(lines)
-    if len(text) > cap:
-        return text[:cap], True
-    return text, False
-
-
-JSONLD_RE = re.compile(
-    r"<script[^>]*type\s*=\s*[\"']application/ld\+json[\"'][^>]*>(.*?)</script>",
-    re.I | re.S,
-)
-
-
-def _flatten(node):
-    if isinstance(node, list):
-        for child in node:
-            yield from _flatten(child)
-    elif isinstance(node, dict):
-        yield node
-        for key in ("@graph", "itemListElement", "item"):
-            if key in node:
-                yield from _flatten(node[key])
-
-
-def _has_event_type(node):
-    kinds = node.get("@type")
-    if isinstance(kinds, str):
-        kinds = [kinds]
-    return any(isinstance(k, str) and k.endswith("Event") for k in kinds or [])
-
-
-def _first(value):
-    if isinstance(value, list):
-        return _first(value[0]) if value else None
-    return value
-
-
-def _event_item(node):
-    location = _first(node.get("location"))
-    place = locality = None
-    if isinstance(location, dict):
-        place = location.get("name")
-        address = _first(location.get("address"))
-        if isinstance(address, dict):
-            locality = address.get("addressLocality")
-        elif isinstance(address, str):
-            locality = address
-    elif isinstance(location, str):
-        place = location
-    offers = _first(node.get("offers"))
-    price = None
-    if isinstance(offers, dict):
-        price = offers.get("price", offers.get("lowPrice"))
-    description = node.get("description")
-    if isinstance(description, str):
-        description = html.unescape(re.sub(r"\s+", " ", description)).strip()[:DESCRIPTION_CAP]
-    url = node.get("url")
-    return {
-        "name": html.unescape(node["name"]).strip() if isinstance(node.get("name"), str) else None,
-        "startDate": node.get("startDate"),
-        "endDate": node.get("endDate"),
-        "location": place,
-        "addressLocality": locality,
-        "url": url if isinstance(url, str) else None,
-        "price": price,
-        "description": description,
-    }
-
-
-def _day(value):
-    if isinstance(value, str) and re.match(r"\d{4}-\d{2}-\d{2}", value):
-        return value[:10]
-    return None
-
-
-def in_window(start, end, window):
-    """True unless the dates are readable and the event falls outside the window.
-
-    An event that began before the window but ends inside it is kept.
-    """
-    first, last = _day(start), _day(end)
-    if window is None or first is None:
-        return True
-    last = last or first
-    return first <= window[1] and last >= window[0]
-
-
-def extract_jsonld_events(page, window=None):
-    """Event objects from a page's JSON-LD blocks; bad blocks are skipped."""
-    events = []
-    for block in JSONLD_RE.findall(page):
-        try:
-            data = json.loads(html.unescape(block) if "&quot;" in block else block)
-        except ValueError:
-            continue
-        for node in _flatten(data):
-            if _has_event_type(node):
-                item = _event_item(node)
-                if in_window(item["startDate"], item["endDate"], window):
-                    events.append(item)
-    return events
-
-
-def parse_cm_json(raw, window):
-    """Items of the cm-riomaior calendar inside the window (two ISO dates).
-
-    The endpoint ignores dates and returns months of past events. `start` is
-    kept as sent, in UTC; `local_start` and `date` are Portugal time.
-    """
-    data = json.loads(raw.decode("utf-8"))
-    if not isinstance(data, list):
-        raise ValueError("expected a JSON array")
-    items = []
-    for entry in data:
-        start = entry.get("start") or ""
-        try:
-            moment = datetime.datetime.fromisoformat(start)
-        except ValueError:
-            continue
-        if moment.tzinfo is None:
-            moment = moment.replace(tzinfo=datetime.timezone.utc)
-        local = lisbon_time(moment)
-        date = local.date().isoformat()
-        if not window[0] <= date <= window[1]:
-            continue
-        url = entry.get("url") or ""
-        items.append({
-            "title": html.unescape(entry.get("title") or "").strip(),
-            "start": start,
-            "local_start": local.isoformat(timespec="minutes"),
-            "date": date,
-            "url": urllib.parse.urljoin(CM_BASE + "/", url) if url else None,
-            "description": html.unescape(entry.get("description") or "").strip(),
-        })
-    items.sort(key=lambda item: item["start"])
-    return items
-
-
-def _plain(value, cap=None):
-    """Text of a string that may hold entities and tags, on one line."""
-    if not isinstance(value, str):
-        return None
-    value = html.unescape(re.sub(r"<[^>]*>", " ", html.unescape(value)))
-    value = re.sub(r"\s+", " ", value).strip()
-    return (value[:cap] if cap else value) or None
-
-
-def _item(title, start, end, venue=None, url=None, price=None, description=None):
-    return {"title": _plain(title), "start": start, "end": end, "venue": _plain(venue),
-            "url": url, "price": price or None, "description": _plain(description, DESCRIPTION_CAP)}
-
-
-def _keep_window(items, window):
-    return [i for i in items if in_window(i["start"], i["end"], window)]
-
-
-def map_tribe(data, base):
-    """The Events Calendar (WordPress) REST answer; `venue` is [] without one."""
-    events = data.get("events") if isinstance(data, dict) else None
-    if not isinstance(events, list):
-        raise ValueError("expected an object with an events array")
-    items = []
-    for event in events:
-        if not isinstance(event, dict) or not event.get("title"):
-            continue
-        venue = event.get("venue")
-        name = venue.get("venue") if isinstance(venue, dict) else None
-        items.append(_item(event.get("title"), event.get("start_date"), event.get("end_date"),
-                           name, event.get("url"), event.get("cost"), event.get("description")))
-    return items
-
-
-def map_cadaval(data, base):
-    """The Cadaval portal's event list: dates are midnight, links site-relative."""
-    events = data.get("items") if isinstance(data, dict) else None
-    if not isinstance(events, list):
-        raise ValueError("expected an object with an items array")
-    items = []
-    for event in events:
-        if not isinstance(event, dict) or not event.get("title"):
-            continue
-        link = event.get("link")
-        link = link.get("url") if isinstance(link, dict) else link
-        url = urllib.parse.urljoin(base + "/", link) if isinstance(link, str) and link else base + "/"
-        items.append(_item(event.get("title"), _day(event.get("date")), _day(event.get("datef")),
-                           url=url))
-    return items
-
-
-# The public site that serves each portal's pages ("/2716/slug" under it).
-CADAVAL_SITE = "https://www.cm-cadaval.pt"
-MAPPERS = {"tribe": (map_tribe, None), "cadaval": (map_cadaval, CADAVAL_SITE)}
-
-
-def parse_json_get(raw, source, window):
-    """Items of a json_get source inside the window."""
-    mapper, base = MAPPERS[source["mapper"]]
-    data = json.loads(raw.decode("utf-8"))
-    return _keep_window(mapper(data, base), window)
-
-
-NEXT_CHUNK_RE = re.compile(r'self\.__next_f\.push\(\[1,"((?:[^"\\]|\\.)*)"\]\)')
-
-
-def parse_nextjs(page, url, window):
-    """(items inside the window, note) of a Next.js agenda page.
-
-    The note says when the page holds only the first of several pages.
-
-    The page streams its data as self.__next_f.push([1,"..."]) string chunks;
-    one JSON value can span several. Join them all, then read the value after
-    "eventsList". Dates are midnight, so only the day is kept.
-    """
-    chunks = NEXT_CHUNK_RE.findall(page)
-    data = "".join(json.loads('"%s"' % chunk, strict=False) for chunk in chunks)
-    at = data.find('"eventsList":')
-    if at < 0:
-        raise ValueError("no eventsList in the page data (layout may have changed)")
-    at += len('"eventsList":')
-    at += len(data[at:]) - len(data[at:].lstrip())
-    value, _ = json.JSONDecoder().raw_decode(data, at)
-    events = value.get("items") if isinstance(value, dict) else None
-    if not isinstance(events, list):
-        raise ValueError("eventsList has no items array")
-    parts = urllib.parse.urlsplit(url)
-    site = "%s://%s/" % (parts.scheme, parts.netloc)
-    items = []
-    for event in events:
-        if not isinstance(event, dict) or not event.get("title"):
-            continue
-        link = event.get("link")
-        items.append(_item(event.get("title"), _day(event.get("startDate")), _day(event.get("endDate")),
-                           event.get("location"),
-                           urllib.parse.urljoin(site, link) if isinstance(link, str) and link else None))
-    note = None
-    pages, count = value.get("totalPages"), value.get("count")
-    if isinstance(pages, int) and pages > 1:
-        note = "page 1 of %d%s; later events are not in this file" % (
-            pages, ", %d events in all" % count if isinstance(count, int) else "")
-    return _keep_window(items, window), note
-
-
-def _decode(body, content_type):
-    match = re.search(r"charset=([\w-]+)", content_type or "", re.I)
-    for charset in (match.group(1) if match else None, "utf-8"):
-        if charset:
-            try:
-                return body.decode(charset)
-            except (UnicodeDecodeError, LookupError):
-                pass
-    return body.decode("latin-1")
+def load_config(path=SOURCES_PATH):
+    with open(path, encoding="utf-8") as handle:
+        return json.load(handle)
 
 
 def fetch(url, data=None):
@@ -523,71 +81,87 @@ def fetch(url, data=None):
         return response.status, response.read(), response.headers.get("Content-Type")
 
 
-def cm_request_body():
-    fields = [("catid[]", c) for c in CM_CATEGORIES.split(",")]
-    fields += [("description_length", "100"), ("show_child_category_articles", "0"), ("moduleId", "223")]
-    return urllib.parse.urlencode(fields).encode("ascii")
+def host_of(source):
+    return urllib.parse.urlsplit(source["url"]).hostname
 
 
-def request_url(source, window):
-    """The URL to GET: the source's own, plus the window in the query if it takes it
-    (the last day to its end, so that day's events are in)."""
-    names = source.get("window_params")
-    if not names:
-        return source["url"]
-    joiner = "&" if "?" in source["url"] else "?"
-    start, end = window
-    return source["url"] + joiner + urllib.parse.urlencode(list(zip(names, (start, end + " 23:59:59"))))
+def plan_requests(source, window):
+    """The requests a source needs: its adapter's, else one GET of its url."""
+    adapter = ADAPTERS[source["adapter"]]
+    if hasattr(adapter, "requests"):
+        return list(adapter.requests(source, window))
+    return [Request(source["url"])]
 
 
-def collect_source(source, window):
+def run_host(host, jobs, fetch, sleep, clock, delay, on_done=None):
+    """Fetch one host's requests in turn; jobs is [(name, [Request])].
+
+    Returns {name: {"pages": [Page] or None, "status": int or None, "error": str or None}}.
+    Two requests are `delay` seconds apart, from the end of one response to the
+    start of the next. A refusal (403, 429, a 5xx), a timeout or a connection
+    error fails its source and skips the host's remaining sources; any other
+    failed request fails only its own source.
+    """
+    outcomes = {}
+    last_end = None
+    refused = False
+    for name, requests in jobs:
+        outcome = {"pages": None, "status": None, "error": None}
+        if refused:
+            outcome["error"] = "skipped: %s refused or did not answer" % host
+        else:
+            pages = []
+            for request in requests:
+                if last_end is not None:
+                    wait = delay - (clock() - last_end)
+                    if wait > 0:
+                        sleep(wait)
+                try:
+                    status, body, content_type = fetch(request.url, request.data)
+                    pages.append(Page(request.url, status, body, content_type))
+                    outcome["status"] = status
+                except urllib.error.HTTPError as err:
+                    outcome["status"] = err.code
+                    outcome["error"] = "HTTP %d %s" % (err.code, err.reason)
+                    refused = err.code in (403, 429) or err.code >= 500
+                except (urllib.error.URLError, socket.timeout, TimeoutError, ConnectionError) as err:
+                    outcome["error"] = "%s: %s" % (type(err).__name__, err)
+                    refused = True
+                except Exception as err:  # one source failing must not stop the others
+                    outcome["error"] = "%s: %s" % (type(err).__name__, err)
+                finally:
+                    last_end = clock()
+                if outcome["error"]:
+                    break
+            if not outcome["error"]:
+                outcome["pages"] = pages
+        outcomes[name] = outcome
+        if on_done:
+            on_done(name, outcome)
+    return outcomes
+
+
+def build_result(source, outcome, window):
+    """The result of one source from what its host returned."""
     result = {
         "name": source["name"], "url": source["url"], "town": source["town"],
-        "kind": source["kind"], "ok": False, "status": None, "error": None,
-        "items": [], "text": None, "truncated": False,
+        "adapter": source["adapter"], "ok": False, "status": outcome["status"],
+        "error": outcome["error"], "note": None, "items": [], "past": [],
+        "text": None, "truncated": False,
     }
+    if outcome["error"]:
+        return result
     try:
-        kind = source["kind"]
-        if kind == "cm_json":
-            status, body, _ = fetch(source["url"], cm_request_body())
-            result["status"] = status
-            result["items"] = parse_cm_json(body, window)
-            result["note"] = CM_NOTE
-            if not result["items"]:
-                result["note"] = "0 items in window; " + CM_NOTE
-        elif kind == "json_get":
-            status, body, _ = fetch(request_url(source, window))
-            result["status"] = status
-            result["items"] = parse_json_get(body, source, window)
-            if not result["items"]:
-                result["note"] = "0 items in window"
-        else:
-            status, body, content_type = fetch(source["url"])
-            result["status"] = status
-            page = _decode(body, content_type)
-            if kind == "nextjs":
-                result["items"], paging = parse_nextjs(page, source["url"], window)
-                if paging:
-                    result["note"] = paging
-            else:
-                result["items"] = extract_jsonld_events(page, window)
-            result["text"], result["truncated"] = visible_text(page, source.get("cap", TEXT_CAP))
-            if kind == "nextjs":
-                if not result["items"]:
-                    result["note"] = "; ".join(["0 items in window"] + ([result["note"]] if result.get("note") else []))
-            elif not result["items"] and len(result["text"]) < MIN_TEXT:
-                result["error"] = "no events or text found (layout may have changed)"
-                return result
-        result["ok"] = True
-    except urllib.error.HTTPError as err:
-        result["status"] = err.code
-        result["error"] = "HTTP %d %s" % (err.code, err.reason)
-        result["silent"] = err.code in (403, 429) or err.code >= 500
-    except (urllib.error.URLError, socket.timeout, TimeoutError, ConnectionError) as err:
-        result["error"] = "%s: %s" % (type(err).__name__, err)
-        result["silent"] = True
+        parsed = ADAPTERS[source["adapter"]].parse(source, outcome["pages"], window)
+    except AdapterError as err:
+        result["error"] = str(err)
+        return result
     except Exception as err:  # one source failing must not stop the others
         result["error"] = "%s: %s" % (type(err).__name__, err)
+        return result
+    for key in ("items", "past", "text", "truncated", "note"):
+        result[key] = parsed.get(key, result[key])
+    result["ok"] = True
     return result
 
 
@@ -599,23 +173,95 @@ def summary_line(result):
         result["name"], len(result["items"]), text, " (truncated)" if result["truncated"] else "")
 
 
-def main(argv=None):
+def collect_all(sources, window, hosts, default_delay, fetch=fetch, sleep=time.sleep,
+                clock=time.monotonic, max_workers=MAX_WORKERS, report=print):
+    """Results for the sources, in the order given, whatever order the hosts finish in."""
+    results = {}
+    by_host = {}
+    for source in sources:
+        try:
+            requests = plan_requests(source, window)
+        except Exception as err:
+            results[source["name"]] = build_result(
+                source, {"pages": None, "status": None, "error": "%s: %s" % (type(err).__name__, err)}, window)
+            report(summary_line(results[source["name"]]))
+            continue
+        by_host.setdefault(host_of(source), []).append((source, requests))
+
+    lock = threading.Lock()
+
+    def delay_of(host):
+        return hosts.get(host, {}).get("delay", default_delay)
+
+    def work(host, entries):
+        by_name = {s["name"]: s for s, _ in entries}
+
+        def done(name, outcome):
+            result = build_result(by_name[name], outcome, window)
+            with lock:
+                results[name] = result
+                report(summary_line(result))
+        run_host(host, [(s["name"], r) for s, r in entries], fetch, sleep, clock,
+                 delay_of(host), done)
+
+    # The host that will take longest starts first.
+    order = sorted(by_host, key=lambda h: -delay_of(h) * sum(len(r) for _, r in by_host[h]))
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as pool:
+        futures = [pool.submit(work, host, by_host[host]) for host in order]
+        for future in futures:
+            future.result()
+    return [results[s["name"]] for s in sources]
+
+
+def write_output(out_dir, collected_at, window, groups, sources, results):
+    """index.json and one file per group in out_dir; the sources are those run."""
+    os.makedirs(out_dir, exist_ok=True)
+    group_of = {s["name"]: s["group"] for s in sources}
+    span = {"start": window[0], "end": window[1]}
+    index = {"collected_at": collected_at, "window": span, "groups": {}, "sources": []}
+    for group in groups:
+        names = [s["name"] for s in sources if s["group"] == group]
+        if not names:
+            continue
+        index["groups"][group] = {"file": group + ".json", "sources": names}
+        body = {"collected_at": collected_at, "window": span, "group": group,
+                "sources": [r for r in results if group_of[r["name"]] == group]}
+        with open(os.path.join(out_dir, group + ".json"), "w", encoding="utf-8") as handle:
+            json.dump(body, handle, ensure_ascii=False, indent=1)
+            handle.write("\n")
+    for source, result in zip(sources, results):
+        index["sources"].append({
+            "name": source["name"], "group": source["group"], "town": source["town"],
+            "adapter": source["adapter"], "url": source["url"], "ok": result["ok"],
+            "status": result["status"], "error": result["error"], "note": result["note"],
+            "items": len(result["items"]), "past": len(result["past"]),
+            "chars": len(result["text"] or ""),
+        })
+    with open(os.path.join(out_dir, "index.json"), "w", encoding="utf-8") as handle:
+        json.dump(index, handle, ensure_ascii=False, indent=1)
+        handle.write("\n")
+    return index
+
+
+def main(argv=None, fetch=fetch, sleep=time.sleep, clock=time.monotonic, max_workers=MAX_WORKERS):
     parser = argparse.ArgumentParser(description="Collect event listings around Rio Maior.")
-    parser.add_argument("out", help="path of the JSON file to write")
+    parser.add_argument("out", help="folder to write: index.json and one file per group")
     parser.add_argument("--from", dest="start", metavar="YYYY-MM-DD", help="first day (default today)")
     parser.add_argument("--to", dest="end", metavar="YYYY-MM-DD", help="last day (default 42 days after --from)")
     parser.add_argument("--only", nargs="+", metavar="NAME", help="fetch only these sources")
     args = parser.parse_args(argv)
 
-    names = [s["name"] for s in SOURCES]
-    chosen = SOURCES
+    config = load_config()
+    sources = config["sources"]
+    names = [s["name"] for s in sources]
+    chosen = sources
     if args.only:
         unknown = [n for n in args.only if n not in names]
         if unknown:
             print("unknown source: %s (known: %s)" % (", ".join(unknown), ", ".join(names)),
                   file=sys.stderr)
             return 2
-        chosen = [s for s in SOURCES if s["name"] in args.only]
+        chosen = [s for s in sources if s["name"] in args.only]
 
     now = datetime.datetime.now().astimezone()
     try:
@@ -628,39 +274,21 @@ def main(argv=None):
         print("--to is before --from", file=sys.stderr)
         return 2
     window = (start.isoformat(), end.isoformat())
-    results = []
-    silent_hosts = set()
-    seen_hosts = set()
-    for source in chosen:
-        host = urllib.parse.urlsplit(source["url"]).hostname
-        if host in seen_hosts and host not in silent_hosts:
-            time.sleep(PAUSE)
-        seen_hosts.add(host)
-        if host in silent_hosts:
-            result = dict(name=source["name"], url=source["url"], town=source["town"],
-                          kind=source["kind"], ok=False, status=None, items=[], text=None,
-                          truncated=False, error="skipped: %s refused or did not answer" % host)
-        else:
-            result = collect_source(source, window)
-            if result.pop("silent", False):
-                silent_hosts.add(host)
-        print(summary_line(result), flush=True)
-        results.append(result)
 
+    results = collect_all(chosen, window, config.get("hosts", {}), config.get("default_delay", 1.5),
+                          fetch, sleep, clock, max_workers, lambda line: print(line, flush=True))
     ok = sum(1 for r in results if r["ok"])
     if not ok:
         print("every source failed; nothing written", file=sys.stderr)
         return 2
     try:
-        with open(args.out, "w", encoding="utf-8") as handle:
-            json.dump({"collected_at": now.isoformat(timespec="seconds"),
-                       "window": {"start": window[0], "end": window[1]}, "sources": results},
-                      handle, ensure_ascii=False, indent=1)
-            handle.write("\n")
+        index = write_output(args.out, now.isoformat(timespec="seconds"), window,
+                             list(config["groups"]), chosen, results)
     except OSError as err:
         print("cannot write %s: %s" % (args.out, err), file=sys.stderr)
         return 2
-    print("wrote %s: %d sources ok, %d failed" % (args.out, ok, len(results) - ok))
+    print("wrote %s: %d sources ok, %d failed in %d groups"
+          % (args.out, ok, len(results) - ok, len(index["groups"])))
     return 0
 
 

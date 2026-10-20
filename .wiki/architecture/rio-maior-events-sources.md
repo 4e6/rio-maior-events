@@ -4,9 +4,10 @@ title: Rio Maior events, the sources
 description: "The maintainer's view of each source the rio-maior-events collector reads: when and how it was checked, what to look at by hand, what breaks it, why it was chosen over its alternatives, and the sites that could not be read, by municipality."
 tags: [architecture, skill, network]
 sources:
-  - resource: skills/rio-maior-events/scripts/collect.py
+  - resource: skills/rio-maior-events/scripts/sources.json
+  - resource: skills/rio-maior-events/scripts/adapters/**
   - resource: skills/rio-maior-events/references/sources.md
-sources_digest: 10531f583206c87d
+sources_digest: 7be93c7c932955ba
 ---
 
 # What this page is for
@@ -17,7 +18,7 @@ how each was verified, how to check one by hand when a run reports it failed,
 and why a source was taken over its alternatives. **Addresses, layouts, reading traps and date
 formats are not here**: they are in
 [`references/sources.md`](../../skills/rio-maior-events/references/sources.md),
-which the model reads at run time, and in `collect.py`. A source added or dropped changes both
+which the model reads at run time, and in `scripts/sources.json` (the list, with each source's adapter and group) and the adapters. A source added or dropped changes `sources.json`, `sources.md`
 and this page.
 
 # How everything was verified

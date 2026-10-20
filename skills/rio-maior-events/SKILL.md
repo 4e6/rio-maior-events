@@ -12,12 +12,12 @@ description: >-
   Candeeiros.
 license: MIT
 compatibility: >-
-  Needs web access. With Python 3.9 or newer (standard library only), the
-  collect script fetches about 41 public pages per run (one POST to the Rio
-  Maior municipal calendar, the rest GETs), read-only, once each, and the
-  render script turns the events into the page offline. Without Python, the
-  sources are read with the host's own web tools and the events come as a list
-  in the reply.
+  Needs web access. With Python 3.9+ (standard library only), the collect
+  script fetches about 41 public pages per run, read-only, once each (one POST,
+  the rest GETs; Viral Agenda pages 15 s apart, about 7 minutes); the merge and
+  render scripts run offline. Without subagents the groups are read one after
+  another. Without Python, the sources are read with the host's own web tools
+  and the events come as a list in the reply.
 metadata:
   author: 4e6
   version: "1.0.0"
@@ -40,7 +40,7 @@ Keep this checklist to yourself.
 ```
 - [ ] 1. The window
 - [ ] 2. Collect
-- [ ] 3. Write rio-maior-events.json
+- [ ] 3. Read the groups, then merge
 - [ ] 4. Render, repair at most twice
 - [ ] 5. Hand over the page, then report
 ```
@@ -59,64 +59,70 @@ keeps the person's starred events and what they have already seen under its own
 address, and a new name loses both.
 
 ```
-python3 <this skill's directory>/scripts/collect.py rio-maior-collected.json --from <start> --to <end>
+python3 <this skill's directory>/scripts/collect.py rio-maior-collected --from <start> --to <end>
 ```
 
-A run fetches about 41 pages and takes a few minutes.
+A run fetches about 41 pages and takes about 7 minutes once the Viral Agenda
+pages are spaced 15 seconds apart: run it in the background, or with a timeout
+of at least 10 minutes, and wait for the line starting "wrote". It writes the
+folder `rio-maior-collected`: `index.json` and one file per group of sources.
 
-It prints one line per source and exits 0 if any source was read. Exit 2 means
+It prints one line per source as it finishes and exits 0 if any source was read. Exit 2 means
 every source failed, or a usage error; read the message.
 
 A source that failed (`ok: false`) can be read once with your own tool for
-reading a web page, if you have one; otherwise leave it and name it in step 5.
+reading a web page, if you have one (step 3 says where it goes); otherwise
+leave it and name it in step 5.
 When a site refuses or does not answer, skip its other pages too. Never fetch a
 source repeatedly: some of these sites throttle a visitor who does.
 
 **No Python, or no shell:** read the sources in
 [references/sources.md](references/sources.md) with your own web tools instead,
-as many as you can. The municipal calendar needs a POST, so it is out of reach;
-the Cineteatro page covers part of it.
+as many as you can, but never a Viral Agenda page, or at most one. The
+municipal calendar needs a POST, so it is out of reach; the Cineteatro page
+covers part of it. Follow [references/reading.md](references/reading.md) and
+write `rio-maior-events.json` to
+[references/events-schema.json](references/events-schema.json) directly, with
+`window`, `generated_at` (now, with offset), `origin` "Rio Maior",
+`sources_checked` and a `note`; skip step 3.
 
-## Step 3 — Write rio-maior-events.json
+## Step 3 — Read the groups, then merge
 
-Read [references/sources.md](references/sources.md) now, then the collected
-file source by source, in parts if it is long, and check that every source
-marked `ok` was read. Write one JSON document to
-[references/events-schema.json](references/events-schema.json):
+The collected folder `rio-maior-collected/` holds `index.json` and one file per
+reading group. Read each group, one reader per group:
 
-- `window` as in step 1; `generated_at` now, with offset; `origin` "Rio Maior".
-- `sources_checked`: every source, with `ok` and the `error` for a failed one.
-  A source the script failed but you then read is `ok: true`.
-- `note`: one sentence on coverage when it is thin: which sources could not be
-  read, and which weeks rest on few of them (most agendas show the current
-  month only).
-- Leisure only: what a resident might go to for enjoyment. Leave out council
-  meetings, seminars, careers and business events, and sold-out sessions.
-- One event per real event in the window. Merge the same event from several
-  sources into one, with all of them in `sources`. A show on two or three
-  dates is one event per date.
-- `title_pt` as the source gives it, without a category prefix such as
-  "Cinema //"; `title_en` a short English gloss.
-- `kind`: `single`; `multi_day` for 2–7 days; `ongoing` for anything longer
-  (exhibitions, a fortnight's festival), with its hours in the description;
-  `recurring` for a pattern such as a weekly market, with `recurrence` in words
-  and `dates` where they are known.
-  Dated performances (a play on two or three dates) are never `recurring`:
-  write one `single` per date.
-- A link is the event's own page where the source has one, else the agenda
-  page it was listed on.
-- `start_time` only where a source states it plainly; otherwise null. From
-  the municipal calendar take `local_start`, never `start`, which is UTC.
-- `town` from the venue; `drive_min` from
-  [references/towns.md](references/towns.md).
-- `price` only as a source states it; null when unknown.
-- `confidence: "low"` with a short `caveat` when the year was inferred against
-  a weekday that does not match, sources disagree, or the source looks stale.
-- A yearly event from sources.md's list, only as `date_tbc`, when the window
-  covers its usual time and no source dates it.
-- Drop past events, far-away and online ones, and anything outside the window.
+- Where the host can start subagents, start one subagent per group, all at
+  once, on the same model as you unless a smaller one has been shown to read as
+  well. Give each the path of its group file, the window, and this instruction:
+  read [references/reading.md](references/reading.md), then
+  [sources.md](references/sources.md) and [towns.md](references/towns.md), then
+  the group file, and write `rio-maior-candidates/<group>.json`.
+- Otherwise do it yourself, one group at a time, in the same way.
 
-Do not write `id`; the render script makes it.
+A source that failed (`ok: false`) and that you then read yourself goes in
+`rio-maior-candidates/manual.json`, with its events and a `sources` entry
+`{name, ok}`, using the same `collected_at`. Never read a Viral Agenda page with
+your own tool: the site asks for 15 seconds between requests.
+
+When every group has its file, run:
+
+```
+python3 <this skill's directory>/scripts/merge.py rio-maior-collected rio-maior-candidates rio-maior-events.json
+```
+
+Exit 2 names a missing or stale group: have that group read again, then run it
+again. Exit 0 writes `rio-maior-events.json` and prints three lists:
+
+- possible duplicates: decide whether each pair is one event; if so keep one
+  (the municipal source's date and time win, and both sources go in its
+  `sources`) and remove the other. Two different events stay two.
+- coverage: write `note` (one sentence, when coverage is thin) from these lines.
+- hints: yearly-event hints are not in the file; copy the ones that are
+  plausible, and whose edition no event already covers, from the group's
+  candidates file (`hints`) into `events`.
+
+Edit `rio-maior-events.json` in place; do not write `id`. An interest the
+person named narrows what you keep here, not what the readers wrote.
 
 ## Step 4 — Render, repair at most twice
 

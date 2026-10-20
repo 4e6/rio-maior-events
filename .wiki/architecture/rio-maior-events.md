@@ -6,14 +6,14 @@ tags: [architecture, skill, network, page]
 sources:
   - resource: skills/rio-maior-events/**
   - resource: evals/rio-maior-events/**
-sources_digest: e8b90b22df3096fd
+sources_digest: a85b0cd12d9d482b
 ---
 
 # What it is
 
 A person living in Rio Maior asks what is on. The skill collects the public
-listings around the town, the model reads them into one events file, and a
-script renders that file as one self-contained page: an agenda list, a month
+listings around the town, models read them group by group into one events
+file, and a script renders that file as one self-contained page: an agenda list, a month
 calendar beside it (a day strip on a phone), filters, starred picks and .ics
 downloads. It is tied to one place on purpose: the sources are the hard part,
 and each has its own traps.
@@ -22,25 +22,69 @@ and each has its own traps.
 
 - **`collect.py` fetches.** The municipal calendar is a JSON endpoint that
   takes a POST, which a page-reading tool cannot send, and a script makes a run
-  repeatable and testable. It fetches each source once, in turn, and writes for
-  each the events it found (JSON-LD, or the items of a JSON or Next.js source)
-  and the page's visible text, capped at 30,000 characters (or the source's own cap). It parses no HTML
-  layout: layouts change, and a model reads changed text better than a regex
-  does. Only data a site publishes as data (JSON, a framework's embedded list)
-  is read by field.
-- **The model reads.** Portuguese dates with no year, a misleading "Hoje!"
-  label, times that are an hour off, the same event on two sources, far-away
+  repeatable and testable. It runs the sources and writes a folder:
+  `index.json` and one file per reading group, each source with the events its
+  adapter found and the page's visible text, capped at 30,000 characters (or
+  the source's own cap). It parses no HTML layout: layouts change, and a model
+  reads changed text better than a regex does. Only data a site publishes as
+  data (JSON-LD, JSON, a framework's embedded list) is read by field.
+- **Readers read.** Portuguese dates with no year, a misleading "Hoje!" label,
+  times that are an hour off, the same event on two sources, far-away
   Eventbrite listings: `references/sources.md` lists them
-  ([below](#the-sources)), and judging them is the model's job. It writes
-  `rio-maior-events.json` to `references/events-schema.json`.
+  ([below](#the-sources)), and judging them is the model's job. One reader per
+  group follows `references/reading.md` and writes
+  `rio-maior-candidates/<group>.json`.
+- **`merge.py` joins.** It checks that every group has a current candidates
+  file, writes `rio-maior-events.json` and prints possible duplicates, coverage
+  and yearly-event hints. The main model settles those and writes the `note`.
 - **`render.py` checks and draws.** It validates the file in plain Python
   (exit 2 lists each problem with its event), makes each event's id, and inlines
   `assets/page.css`, `assets/page.js` and the events as JSON into one HTML file.
 
+# How the collection is built
+
+- **A runner, one worker per site.** `collect.py` gives each host (the host of
+  a source's url) its own worker, so sites are fetched in parallel and a site
+  is asked politely: the delay between two requests comes from `sources.json`
+  per host (1.5 s by default, 15 s for Viral Agenda, 3 s for Entroncamento) and
+  is measured from the end of the previous response, so a slow answer is not
+  followed at once by the next request. Any failed request fails the source;
+  after a refusal, a timeout or a connection error the worker skips the rest of
+  that site. Results come back in `sources.json` order, whatever finished
+  first, and the slowest host (delay times requests) starts first, so a run
+  lasts about as long as Viral Agenda's spaced pages: about 7 minutes.
+- **Adapters per platform, not per source.** An adapter in
+  `scripts/adapters/` is a pure parse over pages the runner fetched; it has no
+  network. About 30 sources share the `text` adapter, so a module per source
+  would be 30 near copies and a layout fix would be made 30 times. Adding a
+  town on a platform already known is one row in `sources.json`; only a new
+  platform is new code.
+- **Groups are the reading units.** `sources.json` puts each source in a
+  group: a sub-region (Rio Maior; northern and southern Oeste; Ribatejo; Médio
+  Tejo) and the regional listings. A town's municipal and Viral Agenda pages
+  always share a group, so an event listed on both is in one reader's file. A
+  group is kept near 150,000 characters of collected text, so one reader holds
+  it with room to write; a larger sub-region would split.
+- **Fan-out reading, on the same model by default.** The sources were once
+  read by one model in one pass, and the text of 40 pages does not read well in
+  one context. A reader per group, run at the same time, keeps each context
+  small. A smaller model is used only after an eval on one group shows it
+  reads as well; there is none, so the readers use the model of the main
+  session. Where the host has no subagents the one reader goes group by group,
+  the same way.
+- **`merge.py` lists duplicates and never merges them.** Whether two listings
+  are one event is a judgement (a town's municipal date beats a community
+  one, a show on two dates is two events), so the script only pairs candidates
+  (same town, dates a day apart, shared title words) and the main model decides.
+  It refuses a missing or stale group file rather than write a partial page.
+- **No cache.** A same-day cache of fetched pages was built and dropped:
+  `--only` re-fetches a few sources, the scope of a run is small, and a cache
+  kept a refusal or a half page alive.
+
 # The sources
 
 The municipal calendar (its times are UTC, which first looked an hour off
-against the Cineteatro; `collect.py` converts them to Portugal time, the
+against the Cineteatro; the municipal adapter converts them to Portugal time, the
 summer-time rule written out so no time-zone database is needed), the
 Cineteatro, Viral Agenda, one race calendar, and the own agenda of every
 municipality within about 45 minutes whose site a plain GET can read: HTML
@@ -58,16 +102,16 @@ later weeks rest on few sources; the page says which in its `note`.
 [The overview](/overview.md) calls a skill a payload that runs on the user's
 host. This one reaches the network by its own code, so `compatibility` says
 what and how much: about 41 public pages per run, one POST and the rest GETs,
-read-only.
+read-only, Viral Agenda 15 s apart.
 
-- `collect.py` is the only script that imports `urllib`. `render.py` reads its
+- `collect.py` is the only script that imports `urllib`; the adapters and `merge.py` reach nothing. `render.py` reads its
   input and two assets and writes one file; nothing it writes fetches anything
   when opened (no remote script, stylesheet or font).
 - It names third-party sites, because they are its subject.
 - A site that refuses (a 403) or does not answer is recorded as failed and not
   retried another way. After a refusal (403, 429, a 5xx), a timeout or a
   connection error the rest of that site's pages are skipped, and requests to
-  one site are 1.5 s apart. GoTrail and Running.life answered Python's TLS
+  one site are spaced by that host's delay. GoTrail and Running.life answered Python's TLS
   handshake with a 403 while a browser got the page; a fallback to `curl` was
   built and removed, because getting round a refusal is not this script's call,
   and both were later dropped for Portugal Running. The model may read
@@ -114,8 +158,9 @@ dark.
 
 # Tests
 
-`evals/rio-maior-events/` holds offline unit tests, run in CI: the collector's
-parsers on small hand-written fixtures, and the renderer's validation, ids,
+`evals/rio-maior-events/` holds offline unit tests, run in CI: the runner (fake clock,
+result order), the adapters on small hand-written fixtures and on saved pages,
+`merge.py`, and the renderer's validation, ids,
 escaping, byte-stable sample and its rules for `page.js`. A live run is not in
 CI: the sources change and some throttle. No eval measures the model's reading.
 The gap: `page.js` behaviour (bands, filters, `.ics`) is checked in headless
