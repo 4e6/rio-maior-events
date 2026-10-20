@@ -27,7 +27,7 @@ when it opens.
 
 ## Where the events come from
 
-About 33 pages a run, each read once:
+About 33 list pages a run, each read once, then up to about 150 event pages of the sites whose cards lack a time or a venue (a few minutes in all). The event page is cited as the source where there is one:
 
 - **Municipal agendas** of Rio Maior, Santarém, Caldas da Rainha, Torres Novas,
   Cartaxo, Torres Vedras, Alcobaça, Óbidos, Porto de Mós, Alcanena,

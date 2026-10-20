@@ -8,9 +8,8 @@ same link; entries that touch are joined here.
 
 import datetime
 import re
-import xml.etree.ElementTree as ET
 
-from .common import AdapterError, keep_window, make_item, plain
+from .common import AdapterError, keep_window, make_item, plain, xml_root
 
 ONE_DAY = datetime.timedelta(days=1)
 
@@ -97,14 +96,7 @@ def _to_item(entry):
 
 
 def map_feed(body):
-    if b"\x00" in body or body.startswith((b"\xff\xfe", b"\xfe\xff")):
-        raise AdapterError("feed is UTF-16 or UTF-32, not ASCII-compatible; not read")
-    if re.search(rb"<!(DOCTYPE|ENTITY)", body, re.I):
-        raise AdapterError("feed has a DOCTYPE or ENTITY declaration; not read")
-    try:
-        root = ET.fromstring(body)
-    except ET.ParseError:
-        raise AdapterError("feed is not valid XML")
+    root = xml_root(body)
     if root.tag != "rss" or root.find("channel") is None:
         raise AdapterError("feed has no rss channel")
     by_link, order = {}, []

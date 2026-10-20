@@ -11,8 +11,18 @@ adapter plans the requests a source needs and turns the pages that come back
 into `items` (events it could parse) and `text` (the visible text, capped), and
 raises an error when the pages cannot be read. A result that is not shaped as
 the adapters promise, or a request to a host other than the source's own, fails
-that source. Each source's `label` (a name for people) is copied into its result. Reading, dating and merging the
-events is left to whoever reads the files.
+that source. Each source's `label` (a name for people) is copied into its result.
+Reading, dating and merging the events is left to whoever reads the files.
+
+A source may also name event pages to fetch (`follow` in what its adapter
+returns). Only those on the source's own host are fetched, at most the source's
+`follow` in sources.json (default 0: none), after all of the host's list pages,
+and a redirect to another host or to http is refused. The adapter's `details`
+step (by default common.extract_detail) reads each page that came back into
+{url, title, start, end, venue, excerpt}, and these are the source's `details`
+(index.json counts them per source; a line "N event pages read" is printed).
+A failed event page leaves the source ok; a refusal stops the host's further
+event pages only.
 
 Requests go out with a 20 second timeout. Hosts are worked in parallel, one
 worker per host (at most 8 at a time), and within a host one request at a time,
@@ -21,9 +31,9 @@ own), counted from the end of the previous response. After a refusal (403, 429,
 a 5xx), a timeout or a connection error the rest of that host's sources are
 skipped; any other failed request, a 404 say, fails only its own source. A
 source that fails is recorded with ok false and an error and the rest carry on.
-A run makes about 33 requests and takes under a minute, the sites being worked
-in parallel. Ctrl-C stops the workers between requests, writes nothing
-and exits 130.
+A run makes about 33 list requests and, with the event pages, up to about 150
+more, and takes a few minutes, the sites being worked in parallel. Ctrl-C stops
+the workers between requests, writes nothing and exits 130.
 
 The output folder holds index.json (the window, `collected_at`, every group's
 file and sources, and one summary row per source) and one file per reading
@@ -61,7 +71,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
 from adapters import ADAPTERS  # noqa: E402
-from adapters.common import AdapterError, Page, Request, decode  # noqa: E402
+from adapters.common import (AdapterError, Page, Request, clean_url, decode,  # noqa: E402
+                             default_details)
 
 SOURCES_PATH = os.path.join(HERE, "sources.json")
 TIMEOUT = 20
@@ -117,6 +128,32 @@ def fetch(url, data=None):
         return response.status, body, response.headers.get("Content-Type")
 
 
+class RedirectRefused(Exception):
+    """A follow was redirected to another host or to plain http."""
+
+
+class _SameHost(urllib.request.HTTPRedirectHandler):
+    def __init__(self, host):
+        self.host = host
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        parts = urllib.parse.urlsplit(newurl)
+        if parts.scheme != "https" or parts.hostname != self.host:
+            raise RedirectRefused("redirected to %s" % newurl)
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+def fetch_follow(url, data=None):
+    """Like fetch, for an event page: a redirect to another host or away from
+    https is refused before it is requested. Also returns the final URL."""
+    headers = {"User-Agent": USER_AGENT, "Accept-Language": "pt-PT,pt;q=0.9,en;q=0.5",
+               "Accept-Encoding": "gzip, deflate"}
+    opener = urllib.request.build_opener(_SameHost(urllib.parse.urlsplit(url).hostname))
+    with opener.open(urllib.request.Request(url, headers=headers), timeout=TIMEOUT) as response:
+        body = inflate(response.read(), response.headers.get("Content-Encoding"))
+        return response.status, body, response.headers.get("Content-Type"), response.geturl()
+
+
 def host_of(source):
     return urllib.parse.urlsplit(source["url"]).hostname
 
@@ -135,7 +172,8 @@ def plan_requests(source, window):
     return requests
 
 
-def run_host(host, jobs, fetch, sleep, clock, delay, on_done=None, stop=None):
+def run_host(host, jobs, fetch, sleep, clock, delay, on_done=None, stop=None,
+             follow_fetch=None, on_followed=None):
     """Fetch one host's requests in turn; jobs is [(name, [Request])].
 
     Returns {name: {"pages": [Page] or None, "status": int or None, "error": str or None}}.
@@ -144,9 +182,32 @@ def run_host(host, jobs, fetch, sleep, clock, delay, on_done=None, stop=None):
     error fails its source and skips the host's remaining sources; any other
     failed request fails only its own source. Once `stop` (a threading.Event) is
     set, no further request is made and the host's work ends.
+
+    `on_done(name, outcome)` is called as each source finishes; it may return
+    event pages to follow, a list of Request. When all the host's sources are
+    done (and the host has not refused), those are fetched with `follow_fetch`
+    (default `fetch`; it may return a fourth item, the final URL), a page
+    asked for by two sources once, and `on_followed(name, [Page])` is called for
+    each source that got any. A follow that fails is skipped; a refusal, a
+    timeout or a connection error ends the host's follows, with the list
+    results standing.
     """
     outcomes = {}
-    last_end = None
+    wanted = []
+    state = {"last_end": None}
+
+    def pause():
+        """Waits out the delay; False once stopped."""
+        if stop is not None and stop.is_set():
+            return False
+        if state["last_end"] is not None:
+            wait = delay - (clock() - state["last_end"])
+            if wait > 0:
+                sleep(wait)
+            if stop is not None and stop.is_set():
+                return False
+        return True
+
     refused = False
     for name, requests in jobs:
         if stop is not None and stop.is_set():
@@ -157,16 +218,10 @@ def run_host(host, jobs, fetch, sleep, clock, delay, on_done=None, stop=None):
         else:
             pages = []
             for request in requests:
-                if stop is not None and stop.is_set():
+                if not pause():
                     return outcomes
-                if last_end is not None:
-                    wait = delay - (clock() - last_end)
-                    if wait > 0:
-                        sleep(wait)
-                    if stop is not None and stop.is_set():
-                        return outcomes
                 try:
-                    status, body, content_type = fetch(request.url, request.data)
+                    status, body, content_type = fetch(request.url, request.data)[:3]
                     outcome["status"] = status
                     if garbled(body, content_type):
                         outcome["error"] = "unreadable response (binary or garbled)"
@@ -182,42 +237,114 @@ def run_host(host, jobs, fetch, sleep, clock, delay, on_done=None, stop=None):
                 except Exception as err:  # one source failing must not stop the others
                     outcome["error"] = "%s: %s" % (type(err).__name__, err)
                 finally:
-                    last_end = clock()
+                    state["last_end"] = clock()
                 if outcome["error"]:
                     break
             if not outcome["error"]:
                 outcome["pages"] = pages
         outcomes[name] = outcome
-        if on_done:
-            on_done(name, outcome)
+        follows = on_done(name, outcome) if on_done else None
+        if follows and not outcome["error"]:
+            wanted.append((name, follows))
+
+    if refused or not wanted:
+        return outcomes
+    got = {}  # url asked for -> Page, or None when it failed
+    for name, urls in wanted:
+        for request in urls:
+            if request.url in got:
+                continue
+            got[request.url] = None
+            if not pause():
+                return outcomes
+            try:
+                result = (follow_fetch or fetch)(request.url, None)
+                status, body, content_type = result[:3]
+                final = result[3] if len(result) > 3 else request.url
+                if not garbled(body, content_type):
+                    got[request.url] = Page(final, status, body, content_type)
+            except RedirectRefused:
+                pass
+            except urllib.error.HTTPError as err:
+                if err.code in (403, 429) or err.code >= 500:
+                    break
+            except (urllib.error.URLError, socket.timeout, TimeoutError, ConnectionError):
+                break
+            except Exception:  # an event page that cannot be read is skipped
+                pass
+            finally:
+                state["last_end"] = clock()
+        else:
+            continue
+        break  # a refusal ends the host's follows
+    for name, urls in wanted:
+        pages = [got[r.url] for r in urls if got.get(r.url)]
+        if pages and on_followed:
+            on_followed(name, pages)
     return outcomes
 
 
-def build_result(source, outcome, window):
-    """The result of one source from what its host returned."""
-    result = {
+def new_result(source, outcome):
+    return {
         "name": source["name"], "label": source["label"], "url": source["url"],
         "town": source["town"], "adapter": source["adapter"], "ok": False, "status": outcome["status"],
         "error": outcome["error"], "note": None, "items": [], "past": [],
-        "text": None, "truncated": False,
+        "text": None, "truncated": False, "details": [],
     }
+
+
+def parse_outcome(source, outcome, window):
+    """(result, follow) of one source from what its host returned: the result
+    for the output file and the event pages to fetch, a list of Request."""
+    result = new_result(source, outcome)
     if outcome["error"]:
-        return result
+        return result, []
     try:
         parsed = ADAPTERS[source["adapter"]].parse(source, outcome["pages"], window)
     except AdapterError as err:
         result["error"] = str(err)
-        return result
+        return result, []
     except Exception as err:  # one source failing must not stop the others
         result["error"] = "%s: %s" % (type(err).__name__, err)
-        return result
+        return result, []
     if not well_formed(parsed):
         result["error"] = "adapter returned a malformed result"
-        return result
+        return result, []
     for key in ("items", "past", "text", "truncated", "note"):
         result[key] = parsed.get(key, result[key])
     result["ok"] = True
-    return result
+    return result, follow_requests(source, parsed.get("follow"))
+
+
+def build_result(source, outcome, window):
+    """The result of one source from what its host returned."""
+    return parse_outcome(source, outcome, window)[0]
+
+
+def follow_requests(source, follow):
+    """The event pages to fetch: the requests of `follow` on the source's own
+    host, once each, as many as the source's `follow` allows (default none)."""
+    limit = source.get("follow", 0)
+    found = []
+    for request in follow or []:
+        url = clean_url(None, request.url)
+        if (url and urllib.parse.urlsplit(url).hostname == host_of(source)
+                and url not in [r.url for r in found]):
+            found.append(Request(url))
+    return found[:limit] if isinstance(limit, int) else []
+
+
+def build_details(source, pages, window):
+    """The details of the followed pages: the adapter's `details` step, else
+    common.extract_detail. A step that fails or returns the wrong shape gives none."""
+    adapter = ADAPTERS[source["adapter"]]
+    try:
+        found = getattr(adapter, "details", default_details)(source, pages, window)
+    except Exception:
+        return []
+    if isinstance(found, list) and all(isinstance(d, dict) for d in found):
+        return found
+    return []
 
 
 def well_formed(parsed):
@@ -231,6 +358,10 @@ def well_formed(parsed):
     for key in ("text", "note"):
         if not isinstance(parsed.get(key), (str, type(None))):
             return False
+    follow = parsed.get("follow", [])
+    if not (isinstance(follow, list) and all(
+            isinstance(r, Request) and isinstance(r.url, str) and r.data is None for r in follow)):
+        return False
     return isinstance(parsed.get("truncated", False), bool)
 
 
@@ -242,14 +373,22 @@ def summary_line(result):
         result["name"], len(result["items"]), text, " (truncated)" if result["truncated"] else "")
 
 
+def details_line(result):
+    return "%-30s    %d event pages read" % (result["name"], len(result["details"]))
+
+
 def collect_all(sources, window, hosts, default_delay, fetch=fetch, sleep=None,
-                clock=time.monotonic, max_workers=MAX_WORKERS, report=print):
+                clock=time.monotonic, max_workers=MAX_WORKERS, report=print, follow_fetch=None):
     """Results for the sources, in the order given, whatever order the hosts finish in.
 
     `sleep` defaults to waiting on the stop event, so an interrupt ends a wait at
     once. On KeyboardInterrupt the pending hosts are cancelled, the running ones
     stop before their next request, and the interrupt is raised again.
+    Event pages are fetched with `follow_fetch`; by default fetch_follow when
+    `fetch` is the real one, else `fetch`.
     """
+    if follow_fetch is None:
+        follow_fetch = fetch_follow if fetch is globals()["fetch"] else fetch
     stop = threading.Event()
     if sleep is None:
         sleep = stop.wait
@@ -274,15 +413,23 @@ def collect_all(sources, window, hosts, default_delay, fetch=fetch, sleep=None,
         by_name = {s["name"]: s for s, _ in entries}
 
         def done(name, outcome):
-            result = build_result(by_name[name], outcome, window)
+            result, follow = parse_outcome(by_name[name], outcome, window)
             with lock:
                 results[name] = result
                 report(summary_line(result))
+            return follow
+
+        def followed(name, pages):
+            details = build_details(by_name[name], pages, window)
+            with lock:
+                results[name]["details"] = details
+                report(details_line(results[name]))
         run_host(host, [(s["name"], r) for s, r in entries], fetch, sleep, clock,
-                 delay_of(host), done, stop)
+                 delay_of(host), done, stop, follow_fetch, followed)
 
     # The host that will take longest starts first.
-    order = sorted(by_host, key=lambda h: -delay_of(h) * sum(len(r) for _, r in by_host[h]))
+    order = sorted(by_host, key=lambda h: -delay_of(h) * (
+        sum(len(r) for _, r in by_host[h]) + sum(s.get("follow", 0) for s, _ in by_host[h])))
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as pool:
         futures = []
         try:
@@ -320,7 +467,7 @@ def write_output(out_dir, collected_at, window, groups, sources, results):
             "adapter": source["adapter"], "url": source["url"], "ok": result["ok"],
             "status": result["status"], "error": result["error"], "note": result["note"],
             "items": len(result["items"]), "past": len(result["past"]),
-            "chars": len(result["text"] or ""),
+            "chars": len(result["text"] or ""), "details": len(result["details"]),
         })
     with open(os.path.join(out_dir, "index.json"), "w", encoding="utf-8") as handle:
         json.dump(index, handle, ensure_ascii=False, indent=1)
@@ -328,7 +475,8 @@ def write_output(out_dir, collected_at, window, groups, sources, results):
     return index
 
 
-def main(argv=None, fetch=fetch, sleep=None, clock=time.monotonic, max_workers=MAX_WORKERS):
+def main(argv=None, fetch=fetch, sleep=None, clock=time.monotonic, max_workers=MAX_WORKERS,
+         follow_fetch=None):
     parser = argparse.ArgumentParser(description="Collect event listings around Rio Maior.")
     parser.add_argument("out", help="folder to write: index.json and one file per group")
     parser.add_argument("--from", dest="start", metavar="YYYY-MM-DD", help="first day (default today)")
@@ -362,7 +510,8 @@ def main(argv=None, fetch=fetch, sleep=None, clock=time.monotonic, max_workers=M
 
     try:
         results = collect_all(chosen, window, config.get("hosts", {}), config.get("default_delay", 1.5),
-                              fetch, sleep, clock, max_workers, lambda line: print(line, flush=True))
+                              fetch, sleep, clock, max_workers, lambda line: print(line, flush=True),
+                              follow_fetch)
     except KeyboardInterrupt:
         print("interrupted; nothing written", file=sys.stderr)
         return 130

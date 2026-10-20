@@ -7,7 +7,7 @@ sources:
   - resource: skills/rio-maior-events/scripts/sources.json
   - resource: skills/rio-maior-events/scripts/adapters/**
   - resource: skills/rio-maior-events/references/sources.md
-sources_digest: 00d32f1c0d3a5dbb
+sources_digest: 4408685dc6abc021
 ---
 
 # What this page is for
@@ -98,6 +98,32 @@ browser; the page should show dated cards for the coming weeks.
   it; a framework change breaks all three at once. Only page 1 is read; the source's
   `note` in a run says how many pages there are.
 - **Supplementary agendas and Eventbrite.** As before: plain text, expect gaps.
+
+# Event links and event pages
+
+Which sources have `links` (markers) and how many event pages each fetches
+(`follow` in `sources.json`); what a page gives was checked offline on the saved
+pages of 2026-10-20 and live on 2026-10-21: 33 sources ok, 147 event pages read, 1 min 36 s.
+
+- **Torres Vedras music (15):** time, venue and the real title. Cineteatro
+  (Rio Maior), Santarém Acontece, Alcobaça, Caldas (MCR), Cartaxo, Leiria, Almeirim:
+  links only.
+- **Centro Cultural das Caldas (12):** time, hall and prices.
+- **Teatro Virgínia (10):** time and price. **Entroncamento (10):** the time
+  only. **Torres Novas, Alcanena, Barquinha (10):** time. Torres Novas and
+  Entroncamento link their mini-calendar day cells, whose `title` attribute names
+  the event, so the marker is followed by that title.
+- **Óbidos (10):** hours and venue. **Porto de Mós (10)**: calendar data
+  (start, end, venue); Batalha's pages carry the same, but its feed is read
+  with no event pages.
+- **Portugal Running, three districts (8 each):** the start time.
+- **Teatro-Cine Torres Vedras, Cine-Teatro Alcobaça, Peniche (8):** event pages fetched; the research of 2026-10-20 found a time on the Teatro-Cine's pages (21h00) and Cine-Teatro Alcobaça's (20h30); Peniche's was not sampled.
+- **Nazaré (8):** the pages give the venue (live 2026-10-21: "cineteatro") and
+  an excerpt with a line of detail ("Jovens pianistas"); the titles stay
+  generic.
+- **Feeds** (Nazaré, Batalha, Chamusca): `pubDate` is the start. Their `rss` addresses are
+  the platform's `/pages/<path>.rss`. If one stops answering, the agenda page is
+  the fallback to read as text.
 
 # Not reachable
 

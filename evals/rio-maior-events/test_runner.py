@@ -11,6 +11,7 @@ import contextlib
 import io
 import json
 import os
+import re
 import socket
 import tempfile
 import threading
@@ -24,7 +25,7 @@ import helpers
 from helpers import WINDOW
 import collect
 from adapters import ADAPTERS
-from adapters.common import Request
+from adapters.common import Page, Request
 
 PAGE = ("<p>%s</p>" % ("evento " * 60)).encode()
 
@@ -352,6 +353,273 @@ class Contract(unittest.TestCase):
         self.assertEqual(calls, ["https://h.example/a"])
 
 
+EVENT = ("<html><head><title>Fado - Teatro</title><meta property=\"og:title\" content=\"Fado\">"
+         "</head><body><h1>Fado</h1><p>%s</p></body></html>" % ("noite " * 30)).encode()
+
+
+class Follow(unittest.TestCase):
+    """The second stage of run_host: the event pages a source asks for."""
+
+    def run_host(self, jobs, follows, fetch=None, follow_fetch=None, delay=2.0, stop=None):
+        """jobs is [(name, list url)]; follows {name: [urls]}. Returns (clock, calls, got, outcomes)."""
+        clock = Clock()
+        calls, got = [], {}
+
+        def fetching(url, data=None):
+            calls.append(url)
+            return (fetch or clock.fetch)(url, data)
+        pairs = [(n, [Request(u)]) for n, u in jobs]
+        outcomes = collect.run_host(
+            "h.example", pairs, fetching, clock.sleep, clock.clock, delay,
+            lambda name, outcome: [Request(u) for u in follows.get(name, [])], stop,
+            follow_fetch and (lambda url, data=None: calls.append(url) or follow_fetch(url, data)),
+            lambda name, pages: got.__setitem__(name, [p.url for p in pages]))
+        return clock, calls, got, outcomes
+
+    def test_all_list_pages_come_first_then_the_event_pages_once_each(self):
+        jobs = [("a", "https://h.example/la"), ("b", "https://h.example/lb")]
+        follows = {"a": ["https://h.example/e1", "https://h.example/e2"],
+                   "b": ["https://h.example/e2", "https://h.example/e3"]}
+        clock, calls, got, _ = self.run_host(jobs, follows)
+        self.assertEqual([u.rsplit("/", 1)[1] for u in calls], ["la", "lb", "e1", "e2", "e3"])
+        self.assertEqual(got, {"a": ["https://h.example/e1", "https://h.example/e2"],
+                               "b": ["https://h.example/e2", "https://h.example/e3"]})
+        self.assertEqual(clock.sleeps, [2.0] * 4)
+
+    def test_a_page_carries_its_final_url_when_the_fetch_gives_one(self):
+        def follow_fetch(url, data=None):
+            return 200, PAGE, None, url + "/final"
+        _, _, got, _ = self.run_host([("a", "https://h.example/la")], {"a": ["https://h.example/e1"]},
+                                     follow_fetch=follow_fetch)
+        self.assertEqual(got, {"a": ["https://h.example/e1/final"]})
+
+    def test_a_failed_event_page_is_skipped_and_the_rest_are_fetched(self):
+        def fetch(url, data=None):
+            if url.endswith(("e1", "e2", "e3")):
+                raise {"e1": http(404), "e2": collect.RedirectRefused("elsewhere"),
+                       "e3": OSError("odd")}[url[-2:]]
+            return 200, PAGE, None
+        follows = {"a": ["https://h.example/%s" % n for n in ("e1", "e2", "e3", "e4")]}
+        _, calls, got, outcomes = self.run_host([("a", "https://h.example/la")], follows, fetch=fetch)
+        self.assertEqual(len(calls), 5)
+        self.assertEqual(got, {"a": ["https://h.example/e4"]})
+        self.assertIsNone(outcomes["a"]["error"])
+
+    def test_a_refusal_ends_the_event_pages_but_the_list_results_stand(self):
+        for error in (http(403), http(429), http(503), socket.timeout("t"), ConnectionResetError("r"),
+                      urllib.error.URLError("refused")):
+            def fetch(url, data=None):
+                if url.endswith("e2"):
+                    raise error
+                return 200, PAGE, None
+            follows = {"a": ["https://h.example/e1", "https://h.example/e2", "https://h.example/e3"],
+                       "b": ["https://h.example/e4"]}
+            jobs = [("a", "https://h.example/la"), ("b", "https://h.example/lb")]
+            _, calls, got, outcomes = self.run_host(jobs, follows, fetch=fetch)
+            self.assertEqual(len(calls), 4, error)
+            self.assertEqual(got, {"a": ["https://h.example/e1"]}, error)
+            self.assertEqual([o["error"] for o in outcomes.values()], [None, None])
+
+    def test_no_event_pages_after_a_refused_list_page(self):
+        def fetch(url, data=None):
+            if url.endswith("lb"):
+                raise http(403)
+            return 200, PAGE, None
+        jobs = [("a", "https://h.example/la"), ("b", "https://h.example/lb")]
+        _, calls, got, _ = self.run_host(jobs, {"a": ["https://h.example/e1"]}, fetch=fetch)
+        self.assertEqual((len(calls), got), (2, {}))
+
+    def test_a_source_whose_list_page_failed_gets_no_event_pages(self):
+        def fetch(url, data=None):
+            if url.endswith("la"):
+                raise http(404)
+            return 200, PAGE, None
+        _, calls, got, _ = self.run_host([("a", "https://h.example/la")], {"a": ["https://h.example/e1"]},
+                                         fetch=fetch)
+        self.assertEqual((calls, got), (["https://h.example/la"], {}))
+
+    def test_a_garbled_event_page_is_skipped(self):
+        def fetch(url, data=None):
+            return 200, (bytes(range(0, 9)) * 100 if url.endswith("e1") else PAGE), None
+        _, _, got, _ = self.run_host([("a", "https://h.example/la")],
+                                     {"a": ["https://h.example/e1", "https://h.example/e2"]}, fetch=fetch)
+        self.assertEqual(got, {"a": ["https://h.example/e2"]})
+
+    def test_the_stop_ends_the_event_pages_too(self):
+        stop = threading.Event()
+        calls = []
+
+        def fetch(url, data=None):
+            calls.append(url)
+            if url.endswith("e1"):
+                stop.set()
+            return 200, PAGE, None
+        jobs = [("a", [Request("https://h.example/la")])]
+        clock = Clock()
+        collect.run_host("h.example", jobs, fetch, clock.sleep, clock.clock, 1.0,
+                         lambda n, o: [Request("https://h.example/e1"), Request("https://h.example/e2")], stop)
+        self.assertEqual([u[-2:] for u in calls], ["la", "e1"])
+
+
+class Redirects(unittest.TestCase):
+    def handler(self, newurl):
+        handler = collect._SameHost("h.example")
+        request = urllib.request.Request("https://h.example/a")
+        return handler.redirect_request(request, io.BytesIO(), 302, "Found", {}, newurl)
+
+    def test_a_redirect_on_the_same_host_over_https_is_followed(self):
+        self.assertEqual(self.handler("https://h.example/b").full_url, "https://h.example/b")
+
+    def test_a_redirect_to_another_host_or_to_http_is_refused_before_it_is_requested(self):
+        for url in ("https://www.h.example/b", "https://other.example/b", "http://h.example/b"):
+            with self.assertRaises(collect.RedirectRefused, msg=url):
+                self.handler(url)
+
+
+class FetchFollow(unittest.TestCase):
+    """fetch_follow against a server on this machine (no network)."""
+
+    @classmethod
+    def setUpClass(cls):
+        import http.server
+
+        class Handler(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):
+                if self.path == "/ok":
+                    body = b"<p>ola</p>"
+                    self.send_response(200)
+                    self.send_header("Content-Type", "text/html; charset=utf-8")
+                    self.send_header("Content-Length", str(len(body)))
+                    self.end_headers()
+                    self.wfile.write(body)
+                else:
+                    self.send_response(302)
+                    self.send_header("Location", "http://localhost:%d/ok" % self.server.server_port)
+                    self.end_headers()
+
+            def log_message(self, *args):
+                pass
+        cls.server = http.server.HTTPServer(("127.0.0.1", 0), Handler)
+        threading.Thread(target=cls.server.serve_forever, daemon=True).start()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.server.shutdown()
+        cls.server.server_close()
+
+    def test_a_page_comes_back_with_its_final_url(self):
+        url = "http://127.0.0.1:%d/ok" % self.server.server_port
+        self.assertEqual(collect.fetch_follow(url), (200, b"<p>ola</p>", "text/html; charset=utf-8", url))
+
+    def test_a_redirect_away_from_the_host_is_refused(self):
+        with self.assertRaises(collect.RedirectRefused):
+            collect.fetch_follow("http://127.0.0.1:%d/moved" % self.server.server_port)
+
+
+class FollowContract(unittest.TestCase):
+    def source(self, **extra):
+        return dict({"name": "a-1", "label": "a", "adapter": "text", "town": "T", "group": "g",
+                     "url": "https://a.example/page"}, **extra)
+
+    def collect(self, sources, parsed, fetch=None, **adapter):
+        """collect_all with a fake `text` adapter whose parse returns `parsed`."""
+        calls = []
+
+        def fetching(url, data=None):
+            calls.append(url)
+            return (fetch or (lambda u, d=None: (200, EVENT if "/e" in u else PAGE, None)))(url, data)
+        fake = types.SimpleNamespace(parse=lambda source, pages, window: parsed, **adapter)
+        with mock.patch.dict(collect.ADAPTERS, {"text": fake}):
+            results = collect.collect_all(sources, WINDOW, {}, 0, fetching, lambda s: None, lambda: 0.0, 2,
+                                          lambda line: None)
+        return results, calls
+
+    def follow(self, *paths, host="a.example"):
+        return {"items": [], "follow": [Request("https://%s%s" % (host, p)) for p in paths]}
+
+    def test_nothing_is_followed_unless_the_source_allows_it(self):
+        results, calls = self.collect([self.source()], self.follow("/e1"))
+        self.assertEqual(calls, ["https://a.example/page"])
+        self.assertEqual(results[0]["details"], [])
+
+    def test_only_the_sources_own_host_is_followed_in_order_up_to_the_cap(self):
+        parsed = {"items": [], "follow": [
+            Request("https://evil.example/e0"), Request("https://a.example/e1"), Request("https://a.example/e1"),
+            Request("https://a.example/e2"), Request("https://a.example/e3")]}
+        results, calls = self.collect([self.source(follow=2)], parsed)
+        self.assertEqual(calls, ["https://a.example/page", "https://a.example/e1", "https://a.example/e2"])
+        self.assertEqual([d["url"] for d in results[0]["details"]],
+                         ["https://a.example/e1", "https://a.example/e2"])
+
+    def test_a_non_ascii_url_is_percent_encoded(self):
+        results, calls = self.collect([self.source(follow=1)], self.follow("/e/caf\u00e9 x"))
+        self.assertEqual(calls[1], "https://a.example/e/caf%C3%A9%20x")
+
+    def test_the_default_details_read_the_event_pages(self):
+        results, _ = self.collect([self.source(follow=1)], self.follow("/e1"))
+        (detail,) = results[0]["details"]
+        self.assertEqual((detail["url"], detail["title"]), ("https://a.example/e1", "Fado"))
+        self.assertTrue(results[0]["ok"])
+
+    def test_the_adapters_own_details_step_is_used(self):
+        seen = []
+
+        def details(source, pages, window):
+            seen.append(([p.url for p in pages], window))
+            return [{"url": "u", "title": "own"}]
+        results, _ = self.collect([self.source(follow=1)], self.follow("/e1"), details=details)
+        self.assertEqual(results[0]["details"], [{"url": "u", "title": "own"}])
+        self.assertEqual(seen, [(["https://a.example/e1"], WINDOW)])
+
+    def test_a_failing_or_malformed_details_step_keeps_the_source_without_details(self):
+        def boom(source, pages, window):
+            raise ValueError("x")
+        for step in (boom, lambda s, p, w: "x", lambda s, p, w: [1], lambda s, p, w: None):
+            results, _ = self.collect([self.source(follow=1)], self.follow("/e1"), details=step)
+            self.assertTrue(results[0]["ok"])
+            self.assertEqual(results[0]["details"], [])
+
+    def test_failed_and_refused_event_pages_leave_the_source_ok(self):
+        def fetch(url, data=None):
+            if "/e" in url:
+                raise http(403)
+            return 200, PAGE, None
+        results, calls = self.collect([self.source(follow=3)], self.follow("/e1", "/e2"), fetch=fetch)
+        self.assertEqual(len(calls), 2)
+        self.assertTrue(results[0]["ok"])
+        self.assertEqual(results[0]["details"], [])
+
+    def test_a_malformed_follow_fails_the_source(self):
+        for follow in ("x", ["https://a.example/e1"], [Request("https://a.example/e1", b"x=1")],
+                       [Request(5)], {"a": 1}):
+            results, calls = self.collect([self.source(follow=1)], {"items": [], "follow": follow})
+            self.assertFalse(results[0]["ok"], follow)
+            self.assertEqual(results[0]["error"], "adapter returned a malformed result")
+            self.assertEqual(calls, ["https://a.example/page"])
+
+    def test_the_same_page_for_two_sources_is_fetched_once(self):
+        sources = [self.source(follow=1), dict(self.source(follow=1), name="a-2")]
+        results, calls = self.collect(sources, self.follow("/e1"))
+        self.assertEqual(calls.count("https://a.example/e1"), 1)
+        self.assertEqual([len(r["details"]) for r in results], [1, 1])
+
+    def test_a_real_follow_fetch_is_used_only_for_the_real_fetch(self):
+        seen = []
+
+        def fetching(url, data=None):
+            seen.append(("fetch", url))
+            return 200, EVENT if "/e" in url else PAGE, None
+
+        def following(url, data=None):
+            seen.append(("follow", url))
+            return 200, EVENT, None, url
+        fake = types.SimpleNamespace(parse=lambda source, pages, window: self.follow("/e1"))
+        with mock.patch.dict(collect.ADAPTERS, {"text": fake}):
+            collect.collect_all([self.source(follow=1)], WINDOW, {}, 0, fetching, lambda s: None,
+                                lambda: 0.0, 1, lambda l: None, following)
+        self.assertEqual(seen, [("fetch", "https://a.example/page"), ("follow", "https://a.example/e1")])
+
+
 class Interrupt(unittest.TestCase):
     def test_ctrl_c_writes_nothing_exits_130_and_stops_the_other_hosts(self):
         calls = []
@@ -363,7 +631,7 @@ class Interrupt(unittest.TestCase):
             out = os.path.join(tmp, "collected")
             err = io.StringIO()
             with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(err):
-                code = collect.main([out, "--only", "cineteatro", "mcr-caldas", "cm-nazare"], fetch,
+                code = collect.main([out, "--only", "cineteatro", "mcr-caldas", "cm-peniche"], fetch,
                                     lambda s: None, lambda: 0.0, 1)
             self.assertEqual(code, 130)
             self.assertFalse(os.path.exists(out))
@@ -400,27 +668,27 @@ class Main(unittest.TestCase):
         self.assertFalse(os.path.exists(self.dir))
 
     def test_the_folder_has_an_index_and_a_file_per_group(self):
-        code = self.run_main(["--only", "cineteatro", "mcr-caldas", "cm-nazare", "--from", "2026-10-20"])
+        code = self.run_main(["--only", "cineteatro", "mcr-caldas", "cm-peniche", "--from", "2026-10-20"])
         self.assertEqual(code, 0)
         index = self.read("index.json")
         self.assertEqual(index["window"], {"start": "2026-10-20", "end": "2026-12-01"})
         self.assertEqual(index["groups"], {
             "rio-maior": {"file": "rio-maior.json", "sources": ["cineteatro"]},
-            "oeste-norte": {"file": "oeste-norte.json", "sources": ["mcr-caldas", "cm-nazare"]}})
+            "oeste-norte": {"file": "oeste-norte.json", "sources": ["mcr-caldas", "cm-peniche"]}})
         self.assertEqual(sorted(os.listdir(self.dir)), ["index.json", "oeste-norte.json", "rio-maior.json"])
         row = index["sources"][0]
         self.assertEqual(row, {
             "name": "cineteatro", "group": "rio-maior", "town": "Rio Maior", "adapter": "text",
             "url": "https://www.cineteatrorm.pt/pt/agenda/", "ok": True, "status": 200, "error": None,
-            "note": None, "items": 0, "past": 0, "chars": len("evento " * 60) - 1})
+            "note": None, "items": 0, "past": 0, "chars": len("evento " * 60) - 1, "details": 0})
         group = self.read("oeste-norte.json")
         self.assertEqual(group["group"], "oeste-norte")
         self.assertEqual(group["collected_at"], index["collected_at"])
         self.assertEqual(group["window"], index["window"])
-        self.assertEqual([s["name"] for s in group["sources"]], ["mcr-caldas", "cm-nazare"])
+        self.assertEqual([s["name"] for s in group["sources"]], ["mcr-caldas", "cm-peniche"])
         self.assertEqual(sorted(group["sources"][0]), sorted(
             ["name", "url", "town", "adapter", "ok", "status", "error", "note", "items", "past",
-             "text", "truncated", "label"]))
+             "text", "truncated", "label", "details"]))
         self.assertEqual(group["sources"][0]["adapter"], "text")
 
     def test_one_failure_does_not_stop_the_rest(self):
@@ -479,6 +747,29 @@ class Config(unittest.TestCase):
     def test_the_adapters_expose_parse(self):
         for name, module in ADAPTERS.items():
             self.assertTrue(callable(module.parse), name)
+
+    def test_links_are_regexes_for_text_sources_and_follow_is_a_small_count(self):
+        for source in self.sources:
+            if "links" in source:
+                self.assertEqual(source["adapter"], "text", source["name"])
+                re.compile(source["links"])
+            follow = source.get("follow", 0)
+            self.assertTrue(isinstance(follow, int) and 0 <= follow <= 15, source["name"])
+            if follow and source["adapter"] == "text":
+                self.assertIn("links", source, source["name"])
+
+    def test_the_municipal_feeds_are_sources_of_their_own_adapter(self):
+        by_name = {s["name"]: s for s in self.sources}
+        for name in ("cm-nazare", "cm-batalha", "cm-chamusca"):
+            self.assertEqual(by_name[name]["adapter"], "municipal_rss", name)
+            self.assertTrue(urllib.parse.urlsplit(by_name[name]["url"]).path.endswith(".rss"), name)
+            self.assertTrue(by_name[name]["options"]["page"].startswith("https://"), name)
+        self.assertEqual(by_name["cm-nazare"]["follow"], 8)
+
+    def test_urls_are_on_the_final_host(self):
+        by_name = {s["name"]: s for s in self.sources}
+        self.assertEqual(by_name["mcr-caldas"]["url"], "https://www.mcr.pt/agenda")
+        self.assertEqual(urllib.parse.urlsplit(by_name["cm-torresnovas"]["url"]).hostname, "cm-torresnovas.pt")
 
     def test_hosts_have_delays(self):
         self.assertEqual(self.config["default_delay"], 1.5)

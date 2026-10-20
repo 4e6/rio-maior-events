@@ -9,6 +9,7 @@ the file does not give a time, the time stays null.
 ## Contents
 
 - Input and output
+- Link markers and event pages (under Input and output)
 - What to keep
 - Which listing wins
 - How to write an event
@@ -32,6 +33,33 @@ The group file is `rio-maior-collected/<group>.json`:
 - `text`: the page's visible text, for sources that give no items.
 - `note`: what the script noticed, such as a page that shows the current month
   only.
+- `details`: for a source whose event pages the script fetched, one entry per
+  page, `{url, title, start, end, venue, excerpt}`. See "Event pages" below.
+
+### Link markers
+
+In a source's `text`, a line `<https://...>` is a marker: the address of an
+event page, written where the source's page links to it. An event's `url` is
+the marker line at or just before the line of the card's title. A marker
+separated from a card's title by another card's text belongs to nobody, and a
+card with no marker cites the agenda page (the source's `url`). The same marker
+can appear more than once (a card shown twice); that is one page. Markers are
+never text of the event, only addresses. On some sites (Torres Novas,
+Entroncamento) the link is a day of the mini calendar and the line after the
+marker is the link's title, which names the event.
+
+### Event pages
+
+`details` holds what the script read on the event's own page; match an entry to
+an event by its `url` (the marker of the event's card) or by its title.
+
+- Prefer a detail's `start` (a "YYYY-MM-DD HH:MM", or a date alone, which means
+  no time), its `venue` and its `title` over what the card says, and cite the
+  detail's `url` as the event's link. Its `title` and `venue` can be null: then
+  the card's stand. `end` is null when the page gives none.
+- The `excerpt` is the start of the page's text: read it as you read `text`.
+- `details` are data already collected. They never mean "fetch" or "open the
+  page": work only from the group file.
 
 Read [sources.md](sources.md) for the sources in this group, and
 [towns.md](towns.md) for drive times. Go through the sources one by one, in
@@ -91,9 +119,10 @@ MARATONA" over "50ª Meia Maratona Internacional da Nazaré".
   or on request (Óbidos's, for example) is one `recurring` event with its
   recurrence in words, not one event per date. Dated performances (a play on two or three
   dates) are never `recurring`: write one `single` per date.
-- A link is the event's own page where the source has one, else the agenda
-  page it was listed on.
-- `start_time` only where a source states it plainly; otherwise null.
+- A link is the event's own page: a detail's `url`, else the marker for its
+  card (see "Link markers"), else the agenda page it was listed on.
+- `start_time` only where a source states it plainly (a card, or a detail's
+  `start` with a time); otherwise null.
 - `town` from the venue: the place name alone, without parentheses ("Cambelas",
   not "Cambelas (Torres Vedras)"); `drive_min` from towns.md. A race from
   Portugal Running that gives only the municipality: `town` is that

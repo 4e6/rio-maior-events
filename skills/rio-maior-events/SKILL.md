@@ -13,8 +13,8 @@ description: >-
 license: MIT
 compatibility: >-
   Needs web access. With Python 3.9+ (standard library only), the collect
-  script fetches about 33 public pages per run, read-only, once each (one POST,
-  the rest GETs; under a minute); the merge
+  script fetches about 33 list pages and up to about 150 event pages per run,
+  read-only, once each (one POST, the rest GETs; a few minutes); the merge
   and render scripts run offline. Without subagents the groups are read one after
   another. Without Python, the sources are read with the host's own web tools
   and the events come as a list in the reply.
@@ -62,12 +62,15 @@ address, and a new name loses both.
 python3 <this skill's directory>/scripts/collect.py rio-maior-collected --from <start> --to <end>
 ```
 
-A run fetches about 33 pages and takes under a minute (the sites are worked in
-parallel): run it with a timeout of at least 3 minutes and wait for the line
-starting "wrote". It writes the
-folder `rio-maior-collected`: `index.json` and one file per group of sources.
+A run fetches about 33 list pages, then up to about 150 event pages of the sites
+that set `follow` (a site's event pages come after its list pages, spaced the
+same way, capped per site), and takes a few minutes (the sites are worked in
+parallel): run it with a timeout of at least 5 minutes and wait for the line
+starting "wrote". It writes the folder `rio-maior-collected`: `index.json` (with
+each source's `details` count) and one file per group of sources; a source's
+`details` hold what its event pages say.
 
-It prints one line per source as it finishes and exits 0 if any source was read. Exit 2 means
+It prints one line per source as it finishes (and "N event pages read") and exits 0 if any source was read. A failed or refused event page leaves its source ok. Exit 2 means
 every source failed, or a usage error; read the message.
 
 A source that failed (`ok: false`) can be read once with your own tool for

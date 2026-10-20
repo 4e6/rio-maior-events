@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Agenda</title>
+    <link>https://www.example.pt/agenda</link>
+    <item>
+      <title>Concerto &amp;amp; Fado </title>
+      <description>&lt;p&gt;Noite de fado&lt;/p&gt;&lt;a href="https://www.example.pt/agenda/evento/fado"&gt;&lt;img src="https://www.example.pt/a.jpg" /&gt;&lt;/a&gt;</description>
+      <pubDate>Sat, 31 Oct 2026 21:00:00 +0000</pubDate>
+      <link>https://www.example.pt/agenda/evento/fado</link>
+    </item>
+    <item>
+      <title>CINEMA</title>
+      <description>&lt;a href="https://www.example.pt/agenda/evento/cinema"&gt;&lt;img src="https://www.example.pt/b.jpg" /&gt;&lt;/a&gt;</description>
+      <pubDate>Sun, 22 Nov 2026 00:00:00 +0000</pubDate>
+      <link>https://www.example.pt/agenda/evento/cinema</link>
+    </item>
+    <item>
+      <title>Corrida</title>
+      <pubDate>Sun, 25 Oct 2026 10:00:00 +0100</pubDate>
+      <link>https://www.example.pt/agenda/evento/corrida</link>
+    </item>
+    <item>
+      <title>Teatro de verão</title>
+      <pubDate>Fri, 23 Oct 2026 23:30:00 +0000</pubDate>
+      <link>/agenda/evento/teatro</link>
+    </item>
+    <item>
+      <title>Meia-noite de verão</title>
+      <pubDate>Mon, 26 Oct 2026 23:00:00 +0100</pubDate>
+      <link>https://www.example.pt/agenda/evento/meia-noite</link>
+    </item>
+    <item>
+      <title>Antes da janela</title>
+      <pubDate>Mon, 05 Oct 2026 18:00:00 +0100</pubDate>
+      <link>https://www.example.pt/agenda/evento/antes</link>
+    </item>
+    <item>
+      <title>Depois da janela</title>
+      <pubDate>Tue, 01 Dec 2026 18:00:00 +0000</pubDate>
+      <link>https://www.example.pt/agenda/evento/depois</link>
+    </item>
+    <item>
+      <title>Sem data</title>
+      <pubDate>ontem</pubDate>
+      <link>https://www.example.pt/agenda/evento/sem-data</link>
+    </item>
+  </channel>
+</rss>

@@ -6,7 +6,7 @@ tags: [architecture, skill, network, page]
 sources:
   - resource: skills/rio-maior-events/**
   - resource: evals/rio-maior-events/**
-sources_digest: 5ef6cb09c3171298
+sources_digest: e6d22e19c9034f66
 ---
 
 # What it is
@@ -56,12 +56,38 @@ and each has its own traps.
   after a refusal, a timeout or a connection error the worker skips the rest of
   that site. Results come back in `sources.json` order, whatever finished
   first, and the slowest host (delay times requests) starts first, so a run
-  lasts about as long as the slowest host, under a minute (14.7 s on 2026-10-20).
+  lasts about as long as the slowest host: 14.7 s for the list pages alone on 2026-10-20, 1 min 36 s with the event pages on 2026-10-21 (33 sources, 147 event pages).
   Viral Agenda, whose robots.txt asks for 15 s, was dropped: it refuses scripts with a 403, so no source needs the long delay today. Ctrl-C sets a stop
   event that ends each worker between requests (and in its wait), cancels the
   hosts not yet started, writes nothing and exits 130. The runner also holds
   an adapter to its contract: a result of the wrong shape, or a request to a
   host other than the source's own, fails that source rather than the run.
+- **Two stages: list pages, then capped event pages.** A card often lacks the
+  time, the venue or a real title that the event's own page has (Torres Vedras
+  256173 gives the time; the cards of some sites give a generic title). So an
+  adapter's `parse` may return `follow`, event pages worth fetching, and the
+  runner fetches them after all of the host's list pages, in the same host
+  worker with the same spacing, then calls the adapter's `details` (by default
+  `common.extract_detail`: title, start, end and venue from JSON-LD, an
+  `atc_*` calendar widget or an inline iCal link, plus an 800-character
+  excerpt). Only the source's own host, only up to `follow` in `sources.json`
+  (default 0); a redirect to another host or to http is refused before it is
+  requested. A failed event page leaves the source ok, a refusal ends only that
+  host's event pages. **Why capped:** a run is polite by design and about 150
+  more requests at 1.5 s each already make it a few minutes, so the caps are per
+  source, favour the nearest events (page order; a feed: nearest dates first)
+  and the budget of the collected text (about 120 KB of excerpts) stays inside a
+  reader's context. **Why readers never fetch:** fetching in the readers would
+  repeat the throttling risk once per reader and make a reading unrepeatable;
+  the script fetches once, the group file holds the result, and `details` never
+  mean "fetch". The same collection also writes link markers (`<https://...>`
+  lines) at each event link of a source that sets `links`, so an event cites its
+  own page rather than the agenda.
+- **Feeds, and the XML guards in one place.** `santarem_rss` and `municipal_rss`
+  (Nazaré, Batalha, Chamusca, where `pubDate` is the event start, unlike
+  Santarém's) read XML with the standard library, which expands entities; the
+  guards (ASCII-compatible bytes only, no DOCTYPE or ENTITY, valid XML) are in
+  `adapters/common.xml_root`, shared, so a fix to them is made once.
 - **Adapters per platform, not per source.** An adapter in
   `scripts/adapters/` is a pure parse over pages the runner fetched; it has no
   network. About 30 sources share the `text` adapter, so a module per source
@@ -118,8 +144,8 @@ later weeks rest on few sources; the page says which in its `note`.
 
 [The overview](/overview.md) calls a skill a payload that runs on the user's
 host. This one reaches the network by its own code, so `compatibility` says
-what and how much: about 33 public pages per run, one POST and the rest GETs,
-read-only, under a minute.
+what and how much: about 33 list pages and up to about 150 event pages per run,
+one POST and the rest GETs, read-only, a few minutes.
 
 - `collect.py` is the only script that imports `urllib`; the adapters and `merge.py` reach nothing. `render.py` reads its
   input and two assets and writes one file; nothing it writes fetches anything
