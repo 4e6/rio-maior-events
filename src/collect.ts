@@ -22,6 +22,8 @@ export interface Outcome {
   pages: Page[] | null;
   status: number | null;
   error: string | null;
+  /** The site refused or did not answer (a 403/429/5xx, a timeout, a connection error), here or earlier on its host. */
+  refused?: boolean;
 }
 
 /** Everything collectAll lets a test replace (collect.collect_all's fetch/sleep/clock/max_workers/report/follow_fetch). */
@@ -185,6 +187,7 @@ export async function runHost(host: string, jobs: [name: string, requests: Reque
     const outcome: Outcome = { pages: null, status: null, error: null };
     if (refused) {
       outcome.error = `skipped: ${host} refused or did not answer`;
+      outcome.refused = true;
     } else {
       const pages: Page[] = [];
       for (const request of requests) {
@@ -198,7 +201,7 @@ export async function runHost(host: string, jobs: [name: string, requests: Reque
           const failure = classifyFailure(err);
           if (failure.status !== null) outcome.status = failure.status;
           outcome.error = failure.message;
-          if (failure.refused) refused = true;
+          if (failure.refused) { refused = true; outcome.refused = true; }
         } finally {
           lastEnd = clock();
         }
@@ -245,6 +248,7 @@ export function newResult(source: Source, outcome: Outcome): SourceResult {
     town: source.town, adapter: source.adapter, ok: false, status: outcome.status,
     error: outcome.error, note: null, items: [], past: [],
     text: null, truncated: false, details: [],
+    ...(outcome.refused ? { refused: true } : {}),
   };
 }
 
@@ -350,7 +354,7 @@ export function writeOutput(outDir: string, collectedAt: string, window: Window,
     const names = sources.filter((s) => s.group === group).map((s) => s.name);
     if (names.length === 0) continue;
     index.groups[group] = { file: group + ".json", sources: names };
-    const body = { collected_at: collectedAt, window: span, group, sources: results.filter((r) => groupOf.get(r.name) === group) };
+    const body = { collected_at: collectedAt, window: span, group, sources: results.filter((r) => groupOf.get(r.name) === group).map(({ refused: _refused, ...rest }) => rest) };
     writeFileSync(join(outDir, group + ".json"), dumps(body));
   }
   sources.forEach((source, i) => {
@@ -358,7 +362,7 @@ export function writeOutput(outDir: string, collectedAt: string, window: Window,
     index.sources.push({
       name: source.name, group: source.group, town: source.town,
       adapter: source.adapter, url: source.url, ok: result.ok,
-      status: result.status, error: result.error, note: result.note,
+      status: result.status, error: result.error, refused: result.refused === true, note: result.note,
       items: result.items.length, past: result.past.length,
       chars: cpLen(result.text || ""), details: result.details.length,
     });

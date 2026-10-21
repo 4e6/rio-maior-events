@@ -193,7 +193,7 @@
   var gen = (DATA.generated_at || "").slice(0, 10);
   document.getElementById("meta").innerHTML =
     "Collected " + (gen ? fmtShort(gen) + " " + gen.slice(0, 4) : "?") + " · covers " + fmtShort(WIN.start) + "–" + fmtShort(WIN.end) +
-    ' · <a href="#sources">' + nSources + " sources</a>" + (okSources < nSources ? " (" + (nSources - okSources) + " unreachable)" : "");
+    ' · <a href="status.html">' + nSources + " sources" + (okSources < nSources ? ", " + (nSources - okSources) + " unreachable" : "") + " · build status</a>";
   if (DATA.note) { var np = document.createElement("p"); np.className = "meta"; np.id = "note"; np.textContent = DATA.note; document.getElementById("meta").insertAdjacentElement("afterend", np); }
   if (DATA.origin) document.getElementById("title").textContent = "What's on around " + DATA.origin;
   if (stale) document.getElementById("notice").innerHTML = '<p class="notice">This agenda covered ' + fmtShort(WIN.start) + "–" + fmtShort(WIN.end) + " and is out of date. Ask for a fresh one.</p>";
@@ -534,12 +534,8 @@
     a.setAttribute("download", norm(e.title_en || e.id).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60) + ".ics");
   }
 
-  /* -------------------------------------------------------------- sources */
-  document.getElementById("sources").innerHTML = '<h2 id="sources-h">Sources checked</h2><ul>' +
-    (DATA.sources_checked || []).map(function (s) {
-      return "<li>" + link(s.url, esc(s.name)) + (s.ok ? "" : ' — <span class="bad">unreachable</span>' + (s.error ? " (" + esc(s.error) + ")" : "")) + "</li>";
-    }).join("") + "</ul><p>Times are local, Portugal. Drive times are estimates from " + esc(DATA.origin || "the town centre") + ".</p>";
-  document.getElementById("sources").id = "sources";
+  /* ---------------------------------------------------------------- footer */
+  document.getElementById("foot").innerHTML = "<p>Times are local, Portugal. Drive times are estimates from " + esc(DATA.origin || "the town centre") + ".</p>";
 
   renderAll();
 })();

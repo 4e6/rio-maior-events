@@ -275,11 +275,8 @@ button { font: inherit; color: inherit; }
 .empty-state { text-align: center; padding: var(--s7) var(--s4); color: var(--text-muted); }
 .past-note { color: var(--text-muted); font-size: var(--fs-sm); }
 
-footer.sources { margin-top: var(--s7); border-top: 1px solid var(--line); padding-top: var(--s4); font-size: var(--fs-sm); color: var(--text-muted); }
-footer.sources h2 { font-size: var(--fs-md); color: var(--text); margin: 0 0 var(--s2); }
-footer.sources ul { list-style: none; padding: 0; margin: 0; columns: 2 220px; column-gap: var(--s5); }
-footer.sources li { padding: 4px 0; break-inside: avoid; }
-footer.sources .bad { color: var(--warn); font-weight: 600; }
+footer.foot { margin-top: var(--s7); border-top: 1px solid var(--line); padding-top: var(--s4); font-size: var(--fs-sm); color: var(--text-muted); }
+footer.foot p { margin: 0; }
 
 @media (max-width: 699px) {
   /* one row of chips that scrolls sideways inside itself; the page never does */
@@ -306,7 +303,7 @@ footer.sources .bad { color: var(--warn); font-weight: 600; }
 </style>
 </head>
 <body>
-<noscript><div class="plain"><h1>What's on around Rio Maior</h1><p>2026-10-20 to 2026-11-30. This page draws its calendar with a script; the events are listed here by date.</p><ul>
+<noscript><div class="plain"><h1>What's on around Rio Maior</h1><p>2026-10-20 to 2026-11-30. This page draws its calendar with a script; the events are listed here by date. <a href="status.html">Build status</a>.</p><ul>
 <li><strong>2026-09-12 to 2026-11-30</strong> Sal: o Ouro Branco da Serra (exemplo) / Salt: White Gold of the Hills (sample), Rio Maior. <a href="https://example.org/rio-maior/agenda#sal">Município de Rio Maior</a></li>
 <li><strong>2026-10-01 to 2026-11-15</strong> Olhares do Ribatejo — fotografia (exemplo) / Views of the Ribatejo — photography (sample), Santarém. <a href="https://example.org/santarem#foto">Santarém — Agenda</a></li>
 <li><strong>Every morning, Mon–Sat 07:00</strong> Praça da Fruta (exemplo) / Daily fruit market (sample), Caldas da Rainha. <a href="https://example.org/caldas#praca">Caldas da Rainha — Agenda</a></li>
@@ -342,7 +339,7 @@ footer.sources .bad { color: var(--warn); font-weight: 600; }
       <div id="blocks"></div>
       <div id="list"></div>
       <div id="tbc"></div>
-      <footer class="sources" id="sources"></footer>
+      <footer class="foot" id="foot"></footer>
     </main>
   </div>
 </div>
@@ -1141,7 +1138,7 @@ footer.sources .bad { color: var(--warn); font-weight: 600; }
   var gen = (DATA.generated_at || "").slice(0, 10);
   document.getElementById("meta").innerHTML =
     "Collected " + (gen ? fmtShort(gen) + " " + gen.slice(0, 4) : "?") + " · covers " + fmtShort(WIN.start) + "–" + fmtShort(WIN.end) +
-    ' · <a href="#sources">' + nSources + " sources</a>" + (okSources < nSources ? " (" + (nSources - okSources) + " unreachable)" : "");
+    ' · <a href="status.html">' + nSources + " sources" + (okSources < nSources ? ", " + (nSources - okSources) + " unreachable" : "") + " · build status</a>";
   if (DATA.note) { var np = document.createElement("p"); np.className = "meta"; np.id = "note"; np.textContent = DATA.note; document.getElementById("meta").insertAdjacentElement("afterend", np); }
   if (DATA.origin) document.getElementById("title").textContent = "What's on around " + DATA.origin;
   if (stale) document.getElementById("notice").innerHTML = '<p class="notice">This agenda covered ' + fmtShort(WIN.start) + "–" + fmtShort(WIN.end) + " and is out of date. Ask for a fresh one.</p>";
@@ -1482,12 +1479,8 @@ footer.sources .bad { color: var(--warn); font-weight: 600; }
     a.setAttribute("download", norm(e.title_en || e.id).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60) + ".ics");
   }
 
-  /* -------------------------------------------------------------- sources */
-  document.getElementById("sources").innerHTML = '<h2 id="sources-h">Sources checked</h2><ul>' +
-    (DATA.sources_checked || []).map(function (s) {
-      return "<li>" + link(s.url, esc(s.name)) + (s.ok ? "" : ' — <span class="bad">unreachable</span>' + (s.error ? " (" + esc(s.error) + ")" : "")) + "</li>";
-    }).join("") + "</ul><p>Times are local, Portugal. Drive times are estimates from " + esc(DATA.origin || "the town centre") + ".</p>";
-  document.getElementById("sources").id = "sources";
+  /* ---------------------------------------------------------------- footer */
+  document.getElementById("foot").innerHTML = "<p>Times are local, Portugal. Drive times are estimates from " + esc(DATA.origin || "the town centre") + ".</p>";
 
   renderAll();
 })();

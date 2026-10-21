@@ -298,7 +298,7 @@ const PAGE = `<!doctype html>
 {css}</style>
 </head>
 <body>
-<noscript><div class="plain"><h1>What's on around {origin}</h1><p>{window}. This page draws its calendar with a script; the events are listed here by date.</p><ul>
+<noscript><div class="plain"><h1>What's on around {origin}</h1><p>{window}. This page draws its calendar with a script; the events are listed here by date. <a href="status.html">Build status</a>.</p><ul>
 {plain}
 </ul></div></noscript>
 <div class="page">
@@ -318,7 +318,7 @@ const PAGE = `<!doctype html>
       <div id="blocks"></div>
       <div id="list"></div>
       <div id="tbc"></div>
-      <footer class="sources" id="sources"></footer>
+      <footer class="foot" id="foot"></footer>
     </main>
   </div>
 </div>

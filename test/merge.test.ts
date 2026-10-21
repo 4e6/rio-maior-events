@@ -86,6 +86,21 @@ describe("HappyPath", () => {
     expect(render.check(doc)).toEqual([]);
   });
 
+  test("--stats writes the counts: candidates read, collapsed before the report, events written", () => {
+    candFile("g2", [event("Feira do Livro", "2026-11-02", "Caldas da Rainha"), event("Feira do Livro", "2026-11-02", "Caldas da Rainha")]);
+    const stats = join(tmp, "stats.json");
+    expect(runMerge(["--stats", stats])[0]).toBe(0);
+    expect(readJson(stats)).toEqual({ candidates: 3, collapsed: 1, events: 2 });
+  });
+
+  test("a stats file that cannot be written is a warning, not a failed merge", () => {
+    const stats = join(tmp, "no-such-folder", "stats.json");
+    const r = capture(() => merge.main([col, cand, out, "--stats", stats], NOW));
+    expect(r.result).toBe(0);
+    expect(r.stderr).toContain("warning: cannot write");
+    expect(output().events).toHaveLength(2);
+  });
+
   test("test_deterministic", () => {
     runMerge();
     const first = readFileSync(out, "utf8");
@@ -417,6 +432,21 @@ describe("Finalize", () => {
   }
 
   const src = (name: string, url = "https://example.org/x") => [{ name, url }];
+
+  test("a stats file that cannot be written does not fail finalize", () => {
+    write(path, doc([event("Concerto", "2026-10-25")]));
+    const r = capture(() => merge.main(["--finalize", path, "--stats", join(tmp, "nope", "s.json")]));
+    expect(r.result).toBe(0);
+    expect(r.stderr).toContain("warning: cannot write");
+    expect(readJson(path).events).toHaveLength(1);
+  });
+
+  test("--stats writes the events kept, dropped and collapsed", () => {
+    const stats = join(tmp, "stats.json");
+    write(path, doc([event("Concerto", "2026-10-25"), event("Concerto", "2026-10-25"), event("Velho", "2025-01-01")]));
+    expect(capture(() => merge.main(["--finalize", path, "--stats", stats])).result).toBe(0);
+    expect(readJson(stats)).toEqual({ events: 1, dropped: 1, collapsed: 1 });
+  });
 
   test("test_a_clean_file_only_gains_a_note", () => {
     const events = [event("Concerto", "2026-10-25"), event("Feira", "2026-11-02")];

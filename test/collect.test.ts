@@ -210,6 +210,17 @@ describe("Pool", () => {
     });
     expect(results.map((r) => r.ok)).toEqual([false, true, false]);
     expect(results[2]!.error).toBe("skipped: a.example refused or did not answer");
+    expect(results.map((r) => r.refused === true)).toEqual([true, false, true]);
+  });
+
+  test("a plain error is not a refusal, and the index (not the group file) says which sources were refused", async () => {
+    const r = await runMain(["--only", "cineteatro", "mcr-caldas", "cm-peniche"], {
+      fetch: async (url) => { if (url.includes("mcr.pt")) throw http(403); if (url.includes("cineteatrorm")) throw http(404); return ok(); },
+    });
+    const byName = Object.fromEntries(r.read("index.json").sources.map((s: any) => [s.name, s]));
+    expect(byName["mcr-caldas"].refused).toBe(true);
+    expect(byName["cineteatro"].refused).toBe(false);
+    expect(JSON.stringify(r.read("oeste-norte.json"))).not.toContain("refused");
   });
 
   test("test_the_slowest_host_is_submitted_first", async () => {
@@ -582,12 +593,12 @@ describe("Main", () => {
     expect(readdirSync(r.dir).sort()).toEqual(["index.json", "oeste-norte.json", "rio-maior.json"]);
     expect(index.sources[0]).toEqual({
       name: "cineteatro", group: "rio-maior", town: "Rio Maior", adapter: "text",
-      url: "https://www.cineteatrorm.pt/pt/agenda/", ok: true, status: 200, error: null,
+      url: "https://www.cineteatrorm.pt/pt/agenda/", ok: true, status: 200, error: null, refused: false,
       note: null, items: 0, past: 0, chars: "evento ".repeat(60).length - 1, details: 0,
     });
     // the keys come in the order Python writes them
     expect(Object.keys(index)).toEqual(["collected_at", "window", "groups", "sources"]);
-    expect(Object.keys(index.sources[0])).toEqual(["name", "group", "town", "adapter", "url", "ok", "status", "error",
+    expect(Object.keys(index.sources[0])).toEqual(["name", "group", "town", "adapter", "url", "ok", "status", "error", "refused",
       "note", "items", "past", "chars", "details"]);
     const group = r.read("oeste-norte.json");
     expect(Object.keys(group)).toEqual(["collected_at", "window", "group", "sources"]);

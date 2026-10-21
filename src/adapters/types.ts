@@ -140,4 +140,6 @@ export interface SourceResult {
   text: string | null;
   truncated: boolean;
   details: Detail[];
+  /** Set when the site refused or did not answer; goes to index.json, not to the group file. */
+  refused?: boolean;
 }

@@ -1,0 +1,36 @@
+/* The build status page, on top of page.css (same tokens, light and dark). */
+.status { max-width: 860px; }
+.status .masthead { display: block; }
+.status .back { margin: 0 0 var(--s2); font-size: var(--fs-sm); }
+.status h2 { font-family: var(--font-serif); font-size: var(--fs-xl); font-weight: 600; margin: var(--s6) 0 var(--s3); }
+.status .sub { font-family: var(--font-sans); font-size: var(--fs-sm); font-weight: 400; color: var(--text-muted); }
+.status .meta { color: var(--text-muted); font-size: var(--fs-sm); margin: var(--s2) 0 0; }
+.status .result { margin: 0; padding: var(--s3) var(--s4); border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--line-strong); font-weight: 600; }
+.status .result.warn-box { background: var(--warn-soft); border-color: var(--warn-line); }
+.facts { display: grid; grid-template-columns: max-content 1fr; gap: var(--s1) var(--s4); margin: 0; font-size: var(--fs-sm); }
+.facts dt { color: var(--text-muted); }
+.facts dd { margin: 0; overflow-wrap: anywhere; }
+.tablebox { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); max-width: 100%; }
+.status table { border-collapse: collapse; width: 100%; font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
+.status th, .status td { text-align: left; padding: 8px var(--s3); vertical-align: top; border-top: 1px solid var(--line); }
+.status thead th { border-top: 0; color: var(--text-muted); font-weight: 600; white-space: nowrap; }
+.status tbody th[scope="row"] { font-weight: 500; }
+.status .num { text-align: right; white-space: nowrap; }
+.status td.when { white-space: nowrap; color: var(--text-muted); }
+.status .bad { color: var(--warn); font-weight: 600; }
+.status tr.grp th { background: var(--surface-2); font-weight: 600; padding: 6px var(--s3); }
+.status .pill { display: inline-block; font-size: var(--fs-xs); border: 1px solid var(--warn-line); background: var(--warn-soft); border-radius: var(--r-pill); padding: 0 7px; margin-left: 4px; }
+.status .sub.phone { display: block; }
+.status .wide { display: none; }
+.status details { margin-top: var(--s3); }
+.status summary { cursor: pointer; min-height: var(--tap); display: flex; align-items: center; color: var(--link); }
+.status .plainlist { margin: var(--s2) 0; padding-left: 1.1em; font-size: var(--fs-sm); }
+.status .plainlist li { margin: 4px 0; }
+@media (min-width: 600px) {
+  .status .wide { display: table-cell; }
+  .status .sub.phone { display: none; }
+}
+@media (max-width: 479px) {
+  .facts { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .facts dd { margin-bottom: var(--s2); }
+}

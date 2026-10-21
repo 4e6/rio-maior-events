@@ -1,5 +1,7 @@
 // The unattended daily build: collect, read (six `claude -p` readers), merge,
-// edit (one more `claude -p`), finalize, render. Writes <work>/_site/index.html.
+// edit (one more `claude -p`), finalize, render. Writes <work>/_site/index.html, status.html and status.json.
+// STATUS_TEST_FAIL (tests) makes the status page fail, to check the deploy goes on.
+// Reads GITHUB_SHA, GITHUB_SERVER_URL, GITHUB_REPOSITORY, GITHUB_RUN_ID and CLAUDE_CODE_VERSION for the status page.
 //
 //   bun src/build.ts [--work DIR] [--collected DIR]
 //
@@ -12,6 +14,7 @@
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync, copyFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { splitCollected } from "./split.ts";
+import { buildStatus, publicJson, readRunFiles, renderStatus, renderStatusUnavailable } from "./status.ts";
 
 const ROOT = resolve(import.meta.dir, "..");
 const env = process.env;
@@ -34,9 +37,14 @@ type Json = Record<string, any>;
 type Run = { ok: boolean; reason: string; log: Json };
 const summary: {
   started: string; readers: Json[]; editor: Json[]; groups_read: string[]; groups_failed: string[]; pieces_failed: string[]; result: string;
+  models: Json; split_chars: number; units: Json[]; timings: Json;
+  finalize_input: "editor" | "merge" | null; editor_events: number | null;
 } = {
   started: new Date().toISOString(), readers: [], editor: [], groups_read: [], groups_failed: [], pieces_failed: [], result: "",
+  models: { reader: READ_MODEL, editor: EDIT_MODEL }, split_chars: SPLIT_CHARS, units: [], timings: {},
+  finalize_input: null, editor_events: null,
 };
+const seconds = (since: number) => Math.round((Date.now() - since) / 100) / 10;
 
 function parseArgs(argv: string[]) {
   const out = { work: join(env.RUNNER_TEMP || ".", "work"), collected: "" };
@@ -305,16 +313,48 @@ async function edit(work: string, window: Json): Promise<void> {
 async function finalize(work: string): Promise<boolean> {
   const events = join(work, "rio-maior-events.json");
   const raw = join(work, "rio-maior-events.raw.json");
-  if (parses(events) && (await cli("merge", "--finalize", events)).code === 0) return true;
+  const stats = join(work, "finalize-stats.json");
+  if (parses(events)) summary.editor_events = JSON.parse(readFileSync(events, "utf8")).events?.length ?? null;
+  summary.finalize_input = "editor";
+  if (parses(events) && (await cli("merge", "--finalize", events, "--stats", stats)).code === 0) return true;
   console.error("finalizing the editor's file did not work; falling back to the merge output");
+  summary.finalize_input = "merge";
   copyFileSync(raw, events);
-  const { code, stdout } = await cli("merge", "--finalize", events);
+  const { code, stdout } = await cli("merge", "--finalize", events, "--stats", stats);
   console.log(stdout.trim());
   return code === 0;
 }
 
+/** _site/status.json and status.html from the run's files and the summary so far. Never fails the build: the agenda matters more. */
+function writeStatus(work: string): void {
+  const site = join(work, "_site");
+  let css = "", statusCss = "";
+  try {
+    css = readFileSync(join(ROOT, "assets", "page.css"), "utf8");
+    statusCss = readFileSync(join(ROOT, "assets", "status.css"), "utf8");
+    if (env.STATUS_TEST_FAIL) throw new Error("forced by STATUS_TEST_FAIL (tests)");
+    summary.timings.total_s = seconds(STARTED);
+    const doc = JSON.parse(readFileSync(join(work, "rio-maior-events.json"), "utf8"));
+    const data = buildStatus({
+      ...readRunFiles(work, join(ROOT, "sources.json")),
+      summary, env, now: new Date(),
+      page: { events: doc.events.length, note: typeof doc.note === "string" ? doc.note : null },
+    });
+    writeFileSync(join(site, "status.json"), JSON.stringify(publicJson(data), null, 1) + "\n");
+    writeFileSync(join(site, "status.html"), renderStatus(data, css, statusCss));
+  } catch (error) {
+    console.error(`status page: ${(error as Error).message}`);
+    try {
+      writeFileSync(join(site, "status.html"), renderStatusUnavailable(css, statusCss));
+    } catch (again) {
+      console.error(`status page fallback: ${(again as Error).message}`);
+    }
+  }
+}
+
 function finish(work: string, code: number, result: string): number {
   summary.result = result;
+  summary.timings.total_s = seconds(STARTED);
   writeFileSync(join(work, "run-summary.json"), JSON.stringify(summary, null, 1) + "\n");
   console.log(result);
   return code;
@@ -325,14 +365,20 @@ export async function main(argv: string[]): Promise<number> {
   for (const dir of ["rio-maior-collected", "rio-maior-candidates", "rio-maior-split", "references", "_site"]) rmSync(join(work, dir), { recursive: true, force: true });
   mkdirSync(work, { recursive: true });
 
-  if (!(await collect(work, collected))) return finish(work, 1, "collect failed; nothing deployed");
+  const collectStart = Date.now();
+  const collectedOk = await collect(work, collected);
+  summary.timings.collect_s = seconds(collectStart);
+  if (!collectedOk) return finish(work, 1, "collect failed; nothing deployed");
   cpSync(join(ROOT, "references"), join(work, "references"), { recursive: true });
   mkdirSync(join(work, "rio-maior-candidates"));
   const index: Json = JSON.parse(readFileSync(join(work, "rio-maior-collected", "index.json"), "utf8"));
 
   const groups = Object.keys(index.groups);
   const units = unitsOf(work, index);
+  summary.units = units.map((u) => ({ id: u.id, group: u.group, sources: u.sources }));
+  const readStart = Date.now();
   const done = await Promise.all(units.map((u) => readUnit(work, index.window, u, index.sources)));
+  summary.timings.read_s = seconds(readStart);
   summary.pieces_failed = SPLIT_CHARS > 0 ? units.filter((_, i) => !done[i]).map((u) => u.id) : [];
   // a group counts as read when every one of its units was read (and it has at least one)
   const groupRead = (g: string) => units.some((u) => u.group === g) && units.every((u, i) => u.group !== g || done[i]);
@@ -344,18 +390,26 @@ export async function main(argv: string[]): Promise<number> {
   }
 
   const events = join(work, "rio-maior-events.json");
+  const mergeStart = Date.now();
   const merged = await cli("merge", join(work, "rio-maior-collected"), join(work, "rio-maior-candidates"), events, "--missing-ok",
-    ...(SPLIT_CHARS > 0 ? ["--split", join(work, "rio-maior-split")] : []));
+    "--stats", join(work, "merge-stats.json"), ...(SPLIT_CHARS > 0 ? ["--split", join(work, "rio-maior-split")] : []));
+  summary.timings.merge_s = seconds(mergeStart);
   writeFileSync(join(work, "merge-report.txt"), merged.stdout + merged.stderr);
   if (merged.code !== 0) return finish(work, 1, "merge failed; nothing deployed");
   copyFileSync(events, join(work, "rio-maior-events.raw.json"));
 
   await edit(work, index.window);
-  if (!(await finalize(work))) return finish(work, 1, "could not make a valid events file; nothing deployed");
+  const finalizeStart = Date.now();
+  const finalized = await finalize(work);
+  summary.timings.finalize_s = seconds(finalizeStart);
+  if (!finalized) return finish(work, 1, "could not make a valid events file; nothing deployed");
 
   mkdirSync(join(work, "_site"));
+  const renderStart = Date.now();
   const page = await cli("render", events, join(work, "_site", "index.html"));
+  summary.timings.render_s = seconds(renderStart);
   if (page.code !== 0) return finish(work, 1, `render failed: ${page.stderr}${page.stdout}`);
+  writeStatus(work);
   return finish(work, 0, page.stdout.trim());
 }
 
