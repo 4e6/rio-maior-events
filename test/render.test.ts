@@ -330,3 +330,20 @@ describe("PageScriptTests", () => {
     expect(js).not.toContain("__demo");
   });
 });
+
+describe("Status link", () => {
+  test("the header line links to the status page, the sources list is gone, the footer line stays", () => {
+    const html = htmlOf(sample());
+    const js = assetText("page.js");
+    expect(js).toContain('href="status.html"');
+    expect(js).toContain("build status");
+    expect(js).toContain("unreachable");
+    expect(js).not.toContain("Sources checked");
+    expect(js).toContain("Times are local, Portugal. Drive times are estimates from");
+    expect(html).toContain('id="foot"');
+    expect(html).not.toContain('class="sources"');
+    // the no-script view links too, and the events file still carries sources_checked
+    expect(html).toContain('<a href="status.html">Build status</a>');
+    expect(html).toContain("sources_checked");
+  });
+});

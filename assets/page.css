@@ -267,11 +267,8 @@ button { font: inherit; color: inherit; }
 .empty-state { text-align: center; padding: var(--s7) var(--s4); color: var(--text-muted); }
 .past-note { color: var(--text-muted); font-size: var(--fs-sm); }
 
-footer.sources { margin-top: var(--s7); border-top: 1px solid var(--line); padding-top: var(--s4); font-size: var(--fs-sm); color: var(--text-muted); }
-footer.sources h2 { font-size: var(--fs-md); color: var(--text); margin: 0 0 var(--s2); }
-footer.sources ul { list-style: none; padding: 0; margin: 0; columns: 2 220px; column-gap: var(--s5); }
-footer.sources li { padding: 4px 0; break-inside: avoid; }
-footer.sources .bad { color: var(--warn); font-weight: 600; }
+footer.foot { margin-top: var(--s7); border-top: 1px solid var(--line); padding-top: var(--s4); font-size: var(--fs-sm); color: var(--text-muted); }
+footer.foot p { margin: 0; }
 
 @media (max-width: 699px) {
   /* one row of chips that scrolls sideways inside itself; the page never does */

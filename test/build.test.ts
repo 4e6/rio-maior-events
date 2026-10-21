@@ -94,6 +94,35 @@ describe("daily build", () => {
     expect(r.calls.filter((c) => c.role === "editor")).toHaveLength(1);
   });
 
+  test("writes status.html and status.json beside the page, from counts and timings", async () => {
+    const r = await build({}, { env: { GITHUB_SHA: "0123456789abcdef0123456789abcdef01234567", GITHUB_SERVER_URL: "https://github.com", GITHUB_REPOSITORY: "o/r", GITHUB_RUN_ID: "7", CLAUDE_CODE_VERSION: "9.9.9" } });
+    expect(r.code).toBe(0);
+    const status = readFileSync(join(r.work, "_site", "status.html"), "utf8");
+    const data = JSON.parse(readFileSync(join(r.work, "_site", "status.json"), "utf8"));
+    expect(status).toContain("Build status");
+    expect(status).toContain("Deployed: 6 events. Editor ok, finalized.");
+    expect(status).toContain("9.9.9");
+    expect(status).toContain("/actions/runs/7");
+    expect(status).not.toContain(r.work);
+    expect(status).not.toContain("rio-maior-candidates");
+    expect(data.sources).toHaveLength(6);
+    expect(data.sources.every((s: any) => s.events === 1)).toBe(true);
+    expect(data.models).toEqual({ reader: "opus", editor: "opus" });
+    expect(data.readers).toMatchObject({ units: 6, read: 6 });
+    expect(data.totals).toMatchObject({ candidates: 6, on_page: 6 });
+    expect(data.timings.collect_s).not.toBeNull();
+    expect(data.usage_usd.total).toBeCloseTo(0.07);
+    expect(r.summary.timings.total_s).toBeGreaterThan(0);
+    expect(r.html).toContain('href="status.html"');
+  });
+
+  test("the status page says which finalize input was used", async () => {
+    const r = await build({ editor: "corrupt" });
+    expect(r.code).toBe(0);
+    expect(r.summary.finalize_input).toBe("merge");
+    expect(readFileSync(join(r.work, "_site", "status.html"), "utf8")).toContain("merge&#x27;s raw output");
+  });
+
   test("claude gets exactly the confinement flags", async () => {
     const r = await build();
     const call = forGroup(r.calls, "oeste-sul")[0];

@@ -11,7 +11,7 @@ sources:
   - resource: test/**
   - resource: .github/workflows/**
   - resource: certs/**
-sources_digest: 6cd6bf4a92e039d8
+sources_digest: 2a216496fee5fc3d
 ---
 
 # What it is
@@ -45,10 +45,29 @@ and each has its own traps.
 - **`src/merge.ts` joins.** It checks that every group has a current candidates
   file, writes `rio-maior-events.json` and prints possible duplicates, coverage,
   yearly-event hints and what `src/render.ts`'s check finds wrong, each problem
-  with the group it came from. The editor (`claude -p` run by `src/build.ts`) settles those and writes the `note`; if it fails, `merge --finalize` writes one. Both take `--stats FILE` and write their counts there (candidates, collapsed, events, dropped), for the build to report.
+  with the group it came from. The editor (`claude -p` run by `src/build.ts`) settles those and writes the `note`; if it fails, `merge --finalize` writes one. Both take `--stats FILE` and write their counts there (candidates, collapsed, events, dropped), for the status page to report.
 - **`src/render.ts` checks and draws.** It validates the file in plain code
   (exit 2 lists each problem with its event), makes each event's id, and inlines
   `assets/page.css`, `assets/page.js` and the events as JSON into one HTML file.
+- **`src/status.ts` reports the build.** After the agenda is drawn, `src/build.ts`
+  writes `status.html` and `status.json` beside it from the run's own files and
+  its in-memory summary: a table of the sources (events the readers wrote that
+  name each one, counted per source and before any duplicates were merged, so
+  the column adds up to more than the candidate total; or its error, marked when
+  the site refused it; "not read" when its reader failed), the step timings,
+  the readers and the editor, usage at list price, and the event counts after
+  each step. The agenda's header line links to it in place of the old sources
+  list at the bottom. Its text comes from counts, fixed outcome words, source
+  labels and URLs and short scrubbed error strings, never from a reader's or the
+  editor's output, a prompt or a path (the readers' coverage lines and the page's
+  note are shown in the HTML only, escaped, and are left out of `status.json`).
+  It is static HTML with the agenda's tokens (`assets/status.css` on top of
+  `page.css`) and reads only the stored colour theme; a failure to build it
+  leaves a short "could not be worked out" page and never fails the deploy.
+  Build facts come from `GITHUB_SHA`, `GITHUB_SERVER_URL`, `GITHUB_REPOSITORY`,
+  `GITHUB_RUN_ID` and `CLAUDE_CODE_VERSION`, which `build.ts` reads itself (the
+  step CLIs only get the environment allowlist). Not done: a trend over past
+  days, which would mean fetching yesterday's `status.json` from the live site.
 
 # How the collection is built
 
