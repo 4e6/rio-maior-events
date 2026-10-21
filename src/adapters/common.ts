@@ -579,3 +579,51 @@ export function defaultDetails(_source: Source, pages: Page[], _window: Window):
   }
   return details;
 }
+
+const CAL_YEAR_RE = /<input[^>]*\bname="year_ajax"[^>]*\bvalue="(\d{4})"|<input[^>]*\bvalue="(\d{4})"[^>]*\bname="year_ajax"/i;
+const CAL_MONTH_RE = /<input[^>]*\bname="month_ajax"[^>]*\bvalue="(\d{1,2})"|<input[^>]*\bvalue="(\d{1,2})"[^>]*\bname="month_ajax"/i;
+const CAL_TABLE_RE = /<table\b[^>]*\bmod_eb_mincalendar_table\b/i;
+const CAL_CELL_RE = /<td\b[^>]*\bmod_eb_mincalendar_event\b[^>]*>(.*?)<\/td>/gis;
+const CAL_LINK_RE = /<a\b([^>]*)>\s*<span\b[^>]*>\s*(\d{1,2})\s*<\/span>/is;
+
+function attrOf(tag: string, name: string): string | null {
+  const m = new RegExp(`(?:^|[\\s"'])${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)')`, "i").exec(tag);
+  return m ? unescape(m[1] ?? m[2] ?? "") : null;
+}
+
+/** Events of a Joomla "Event Booking" mini calendar (a table whose cells with an event hold a link around the day
+ *  number). The month and year come from the calendar's hidden month_ajax and year_ajax fields; the day from the
+ *  cell. A link to a day's list (several events, "N Eventos", "layout=daily") is not an event page and gives
+ *  nothing. The calendar marks an event on its first day only, so an event shown on several cells gets the
+ *  earliest as `start` and no end. `read` is false when no calendar could be read: no month and year, or no calendar table. A month with
+ *  no event cells is read. */
+export function miniCalendarItems(page: string, base: string | null | undefined, window: Window): { items: MadeItem[]; read: boolean } {
+  const y = CAL_YEAR_RE.exec(page);
+  const mo = CAL_MONTH_RE.exec(page);
+  if (!y || !mo) return { items: [], read: false };
+  const year = Number(y[1] ?? y[2]);
+  const month = Number(mo[1] ?? mo[2]);
+  if (month < 1 || month > 12) return { items: [], read: false };
+  const monthDays = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const found = new Map<string, { title: string; days: number[] }>();
+  for (const cell of page.matchAll(CAL_CELL_RE)) {
+    const link = CAL_LINK_RE.exec(cell[1]!);
+    if (!link) continue;
+    const href = attrOf(link[1]!, "href");
+    const title = pyStrip((attrOf(link[1]!, "title") ?? "").replace(WS_RUNS, " "));
+    if (!href || !title || /[?&;]layout=daily\b/.test(href) || /^\d+ eventos?$/i.test(title)) continue;
+    const url = cleanUrl(base, href);
+    const day = Number(link[2]);
+    if (!url || day < 1 || day > monthDays) continue;
+    const entry = found.get(url) ?? { title, days: [] };
+    entry.days.push(day);
+    found.set(url, entry);
+  }
+  const items: MadeItem[] = [];
+  for (const [url, { title, days }] of found) {
+    const first = Math.min(...days);
+    // makeItem would unescape the title again and strip what looks like a tag.
+    items.push({ ...makeItem(null, `${year}-${String(month).padStart(2, "0")}-${String(first).padStart(2, "0")}`, null, null, url), title });
+  }
+  return { items: keepWindow(items, window), read: CAL_TABLE_RE.test(page) };
+}

@@ -155,13 +155,15 @@ Programme pages of one venue each. Events are the venue's own; the town is the v
 - `cm-vnbarquinha` `https://www.cm-vnbarquinha.pt/index.php/viver/agenda` (Vila Nova da Barquinha, about 55 minutes: include only a notable event)
 - `cm-torresnovas` (listed under "Supplementary municipal agendas")
 
+On `cm-alcanena`, `cm-torresnovas`, `cm-entroncamento` and `cm-vnbarquinha` the mini calendar's links are read by the script (option `mini_calendar`): each event page linked from a day cell comes as an item with its first day (month and year from the calendar's own fields; the calendar gives no end). A day with several events is one link to a day view ("N Eventos") and gives no items; those events are dated by their cards or event pages. If the calendar cannot be read, the source's `note` says so.
+
 One template. A mini calendar and a short "Próximos Eventos" list (month, title, category, no day) come first; the full list follows, each event as title, "dd/mm/yyyy hh:mm", a range with " - ", place, price, description.
 
 - Alcanena writes the time in 12 hours: "9:00 pm" is 21:00. The Alcanena list starts in September, so the first events are past.
 - Entroncamento and Barquinha list whole-season programmes ("14/09/2026 - 30/06/2027"): ongoing, not a reason to go.
 - An event with only a date has no time.
 - Torres Novas shows page 1 of 4 only, so its events reach about a week ahead. Name it in the coverage line.
-- Markers: the four sources have `links` for `/index.php/<section>/agenda/<category>/<name>`, and 10 event pages each are fetched (`follow` 10). A page gives the time (Entroncamento's gives the time only). In Torres Novas, Entroncamento and Vila Nova da Barquinha the event links are the day links of the mini calendar, so a marker there may be followed by a line holding the link's title attribute, which names the event, with no card text around it; the fetched page (the first ones in page order) gives the time.
+- Markers: the four sources have `links` for `/index.php/<section>/agenda/<category>/<name>`, and 10 event pages each are fetched (`follow` 10). A page gives the time (Entroncamento's gives the time only). In Alcanena, Torres Novas, Entroncamento and Vila Nova da Barquinha the event links are the day links of the mini calendar, so a marker there may be followed by a line holding the link's title attribute, which names the event, with no card text around it; the fetched page (the first ones in page order) gives the time.
 
 ## Almeirim
 
