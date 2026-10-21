@@ -80,7 +80,7 @@ cannot be read twice is left out and its sources are named as not
 read on the build status page (`status.html`, beside the agenda: sources with
 the events each gave or the error, timings, readers, usage); a group counts as read only when all its pieces were. With fewer than
 four groups read, or if collecting fails, nothing is deployed and
-yesterday's page stays. `run-summary.json` (turns, usage and cost per reader)
+the last deployed page stays. `run-summary.json` (turns, usage and cost per reader)
 and `merge-report.txt` are kept as a workflow artifact for 7 days.
 
 - **Secret `CLAUDE_CODE_OAUTH_TOKEN`**: run `claude setup-token` and

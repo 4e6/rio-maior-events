@@ -67,7 +67,7 @@ and each has its own traps.
   Build facts come from `GITHUB_SHA`, `GITHUB_SERVER_URL`, `GITHUB_REPOSITORY`,
   `GITHUB_RUN_ID` and `CLAUDE_CODE_VERSION`, which `build.ts` reads itself (the
   step CLIs only get the environment allowlist). Not done: a trend over past
-  days, which would mean fetching yesterday's `status.json` from the live site.
+  runs, which would mean fetching the previous run's `status.json` from the live site.
 
 # How the collection is built
 
