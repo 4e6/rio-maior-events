@@ -2,30 +2,29 @@
 type: Module
 title: Rio Maior events, the sources
 description: "The maintainer's view of each source the rio-maior-events collector reads: when and how it was checked, what to look at by hand, what breaks it, why it was chosen over its alternatives, and the sites that could not be read, by municipality."
-tags: [architecture, skill, network]
+tags: [architecture, network]
 sources:
-  - resource: skills/rio-maior-events/scripts/sources.json
-  - resource: skills/rio-maior-events/scripts/adapters/**
-  - resource: skills/rio-maior-events/references/sources.md
-sources_digest: 71eb02d3f4bf7973
+  - resource: sources.json
+  - resource: src/adapters/**
+  - resource: references/sources.md
 ---
 
 # What this page is for
 
-[The skill's page](rio-maior-events.md) says why a script collects and the model
+[The architecture page](rio-maior-events.md) says why a script collects and the model
 reads. This page is for the person who keeps the list: which sources there are,
 how each was verified, how to check one by hand when a run reports it failed,
 and why a source was taken over its alternatives. **Addresses, layouts, reading traps and date
 formats are not here**: they are in
-[`references/sources.md`](../../skills/rio-maior-events/references/sources.md),
-which the model reads at run time, and in `scripts/sources.json` (the list, with each source's adapter and group) and the adapters. A source added or dropped changes `sources.json`, `sources.md`
+[`references/sources.md`](../../references/sources.md),
+which the model reads at run time, and in `sources.json` (the list, with each source's adapter and group) and the adapters. A source added or dropped changes `sources.json`, `sources.md`
 and this page.
 
 # How everything was verified
 
 On 2026-10-20, one plain GET per page (and `robots.txt` once per host), the
 visible text read by eye. The two JSON sources and the three Next.js sites were
-first decoded offline from the saved responses; then `collect.py` itself was run
+first decoded offline from the saved responses; then `src/collect.ts` itself was run
 on 2026-10-20 and read all 32 sources ok in 14.7 s (Viral Agenda, left out, see [Not reachable](#not-reachable)).
 Drive times in `towns.md` are estimates. A source is only as checked as that: a
 layout that changed since is the usual reason a run reports one failed or empty.
@@ -41,7 +40,7 @@ The hand check is the same everywhere unless said: open the address in a
 browser; the page should show dated cards for the coming weeks.
 
 - **Rio Maior calendar and the Cineteatro.** The backbone; see
-  [the skill's page](rio-maior-events.md#the-sources) for why a POST, and why
+  [the architecture page](rio-maior-events.md#the-sources) for why a POST, and why
   UTC is converted. By hand: the calendar's endpoint must be POSTed, so check
   the municipality's own agenda page instead.
 - **Portugal Running.** The one race calendar ([why](#why)). Breaks if the site starts
@@ -144,7 +143,7 @@ covered several.
 | Salvaterra de Magos | cm-salvaterrademagos.pt | the home page links an agenda news post whose address changes, the same pattern as Alpiarça |
 | Tomar | none | out of range (about 55 minutes, `towns.md`); no source |
 | Médio Tejo (region) | agenda.mediotejo.pt | built by script, empty to a plain request |
-| Rio Maior, Santarém, Caldas da Rainha, Óbidos, Alcobaça, Torres Novas, Cartaxo, Porto de Mós, Bombarral | Viral Agenda (viralagenda.com), nine municipality pages | refuses Python's HTTP client with a 403 whatever the User-Agent (an honest one included), though curl and browsers are answered and its robots.txt allows Claude-User with a 15 s crawl delay; not routed around. It would add nightlife and private venues (clubs, a bar, galleries, a theatre), guided walks and municipal events past the first page of a town's own list: about 22 events over two to three weeks on 2026-10-20 |
+| Rio Maior, Santarém, Caldas da Rainha, Óbidos, Alcobaça, Torres Novas, Cartaxo, Porto de Mós, Bombarral | Viral Agenda (viralagenda.com), nine municipality pages | refuses the collector's HTTP client with a 403 whatever the User-Agent (an honest one included), though curl and browsers are answered and its robots.txt allows Claude-User with a 15 s crawl delay; not routed around. It would add nightlife and private venues (clubs, a bar, galleries, a theatre), guided walks and municipal events past the first page of a town's own list: about 22 events over two to three weeks on 2026-10-20 |
 | Santarém (regional) | O Mirante | HTTP 500 |
 | National | Ticketline | no connection |
 | Rio Maior | riomaiortv.pt | no connection |
@@ -162,16 +161,16 @@ need a browser.
 # Why
 
 - **Every municipality within about 45 minutes that a plain GET can read.** The
-  skill is for a person in Rio Maior; a town an hour away is out, and a source
+  page is for a person in Rio Maior; a town an hour away is out, and a source
   that needs a browser or a login is out, because the collector does not do
-  either ([where it bends](rio-maior-events.md#it-is-not-a-pure-payload-and-where-it-bends)).
+  either ([where it bends](rio-maior-events.md#what-reaches-the-network-and-where-it-is-careful)).
 - **Own site before an aggregator.** A municipality's own listing is the
   primary, even when thin. Viral Agenda, the one community aggregator tried,
   refuses scripts ([Not reachable](#not-reachable)).
 - **A source per page, no pagination.** Following page 2 would double the
   requests for a few more events and a politeness cost; the model is told which
   sources are cut at the first page.
-- **One race calendar.** Race calendars list the same races, so the skill reads
+- **One race calendar.** Race calendars list the same races, so the build reads
   one. Portugal Running won: it lists road races, trails and walks months ahead
   with each race's town, and lets a script in. GoTrail and Running.life answer
   the script with a 403; Racefinder's only listing by area is a filter its
