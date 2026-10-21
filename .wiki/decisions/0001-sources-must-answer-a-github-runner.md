@@ -6,6 +6,8 @@ tags: [network, ci]
 sources:
   - resource: .github/workflows/daily.yml
   - resource: src/net.ts
+  - resource: .github/workflows/probe.yml
+  - resource: tools/probe_*.ts
 ---
 
 # Decision
@@ -20,9 +22,9 @@ hand, asks each source whether it answers a runner.
 
 - **Eventbrite** refuses GitHub's runners (405) and was removed on 2026-10-21
   (33 sources to 32).
-- **GoTrail and Running.life** answer the script's TLS handshake with a 403
-  while a browser gets the page. Portugal Running replaced them.
-- **Viral Agenda**: see [its own decision](0004-no-viral-agenda.md).
+- **GoTrail and Running.life** refuse the script with a 403 while a
+  browser gets the page. Portugal Running replaced them.
+- **Viral Agenda** refuses the collector's client with a 403 whatever the User-Agent; see [Why](../architecture/rio-maior-events-sources.md#why).
 
 # Alternatives considered
 

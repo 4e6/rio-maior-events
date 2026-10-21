@@ -14,9 +14,9 @@ Some sources' servers do not send their whole certificate chain:
 | www.teatrovirginia.pt | Root YR (cross-signed by ISRG Root X1) | ISRG Root X1 |
 
 Browsers and macOS fetch a missing intermediate from the "Authority
-Information Access" (AIA) URL in the server's certificate. OpenSSL on Linux
-(the collector in GitHub Actions on Ubuntu) does not, so verification fails there
-with "unable to get local issuer certificate". Giving OpenSSL the intermediate
+Information Access" (AIA) URL in the server's certificate. The collector's
+TLS client (Bun, in GitHub Actions on Ubuntu) does not, so verification fails
+there. Giving the client the intermediate
 fixes it.
 
 These are intermediates and one cross-sign, and every one chains to a root that

@@ -25,7 +25,7 @@ On one collected run, read three times each way:
 | Haiku, 30,000-character pieces | about $1.15 | 0 to 1 | 4 to 7 |
 | Sonnet, whole groups | about $3 | 2 to 3 | none |
 
-The slips were a performer as the venue, an exhibitors' fee as the price, a
+The slips were a performer as the venue, an exhibitors' registration given as the visitors' price, a
 civic meeting kept. Dates, times, towns and duplicates were clean either way.
 The evaluation advised against Haiku; the user chose it for the cost.
 

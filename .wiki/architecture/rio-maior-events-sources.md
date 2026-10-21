@@ -144,7 +144,7 @@ covered several.
 | Salvaterra de Magos | cm-salvaterrademagos.pt | the home page links an agenda news post whose address changes, the same pattern as Alpiarça |
 | Tomar | none | out of range (about 55 minutes, `towns.md`); no source |
 | Médio Tejo (region) | agenda.mediotejo.pt | built by script, empty to a plain request |
-| Rio Maior, Santarém, Caldas da Rainha, Óbidos, Alcobaça, Torres Novas, Cartaxo, Porto de Mós, Bombarral | Viral Agenda (viralagenda.com), nine municipality pages | refuses the collector's HTTP client ([decision](/decisions/0004-no-viral-agenda.md)) with a 403 whatever the User-Agent (an honest one included), though curl and browsers are answered and its robots.txt allows Claude-User with a 15 s crawl delay; not routed around. It would add nightlife and private venues (clubs, a bar, galleries, a theatre), guided walks and municipal events past the first page of a town's own list: about 22 events over two to three weeks on 2026-10-20 |
+| Rio Maior, Santarém, Caldas da Rainha, Óbidos, Alcobaça, Torres Novas, Cartaxo, Porto de Mós, Bombarral | Viral Agenda (viralagenda.com), nine municipality pages | refuses the collector's HTTP client with a 403 whatever the User-Agent (an honest one included), though curl and browsers are answered and its robots.txt allows Claude-User with a 15 s crawl delay; not routed around. It would add nightlife and private venues (clubs, a bar, galleries, a theatre), guided walks and municipal events past the first page of a town's own list: about 22 events over two to three weeks on 2026-10-20 |
 | Santarém (regional) | O Mirante | HTTP 500 |
 | National | Ticketline | no connection |
 | Rio Maior | riomaiortv.pt | no connection |
@@ -167,7 +167,12 @@ need a browser.
   either ([where it bends](rio-maior-events.md#what-reaches-the-network-and-where-it-is-careful)).
 - **Own site before an aggregator.** A municipality's own listing is the
   primary, even when thin. Viral Agenda, the one community aggregator tried,
-  refuses scripts ([Not reachable](#not-reachable)).
+  refuses scripts ([Not reachable](#not-reachable)) and is left out rather than
+  reached another way ([the rule](/decisions/0001-sources-must-answer-a-github-runner.md)).
+  It would have added about 22 events over two to three weeks. Rejected: a
+  browser-like client or a `curl` fallback (getting round a refusal is not this
+  script's call), and honouring its 15 s crawl delay (the site answers 403
+  whatever the delay, and no source needs a long delay today).
 - **A source per page, no pagination.** Following page 2 would double the
   requests for a few more events and a politeness cost; the model is told which
   sources are cut at the first page.
