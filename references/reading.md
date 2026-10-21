@@ -157,15 +157,20 @@ MARATONA" over "50ª Meia Maratona Internacional da Nazaré".
   festival held in one place is not its own event: it is part of that festival,
   in the festival's town, and goes in the festival's description ("Dia de Vale
   Fundo, 10 Nov" at the Serra Alta food festival is a line in that festival's
-  description, not a second event in Vale Fundo). A card that shows a date range
+  description, not a second event in Vale Fundo). If your file holds only the
+  town's day and not the festival itself, write that day as its own event, with
+  the festival's name in the description; the merge step pairs it with the
+  festival. A card that shows a date range
   for what is really a one-day event: when the event's own page gives one day,
   use that day; with no page of its own, keep the range and set
   `confidence: "low"`.
-- `price` only as a source states it, and only from a price or ticket line
-  (preço, bilhete, entrada); null when unknown. A registration fee for
-  exhibitors, sellers or stallholders is not the visitors' price: a craft fair
-  that says "stall registration 20 EUR" has no price for visitors (null, or free
-  if it says so). A participant's fee for a race or a workshop is the price.
+- `price` only as a source states it, from a line or card that says what a
+  visitor or participant pays (preço, bilhete, entrada, ingresso, inscrição,
+  valor, or a bare amount such as "5 EUR" on the event's own card); null when
+  unknown. The one exception: a registration fee for exhibitors, sellers or
+  stallholders is not the visitors' price ("stall registration 20 EUR" on a
+  craft fair: price null, or free if it says so). A participant's fee for a race
+  or a workshop is the price.
 - `confidence: "low"` with a short `caveat` when the year was inferred against
   a weekday that does not match, sources disagree, or the source looks stale.
 

@@ -90,7 +90,7 @@ function wordList(title: unknown): string[] {
  * events state different start times; the fourth element names the rules that fired):
  * - same town, day ranges overlapping or a day apart, half of the shorter title's words shared (the old rule);
  * - same town, starts at most 7 days apart, every distinctive word of the shorter title in the other;
- * - a festival (a multi-day range) and an event that starts inside it, in any town, when the event's title shares
+ * - a festival (a multi-day range, with festival, feira, festa, mostra... in the title) and an event that starts inside it, in any town, when the event's title shares
  *   at least two of the festival's distinctive words, or names a "dia de/do <town>" or a stand and shares one of
  *   them with a festival-like title.
  */
@@ -99,11 +99,13 @@ export function duplicatePairs(events: Doc[]): [number, number, boolean, string[
     const ok = isDict(e);
     const title = ok ? e.title_pt : null;
     const words = typeof title === "string" ? tokens(title) : new Set<string>();
+    // the event's own town never tells it apart from another event: "Peniche 2026" is in every title there
+    const townWords = new Set(typeof e?.town === "string" ? normalise(e.town).match(/[a-z0-9]+/g) ?? [] : []);
     return {
       town: ok ? townNames(e.town) : new Set<string>(),
       days: ok ? dayRange(e) : null,
       words,
-      sig: distinctive(words),
+      sig: new Set([...distinctive(words)].filter((w) => !townWords.has(w))),
       list: wordList(title),
       folded: typeof title === "string" ? normalise(title) : "",
       time: ok && typeof e.start_time === "string" ? e.start_time : null,
@@ -119,12 +121,12 @@ export function duplicatePairs(events: Doc[]): [number, number, boolean, string[
   };
   const festival = (f: Key, g: Key): boolean => {
     const [fFirst, fLast] = num(f);
-    if (fLast <= fFirst) return false;
+    if (fLast <= fFirst || !FESTIVALISH.test(f.folded)) return false; // a long exhibition or market is not a festival
     const gFirst = num(g)[0];
     if (gFirst < fFirst || gFirst > fLast) return false;
     const shared = [...f.sig].filter((w) => g.words.has(w)).length;
     if (shared > 0 && shared >= Math.min(2, f.sig.size)) return true;
-    return shared > 0 && FESTIVALISH.test(f.folded) && TOWN_DAY.test(g.folded);
+    return shared > 0 && TOWN_DAY.test(g.folded);
   };
   const continues = (a: Key, b: Key): boolean => {
     const [small, big] = a.list.length <= b.list.length ? [a.list, b.list] : [b.list, a.list];
@@ -181,14 +183,17 @@ export function loadTowns(file = TOWNS_FILE): Map<string, number> {
   return out;
 }
 
-/** Fill a null drive_min from the table when the event's town is a listed one. */
+// Names that more than one place bears: never filled from the table.
+const AMBIGUOUS = new Set(["atalaia", "pedrogao", "sao jorge", "sao bento", "sao gregorio"].map(normalise));
+
+/** Fill a null drive_min from the table when the event's town is a listed, unambiguous one, written plainly. */
 function fillDrive(e: Doc, minutes: Map<string, number>): void {
-  if (typeof e.town !== "string") return;
-  // the town alone, or with its parenthetical dropped; never the parenthetical (a village is not its municipality)
-  for (const name of [normalise(e.town), normalise(e.town.replace(/\([^\n]*?\)/g, " "))]) {
-    const found = minutes.get(name);
-    if (found !== undefined) { e.drive_min = found; return; }
-  }
+  // a town with a parenthetical names its municipality: that is for the reader to judge, not for a name lookup
+  if (typeof e.town !== "string" || /[()]/.test(e.town)) return;
+  const name = normalise(e.town);
+  if (AMBIGUOUS.has(name)) return;
+  const found = minutes.get(name);
+  if (found !== undefined) e.drive_min = found;
 }
 
 /** merge.describe */
@@ -249,13 +254,14 @@ export function merge(
     ? pieces.map((p) => ({ id: p.id, sources: p.sources }))
     : Object.keys(groups).map((g) => ({ id: g, sources: isDict(groups[g]) && Array.isArray(groups[g].sources) ? groups[g].sources : null }));
   const unitSources = new Map(units.map((u) => [u.id, u.sources]));
+  const partOf = new Map((pieces ?? []).map((p) => [p.id, `part of ${p.group}: ${p.sources.join(", ")}; `]));
   for (const { id: group } of units) {
     const groupProblems: string[] = [];
     const data = readGroup(candidates, group, stamp, groupProblems);
     if (data === null) {
       if (missingOk) {
         missing.push(group);
-        reasons.set(group, groupProblems.map((p) => { const k = p.indexOf(": "); return k === -1 ? p : p.slice(k + 2); }).join("; "));
+        reasons.set(group, (partOf.get(group) ?? "") + groupProblems.map((p) => { const k = p.indexOf(": "); return k === -1 ? p : p.slice(k + 2); }).join("; "));
       } else {
         problems.push(...groupProblems);
       }
@@ -317,7 +323,7 @@ export function merge(
   const townMinutes = opts.towns ?? loadTowns();
   for (const e of events) if (isDict(e) && e.drive_min === null) fillDrive(e, townMinutes);
   const wStart = render.realDate(window.start), wEnd = render.realDate(window.end);
-  const collapsed = collapseDuplicates(events, origins, wStart && wEnd && wStart <= wEnd ? [wStart, wEnd] : null);
+  const collapsed = collapseDuplicates(events, origins, wStart && wEnd && wStart <= wEnd ? [wStart, wEnd] : null, true);
   events = collapsed.events;
   origins = collapsed.origins;
 
@@ -330,7 +336,8 @@ export function merge(
   };
   const lines = missing.map((group) => `missing group: ${group} (${reasons.get(group)})`);
   if (collapsed.collapsed) {
-    lines.push(`already merged: ${collapsed.collapsed} listing(s) with the same title, date and town (the events below are one each)`);
+    lines.push(`already merged: ${collapsed.collapsed} listing(s) with the same title, date and town (the events below are one each):`);
+    for (const t of collapsed.titles) lines.push(`  ${t}`);
   }
   lines.push("hints:");
   for (const [group, h] of hints) lines.push(`  [${group}] ${describe(h)} | ${truthy(h.caveat) ? pyStr(h.caveat) : ""}`);
@@ -391,8 +398,8 @@ function collapseGroup(group: Doc[]): [Doc, number] {
  * follows the winners.
  */
 export function collapseDuplicates(
-  events: Doc[], origins: string[], window: [string, string] | null = null,
-): { events: Doc[]; origins: string[]; collapsed: number } {
+  events: Doc[], origins: string[], window: [string, string] | null = null, keepTimes = false,
+): { events: Doc[]; origins: string[]; collapsed: number; titles: string[] } {
   const slots: ({ solo: Doc; origin: string } | { id: string })[] = [];
   const byId = new Map<string, { items: Doc[]; origins: string[] }>();
   events.forEach((e, i) => {
@@ -407,14 +414,22 @@ export function collapseDuplicates(
   });
   const out: Doc[] = [];
   const outOrigins: string[] = [];
+  const titles: string[] = [];
   for (const slot of slots) {
     if ("solo" in slot) { out.push(slot.solo); outOrigins.push(slot.origin); continue; }
     const bucket = byId.get(slot.id)!;
+    // with keepTimes, listings that state different start times are two showings: left for the editor
+    const times = new Set(bucket.items.map((e) => e.start_time).filter((t) => t !== null));
+    if (keepTimes && times.size > 1) {
+      bucket.items.forEach((e, k) => { out.push(e); outOrigins.push(bucket.origins[k]!); });
+      continue;
+    }
     const [best, at] = collapseGroup(bucket.items);
+    if (bucket.items.length > 1) titles.push(describe(best));
     out.push(best);
     outOrigins.push(bucket.origins[at]!);
   }
-  return { events: out, origins: outOrigins, collapsed: events.length - out.length };
+  return { events: out, origins: outOrigins, collapsed: events.length - out.length, titles };
 }
 
 type Stats = { events: number; dropped: number; collapsed: number };

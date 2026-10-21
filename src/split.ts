@@ -42,6 +42,15 @@ export function cutSources(sources: Doc[], limit: number): Doc[][] {
     for (const s of cluster) add(s); // a cluster over the limit is cut at source boundaries
   }
   flush();
+  // A piece of failed sources only would have no reader and fail its group: attach it to a neighbour
+  // (the previous piece, else the next); failed sources are tiny, so the limit hardly matters.
+  const failedOnly = (piece: Doc[]) => piece.every((s) => s.ok !== true);
+  while (pieces.some((p) => !failedOnly(p))) {
+    const n = pieces.findIndex(failedOnly);
+    if (n === -1) break;
+    const [moved] = pieces.splice(n, 1);
+    if (n > 0) pieces[n - 1]!.push(...moved!); else pieces[0]!.unshift(...moved!);
+  }
   return pieces;
 }
 
@@ -52,7 +61,14 @@ export function splitCollected(collected: string, splitDir: string, limit: numbe
   const index: Doc = JSON.parse(readFileSync(join(collected, "index.json"), "utf8"));
   const pieces: Piece[] = [];
   for (const [group, info] of Object.entries<Doc>(index.groups)) {
-    const data: Doc = JSON.parse(readFileSync(join(collected, info.file ?? `${group}.json`), "utf8"));
+    let data: Doc;
+    try {
+      data = JSON.parse(readFileSync(join(collected, info.file ?? `${group}.json`), "utf8"));
+      if (data === null || typeof data !== "object") throw new Error("not an object");
+    } catch (error) {
+      console.error(`group ${group}: cannot split its file (${(error as Error).message}); it counts as not read`);
+      continue; // no pieces: the group fails alone
+    }
     const cut = cutSources(Array.isArray(data.sources) ? data.sources : [], limit);
     cut.forEach((sources, n) => {
       const id = cut.length === 1 ? group : `${group}-${n + 1}`;

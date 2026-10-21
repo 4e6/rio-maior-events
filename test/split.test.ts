@@ -48,6 +48,23 @@ describe("cutSources", () => {
     expect(names(cutSources(list, 1000))).toEqual([["a"], ["b"]]);
   });
 
+  test("failed sources join a neighbour instead of making a piece nobody can read", () => {
+    const down = (name: string, town: string) => ({ ...source(name, town, 120), ok: false, text: "" });
+    // the shape of ribatejo with its first source down and the next two over the limit
+    const list = [down("santarem", "A"), source("big1", "B", 1500), source("c1", "C", 300), source("c2", "D", 300)];
+    const cut = cutSources(list, 1000);
+    expect(names(cut)).toEqual([["santarem", "big1"], ["c1", "c2"]]);
+    // one in the middle goes to the piece before it
+    const mid = cutSources([source("a", "A", 600), source("big", "B", 1500), down("d", "C"), source("e", "E", 600)], 1000);
+    expect(mid.every((p) => p.some((s) => s.ok))).toBe(true);
+    expect(mid.flat().map((s) => s.name).sort()).toEqual(["a", "big", "d", "e"]);
+  });
+
+  test("when every source failed, the pieces are left as they are", () => {
+    const down = (name: string) => ({ ...source(name, name, 600), ok: false });
+    expect(cutSources([down("a"), down("b")], 1000).flat()).toHaveLength(2);
+  });
+
   test("no sources, no pieces", () => {
     expect(cutSources([], 1000)).toEqual([]);
   });
@@ -87,6 +104,17 @@ describe("splitCollected", () => {
     expect(piece.collected_at).toBe("T");
     expect(piece.sources.map((s: Doc) => s.name)).toEqual(["l3"]);
     expect(readSplit(out)!.length).toBe(3);
+  });
+
+  test("a group file that is missing or broken fails only its group", () => {
+    const dir = collected();
+    writeFileSync(join(dir, "large.json"), "{ nope");
+    const out = join(dir, "..", "split-out3-" + Date.now());
+    dirs.push(out);
+    const pieces = splitCollected(dir, out, 1100);
+    expect(pieces.map((p) => p.id)).toEqual(["small"]);
+    rmSync(join(dir, "small.json"));
+    expect(splitCollected(dir, out, 1100)).toEqual([]);
   });
 
   test("a rerun replaces the old folder", () => {

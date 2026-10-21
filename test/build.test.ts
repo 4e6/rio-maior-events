@@ -13,7 +13,7 @@ afterEach(() => { while (dirs.length) rmSync(dirs.pop()!, { recursive: true, for
 
 type Plan = { readers?: Record<string, string>; editor?: string };
 
-type Opts = { env?: Record<string, string>; deadAfter?: string[]; collect?: string; extraSources?: Record<string, number> };
+type Opts = { env?: Record<string, string>; deadAfter?: string[]; collect?: string; extraSources?: Record<string, number>; failSources?: string[] };
 
 /** Run build.ts against the fixture. deadAfter lists groups whose sources all failed in the index. */
 async function build(plan: Plan = {}, opts: Opts = {}) {
@@ -24,7 +24,7 @@ async function build(plan: Plan = {}, opts: Opts = {}) {
   writeFileSync(planFile, JSON.stringify({ ...plan, log }));
   const work = join(tmp, "work");
   let collected = COLLECTED;
-  if (opts.deadAfter || opts.extraSources) {
+  if (opts.deadAfter || opts.extraSources || opts.failSources) {
     collected = join(tmp, "collected");
     cpSync(COLLECTED, collected, { recursive: true });
     const index = JSON.parse(readFileSync(join(collected, "index.json"), "utf8"));
@@ -39,6 +39,13 @@ async function build(plan: Plan = {}, opts: Opts = {}) {
         index.groups[group].sources.push(name);
         index.sources.push({ name, group, url: row.url, ok: true, error: null });
       }
+      writeFileSync(file, JSON.stringify(data, null, 1));
+    }
+    for (const name of opts.failSources ?? []) {
+      for (const s of index.sources) if (s.name === name) { s.ok = false; s.error = "HTTP 403"; }
+      const file = join(collected, `${index.sources.find((s: any) => s.name === name).group}.json`);
+      const data = JSON.parse(readFileSync(file, "utf8"));
+      for (const s of data.sources) if (s.name === name) { s.ok = false; s.error = "HTTP 403"; s.text = ""; s.items = []; }
       writeFileSync(file, JSON.stringify(data, null, 1));
     }
     writeFileSync(join(collected, "index.json"), JSON.stringify(index));
@@ -316,6 +323,16 @@ describe("daily build", () => {
       expect(r.code).toBe(1);
       expect(r.summary.groups_failed.sort()).toEqual(["oeste-sul", "regional", "ribatejo"]);
       expect(r.summary.result).toContain("3 of 6");
+    });
+
+    test("a failed source next to oversized ones does not fail its group", async () => {
+      const r = await build({}, { ...opts, failSources: ["src-ribatejo"] });
+      expect(r.code).toBe(0);
+      expect(r.summary.groups_failed).toEqual([]);
+      expect(r.summary.pieces_failed).toEqual([]);
+      expect(r.summary.readers.some((x: any) => x.attempt === 0)).toBe(false);
+      const raw = JSON.parse(readFileSync(join(r.work, "rio-maior-events.raw.json"), "utf8"));
+      expect(raw.sources_checked.find((s: any) => s.name === "src-ribatejo").error).toBe("HTTP 403");
     });
 
     test("an invalid piece file is checked against the split index", async () => {

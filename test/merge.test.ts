@@ -645,6 +645,30 @@ describe("Collapse before the report", () => {
     runMerge();
     expect(output().events.map((e: Doc) => e.drive_min)).toEqual([35, null, null, 99]);
   });
+
+  test("an ambiguous name or a town with a parenthetical is never filled", () => {
+    const towns = new Map([["sao jorge", 30], ["atalaia", 40], ["cartaxo", 35], ["alvados", 40]]);
+    candFile("g1", [
+      event("Um", "2026-11-03", "São Jorge", { drive_min: null }),
+      event("Dois", "2026-11-04", "Atalaia (Vila Nova da Barquinha)", { drive_min: null }),
+      event("Tres", "2026-11-05", "Cartaxo (Outro Concelho)", { drive_min: null }),
+      event("Quatro", "2026-11-06", "Alvados", { drive_min: null }),
+    ]);
+    candFile("g2", []);
+    const [doc] = merge.merge(col, cand, NOW, false, { towns });
+    expect(doc!.events.map((e: Doc) => e.drive_min)).toEqual([null, null, null, 40]);
+  });
+
+  test("listings with different stated times are not collapsed; the collapsed titles are listed", () => {
+    candFile("g1", [event("Concerto Aurora", "2026-11-10", "Rio Maior", { start_time: "16:00" }),
+      event("Feira Velha", "2026-11-11", "Rio Maior")]);
+    candFile("g2", [event("Concerto Aurora", "2026-11-10", "Rio Maior", { start_time: "21:00" }),
+      event("FEIRA VELHA", "2026-11-11", "Rio Maior")]);
+    const [, text] = runMerge();
+    expect(output().events).toHaveLength(3);
+    expect(text).toContain("already merged: 1");
+    expect(text).toContain("  Feira Velha | 2026-11-11 | Rio Maior");
+  });
 });
 
 describe("Hints for the editor", () => {
@@ -699,6 +723,23 @@ describe("Hints for the editor", () => {
     const [t] = report([
       event("Trail Alfa 2026", "2026-11-21", "Serra Alta", { kind: "multi_day", end_date: "2026-11-22" }),
       event("Trail Beta Urbano 2026", "2026-11-22", "Vale Fundo"),
+    ]);
+    expect(t.trim()).toBe("");
+  });
+
+  test("an exhibition is not a festival: a Christmas exhibition and Christmas markets elsewhere are not paired", () => {
+    const [t] = report([
+      event("Exposição de Natal", "2026-11-20", "Rio Maior", { kind: "ongoing", end_date: "2026-12-24" }),
+      event("Mercado de Natal", "2026-12-05", "Cartaxo"),
+      event("Mercado de Natal", "2026-12-06", "Alenquer"),
+    ]);
+    expect(t.trim()).toBe("");
+  });
+
+  test("the town's own name is not a shared word", () => {
+    const [t] = report([
+      event("Música de Cá Peniche 2026", "2026-11-08", "Peniche"),
+      event("Rip Curl Pro Peniche 2026", "2026-11-13", "Peniche"),
     ]);
     expect(t.trim()).toBe("");
   });
@@ -790,7 +831,7 @@ describe("Split pieces", () => {
     candFile("g2", [event("Delta", "2026-10-28")]);
     const r = capture(() => merge.main([col, cand, out, "--split", split, "--missing-ok"], NOW));
     expect(r.result).toBe(0);
-    expect(r.stdout).toContain("missing group: g1-2");
+    expect(r.stdout).toContain("missing group: g1-2 (part of g1: s2; ");
     const checked = Object.fromEntries(output().sources_checked.map((x: Doc) => [x.name, x]));
     expect(checked.s1.ok).toBe(true);
     expect(checked.s2.error).toBe("HTTP 403"); // its own error stays

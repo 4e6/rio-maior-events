@@ -20,7 +20,7 @@ first.
 - the events file.
 
 The merge script has already joined listings with the same title, date and town
-(the report says how many, on an "already merged:" line), so those are not in the
+(the report lists them under an "already merged:" line; check them if a title looks wrong), so those are not in the
 list below; the pairs left are the ones that took judgement.
 
 ## 1. Possible duplicates
