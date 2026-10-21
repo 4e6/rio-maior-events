@@ -32,6 +32,7 @@ jobs:
           "$HOME/.local/bin/claude" --version | grep -F "$CLAUDE_CODE_VERSION"
       - run: bun install --frozen-lockfile
       - name: Collect the sources
+        timeout-minutes: 15
         # The only step that sees the fallback proxy's URL: a host that refuses a direct request is read through it.
         # It succeeds when index.json was written, even if some sources failed. Written outside the build's work
         # folder so the build step, which runs claude, never needs the secret.

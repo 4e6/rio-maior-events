@@ -11,7 +11,7 @@ sources:
   - resource: test/**
   - resource: .github/workflows/**
   - resource: certs/**
-sources_digest: e98c90ba2dc78184
+sources_digest: 5cf9492d82776acd
 ---
 
 # What it is
@@ -112,7 +112,7 @@ and each has its own traps.
   the real limit. `index.json` gets `via` per source, `collect_s` and, when the
   proxy is on, `proxy` (bytes, cap, why dead, bytes per host). **The secret stays in
   one step.** Errors are built from fields and scrubbed of the proxy's host, user
-  and password, raw and percent-decoded; collect prints `::add-mask::` for them in
+  and password, raw and percent-decoded; collect prints `::add-mask::` for them on stderr only (stdout may be tee'd into an uploaded file) in
   Actions. The variable is `FALLBACK_PROXY_URL`, never `HTTP(S)_PROXY`, which Bun
   would read for direct requests too. `build.yml` runs collect as a step of its
   own with the secret, into `$RUNNER_TEMP/collected`, and the build step takes

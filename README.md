@@ -103,7 +103,7 @@ and `merge-report.txt` are kept as a workflow artifact for 7 days.
   8 KB a tunnel; a run needs a few MB); past it, proxied requests fail with
   "proxy budget reached". Set a traffic cap at the provider as well: that is the
   real limit. The status page marks sources read this way and shows the bytes
-  used. The `probe` workflow's last step checks the five sites through it.
+  used. If the collect step fails outright (nothing written), the build step is skipped and no run summary is uploaded. The `probe` workflow's last step checks the five sites through it.
 - **Schedule**: GitHub disables a scheduled workflow after 60 days without
   repository activity and emails the owner. Re-enable it in the Actions tab or
   with `gh workflow enable build.yml`. The workflow's last job also tries to

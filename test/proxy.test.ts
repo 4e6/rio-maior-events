@@ -195,7 +195,7 @@ describe("through a local CONNECT proxy", () => {
     for (const secret of [USER, PASS, encodeURIComponent(USER), encodeURIComponent(PASS), "127.0.0.1", Buffer.from(`${USER}:${PASS}`).toString("base64")]) {
       expect(out).not.toContain(secret);
     }
-    expect(w.gateway.maskValues).toEqual(expect.arrayContaining([USER, PASS, "127.0.0.1"]));
+    expect(w.gateway.maskValues()).toEqual(expect.arrayContaining([USER, PASS, "127.0.0.1"]));
   });
 });
 
@@ -393,6 +393,60 @@ describe("collectAll with a proxy", () => {
   });
 });
 
+describe("the gateway does not show its credentials", () => {
+  test("JSON.stringify and Bun.inspect of the gateway, or of an object holding it, contain none", async () => {
+    const w = await world();
+    const holder = { proxy: w.gateway, deps: { proxy: w.gateway } };
+    const forms = [USER, PASS, encodeURIComponent(USER), encodeURIComponent(PASS), "127.0.0.1", new URL(w.url).port, Buffer.from(`${USER}:${PASS}`).toString("base64")];
+    for (const dump of [JSON.stringify(w.gateway), Bun.inspect(w.gateway), JSON.stringify(holder), Bun.inspect(holder), String(w.gateway), JSON.stringify(Object.entries(w.gateway))]) {
+      for (const f of forms) expect(dump).not.toContain(f);
+    }
+  });
+});
+
+describe("a dead or exhausted proxy is not switched to", () => {
+  test("the direct refusal is recorded (refused, direct), with no extra delay", async () => {
+    const r = recorder(() => http(403));
+    const { c, sleep, clock } = clockDeps();
+    const proxy: ProxyFetchers = { ...r.proxy, available: () => false };
+    const outcomes = await runHost("h.example", jobs("a", "b"), { fetch: r.direct, sleep, clock, delay: 2, proxy });
+    expect(r.log).toEqual(["direct https://h.example/a"]);
+    expect(outcomes.a).toMatchObject({ error: "HTTP 403 x", refused: true });
+    expect(outcomes.a!.viaProxy).toBeUndefined();
+    expect(outcomes.b!.error).toBe("skipped: h.example refused or did not answer");
+    expect(c.sleeps).toEqual([]);
+  });
+  test("ProxyGateway.available follows dead and the budget", async () => {
+    const w = await world(0.001);
+    expect(w.gateway.available()).toBe(true);
+    await w.gateway.fetch(w.base + "/ok", null);
+    expect(w.gateway.available()).toBe(false);
+    const d = await world();
+    d.state.mode = "407";
+    await d.gateway.fetch(d.base + "/ok", null).catch(() => {});
+    expect(d.gateway.available()).toBe(false);
+  });
+});
+
+describe("tools/probe_proxy.ts", () => {
+  test("with GITHUB_ACTIONS=true its stdout and file hold no credential; the masks go to stderr", async () => {
+    const w = await world();
+    w.state.mode = "407"; // answers before any tunnel: no site is contacted
+    const dir = mkdtempSync(join(tmpdir(), "probe-"));
+    const file = join(dir, "proxy.txt");
+    const proc = Bun.spawn(["bun", join(import.meta.dir, "..", "tools", "probe_proxy.ts"), file], {
+      stdout: "pipe", stderr: "pipe", env: { PATH: process.env.PATH!, HOME: process.env.HOME!, GITHUB_ACTIONS: "true", FALLBACK_PROXY_URL: w.url },
+    });
+    const [stdout, stderr] = await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text(), proc.exited]);
+    const forms = [USER, PASS, encodeURIComponent(USER), encodeURIComponent(PASS), "127.0.0.1", new URL(w.url).port, Buffer.from(`${USER}:${PASS}`).toString("base64")];
+    for (const f of forms) { expect(stdout).not.toContain(f); expect(readFileSync(file, "utf8")).not.toContain(f); }
+    expect(stdout).not.toContain("add-mask");
+    expect(stderr).toContain(`::add-mask::${PASS}`);
+    expect(stderr).toContain(`::add-mask::${USER}`);
+    expect(readFileSync(file, "utf8")).toContain("proxy failed: 407");
+  }, 30000);
+});
+
 // --- main(): the secret is in no output ----------------------------------------------------------------------------
 
 describe("main with FALLBACK_PROXY_URL", () => {
@@ -417,9 +471,10 @@ describe("main with FALLBACK_PROXY_URL", () => {
       w.state.mode = mode;
       const r = await runMain({ GITHUB_ACTIONS: "true" }, w, direct);
       expect(r.code).toBe(0);
-      const masks = r.out.filter((l) => l.startsWith("::add-mask::")).map((l) => l.slice("::add-mask::".length));
+      expect(r.out.join("\n")).not.toContain("add-mask"); // stdout can be tee'd and uploaded: masks go to stderr
+      const masks = r.err.filter((l) => l.startsWith("::add-mask::")).map((l) => l.slice("::add-mask::".length));
       expect(masks.sort()).toEqual([PASS, USER, encodeURIComponent(PASS), encodeURIComponent(USER), "127.0.0.1"].sort());
-      const everything = [...r.out.filter((l) => !l.startsWith("::add-mask::")), ...r.err, ...r.files].join("\n");
+      const everything = [...r.out, ...r.err.filter((l) => !l.startsWith("::add-mask::")), ...r.files].join("\n");
       for (const secret of [USER, PASS, encodeURIComponent(USER), encodeURIComponent(PASS), "127.0.0.1", new URL(w.url).port,
         Buffer.from(`${USER}:${PASS}`).toString("base64")]) {
         expect(everything).not.toContain(secret);

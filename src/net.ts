@@ -101,17 +101,17 @@ export class ProxyGateway {
   readonly hostBytes = new Map<string, number>();
   readonly maxBytes: number;
   readonly ca?: string[];
-  private readonly href: string;
-  private readonly secrets: string[];
-  /** The values Actions should mask: decoded user, password and host (and their raw forms). */
-  readonly maskValues: string[];
+  // Runtime-private (#): a dump of the gateway, or of an object holding it, shows no credential.
+  readonly #href: string;
+  readonly #secrets: string[];
+  readonly #mask: string[];
 
   /** Throws a message without the URL when it is not an http(s) proxy URL. */
   constructor(rawUrl: string, opts: { maxBytes?: number; ca?: string[] } = {}) {
     let u: URL;
     try { u = new URL(rawUrl.trim()); } catch { throw new Error("the proxy URL is not a valid URL"); }
     if (u.protocol !== "http:" && u.protocol !== "https:") throw new Error("the proxy URL is not an http(s) URL");
-    this.href = u.href;
+    this.#href = u.href;
     this.maxBytes = Math.floor(opts.maxBytes ?? DEFAULT_PROXY_MAX_MB * 1024 * 1024);
     this.ca = opts.ca;
     const user = decodeSafe(u.username), password = decodeSafe(u.password);
@@ -121,8 +121,8 @@ export class ProxyGateway {
       found.add(basic);
     }
     found.delete("");
-    this.secrets = [...found].sort((a, b) => b.length - a.length);
-    this.maskValues = [...new Set([user, password, u.hostname, u.username, u.password].filter((v) => v !== ""))];
+    this.#secrets = [...found].sort((a, b) => b.length - a.length);
+    this.#mask = [...new Set([user, password, u.hostname, u.username, u.password].filter((v) => v !== ""))];
   }
 
   /** From FALLBACK_PROXY_URL and FALLBACK_PROXY_MAX_MB; null when the URL is unset or empty. */
@@ -136,7 +136,7 @@ export class ProxyGateway {
   /** Text with the proxy's URL, host, user and password (raw and percent-decoded) replaced. */
   scrub(text: string): string {
     let out = text;
-    for (const secret of this.secrets) out = out.split(secret).join("[proxy]");
+    for (const secret of this.#secrets) out = out.split(secret).join("[proxy]");
     return out;
   }
 
@@ -179,7 +179,13 @@ export class ProxyGateway {
   readonly fetch: Fetcher = (url, data, signal) => request(url, data, { signal, proxy: this });
   readonly followFetch: Fetcher = (url, _data, signal) => request(url, null, { follow: true, signal, proxy: this });
 
-  get proxyUrl(): string { return this.href; }
+  /** The values Actions should mask: decoded user, password and host (and their raw forms). Print them on stderr only. */
+  maskValues(): string[] { return [...this.#mask]; }
+
+  /** False once the proxy is dead or its budget is spent: a refused host is then not switched to it. */
+  available(): boolean { return !this.dead && this.bytes < this.maxBytes; }
+
+  get proxyUrl(): string { return this.#href; }
 }
 
 export interface FetchOptions {

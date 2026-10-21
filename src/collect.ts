@@ -32,6 +32,8 @@ export interface Outcome {
 export interface ProxyFetchers {
   fetch: Fetcher;
   followFetch: Fetcher;
+  /** False when the proxy is dead or out of budget: a refused host then stays a direct refusal. */
+  available?: () => boolean;
   stats?: () => { bytes: number; max_bytes: number; dead: string | null; hosts: Record<string, number> };
 }
 
@@ -206,7 +208,7 @@ export async function runHost(host: string, jobs: [name: string, requests: Reque
       try {
         return await direct(request.url, follow ? null : request.data, signal);
       } catch (err) {
-        if (!proxied || !triggersFallback(err)) throw err;
+        if (!proxied || !triggersFallback(err) || proxy?.available?.() === false) throw err;
         viaProxy = true;
       }
       lastEnd = clock();
@@ -503,7 +505,8 @@ export async function main(argv: string[], deps: MainDeps = {}): Promise<number>
     }
   }
   if (proxy instanceof ProxyGateway && env.GITHUB_ACTIONS === "true") {
-    for (const value of proxy.maskValues) if (!/[\r\n]/.test(value)) out(`::add-mask::${value}`);
+    // stderr only: stdout may be tee'd into a file that is uploaded
+    for (const value of proxy.maskValues()) if (!/[\r\n]/.test(value)) err(`::add-mask::${value}`);
   }
   if (proxy) out(`fallback proxy on: a host that refuses a direct request is read through it${proxy instanceof ProxyGateway ? `, at most ${Math.round(proxy.maxBytes / 1048576)} MB` : ""}`);
 
