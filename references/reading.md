@@ -158,9 +158,10 @@ MARATONA" over "50ª Meia Maratona Internacional da Nazaré".
   in the festival's town, and goes in the festival's description ("Dia de Vale
   Fundo, 10 Nov" at the Serra Alta food festival is a line in that festival's
   description, not a second event in Vale Fundo). If your file holds only the
-  town's day and not the festival itself, write that day as its own event, with
-  the festival's name in the description; the merge step pairs it with the
-  festival. A card that shows a date range
+  town's day and not the festival itself, write that day as its own event,
+  in the town the card gives, with the festival's full name in its `title_pt` ("Dia de
+  Vale Fundo no Festival de Gastronomia da Serra Alta"); the merge step pairs it
+  with the festival by that name. A card that shows a date range
   for what is really a one-day event: when the event's own page gives one day,
   use that day; with no page of its own, keep the range and set
   `confidence: "low"`.
