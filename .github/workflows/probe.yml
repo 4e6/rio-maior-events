@@ -1,0 +1,36 @@
+name: probe
+# Run by hand: does each source answer a GitHub runner? Uploads only a per-source summary.
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      TZ: Europe/Lisbon
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.3
+      - name: Collect with the Python collector
+        run: python scripts/collect.py "$RUNNER_TEMP/collected" || echo "collect exited $?"
+      - name: Summarize
+        run: |
+          python tools/probe_summary.py "$RUNNER_TEMP/collected/index.json" | tee summary.txt
+      - name: Fetch each list page with Bun
+        run: |
+          UA=$(python -c 'import sys; sys.path.insert(0, "scripts"); import collect; print(collect.USER_AGENT)')
+          bun tools/probe_bun.ts "$UA" | tee bun.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: probe-summary
+          path: |
+            summary.txt
+            bun.txt
+          retention-days: 7
