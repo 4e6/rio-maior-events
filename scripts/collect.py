@@ -487,7 +487,8 @@ def lisbon_today(now=None):
     try:
         import zoneinfo
         return now.astimezone(zoneinfo.ZoneInfo(LISBON)).date()
-    except Exception:  # no zoneinfo or no tz database: the machine's own clock
+    except Exception as err:  # no zoneinfo or no tz database: the machine's own clock
+        print("warning: no Europe/Lisbon time zone (%s); using the machine's date" % err, file=sys.stderr)
         return now.astimezone().date()
 
 

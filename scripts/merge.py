@@ -60,10 +60,13 @@ It reads no other file. In order:
               or venue source over others. A source is municipal when its name,
               accents and case ignored, starts with "cm-" or "mcr", or has the
               word "municipio" or "municipal" or "camara" in it (the label
-              "Municipio de Rio Maior"); it is a venue source when it contains
-              the event's own `venue` or the venue contains it. Ties keep the
+              "Municipio de Rio Maior"); it is a venue source when its name
+              contains the event's own `venue` name. Ties keep the
               first. The sources of all of them are combined, without
-              duplicates (same name and url).
+              duplicates (same name and url). The kept one's venue, price,
+              description_en and drive_min, where null, are filled from the
+              others in the same order of preference (the rest of the others
+              is discarded).
     keep      date_tbc events as they are unless check_event rejects them
     note      if `note` is missing or blank, it is written: "Not read: <the
               sources_checked entries with ok false and the error "not read">."
@@ -213,6 +216,8 @@ def read_group(candidates: Path, group: str, stamp, problems: list):
         problems.append("group %s: the file says group %s" % (group, data.get("group")))
     elif not isinstance(data.get("events"), list):
         problems.append("group %s: events must be a list" % group)
+    elif not (isinstance(data.get("hints") or [], list) and all(isinstance(h, dict) for h in data.get("hints") or [])):
+        problems.append("group %s: hints must be a list of events" % group)
     else:
         return data
     return None
@@ -232,23 +237,20 @@ def merge(collected: Path, candidates: Path, now=None, missing_ok=False):
         return None, ["index: needs collected_at, window, groups and sources"]
 
     events, origins, hints, coverage = [], [], [], []
-    missing = []
+    missing, reasons = [], {}
     for group in groups:
         group_problems = []
         data = read_group(candidates, group, stamp, group_problems)
         if data is None:
             if missing_ok:
                 missing.append(group)
+                reasons[group] = "; ".join(p.split(": ", 1)[-1] for p in group_problems)
             else:
                 problems.extend(group_problems)
             continue
         events.extend(data["events"])
         origins.extend([group] * len(data["events"]))
-        hint_list = data.get("hints") or []
-        if not (isinstance(hint_list, list) and all(isinstance(h, dict) for h in hint_list)):
-            problems.append("group %s: hints must be a list of events" % group)
-            continue
-        for h in hint_list:
+        for h in data.get("hints") or []:
             hints.append((group, h))
         if data.get("coverage"):
             coverage.append((group, str(data["coverage"])))
@@ -272,6 +274,9 @@ def merge(collected: Path, candidates: Path, now=None, missing_ok=False):
                         problems.append("manual: source %r is not in the index" % (name,))
                     else:
                         overrides[name] = o
+    if missing_ok and groups and len(missing) == len(groups):
+        problems.append("every group is missing: no events to merge")
+        problems.extend("missing group: %s (%s)" % (g, reasons[g]) for g in missing)
     if problems:
         return None, problems
 
@@ -299,7 +304,7 @@ def merge(collected: Path, candidates: Path, now=None, missing_ok=False):
         "sources_checked": checked,
         "events": events,
     }
-    lines = ["missing group: " + group for group in missing]
+    lines = ["missing group: %s (%s)" % (group, reasons[group]) for group in missing]
     lines.append("hints:")
     for group, h in hints:
         lines.append("  [%s] %s | %s" % (group, describe(h), h.get("caveat") or ""))
@@ -327,7 +332,7 @@ def municipal_or_venue(source, event) -> bool:
     if name.startswith("cm-") or name.startswith("mcr") or any(w in name for w in MUNICIPAL_WORDS):
         return True
     venue = normalise(event.get("venue") or "")
-    return bool(venue and name and (venue in name or name in venue))
+    return bool(venue and name and venue in name)
 
 
 def preference(e: dict) -> tuple:
@@ -337,6 +342,9 @@ def preference(e: dict) -> tuple:
         e["end_date"] is None,
         any(municipal_or_venue(s, e) for s in e["sources"]),
     )
+
+
+FILLED = ("venue", "price", "description_en", "drive_min")
 
 
 def finalize_document(doc):
@@ -359,21 +367,27 @@ def finalize_document(doc):
             start = e.get("start_date") if isinstance(e, dict) else None
             dropped.append("%s (%s)" % (title if render.text_ok(title) else "untitled", start))
 
-    kept, place = [], {}
+    groups_by_id, order = {}, []
     for e in valid:
         eid = render.event_id(e)
-        if eid not in place:
-            place[eid] = len(kept)
-            kept.append(e)
-            continue
-        first = kept[place[eid]]
-        best, other = (e, first) if preference(e) > preference(first) else (first, e)
-        merged = list(best["sources"])
-        for s in other["sources"]:
-            if not any(s.get("name") == m.get("name") and s.get("url") == m.get("url") for m in merged):
-                merged.append(s)
-        best = dict(best, sources=merged)
-        kept[place[eid]] = best
+        if eid not in groups_by_id:
+            groups_by_id[eid] = []
+            order.append(eid)
+        groups_by_id[eid].append(e)
+    kept = []
+    for eid in order:
+        # best first by each event's own sources (sorted() is stable: ties keep file order)
+        ranked = sorted(groups_by_id[eid], key=preference, reverse=True)
+        best = dict(ranked[0], sources=list(ranked[0]["sources"]))
+        for other in ranked[1:]:
+            for s in other["sources"]:
+                if not any(s.get("name") == m.get("name") and s.get("url") == m.get("url")
+                           for m in best["sources"]):
+                    best["sources"].append(s)
+            for key in FILLED:
+                if best[key] is None and other[key] is not None:
+                    best[key] = other[key]
+        kept.append(best)
     collapsed = len(valid) - len(kept)
 
     out = dict(doc, events=kept)

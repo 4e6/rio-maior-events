@@ -126,8 +126,9 @@ python3 <this skill's directory>/scripts/merge.py rio-maior-collected rio-maior-
 Exit 2 names a missing or stale group: have that group read again, then run it
 again; it also names a stale `manual.json`, which you delete. With `--missing-ok`
 (for a run where nobody can have it read again) such a group is skipped instead:
-its sources are marked `ok` false with the error "not read", and a line
-"missing group: <name>" is printed. Exit 0 writes
+its sources are marked `ok` false with the error "not read" (a source that had
+failed keeps its own error), and a line "missing group: <name> (<reason>)" is
+printed; if no group can be read it still exits 2. Exit 0 writes
 `rio-maior-events.json` and prints four lists:
 
 - possible duplicates: decide whether each pair is one event; if so keep one,

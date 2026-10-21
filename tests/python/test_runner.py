@@ -763,13 +763,27 @@ class Main(unittest.TestCase):
 
     def test_today_is_lisbon_today(self):
         utc = datetime.timezone.utc
-        # 23:30 UTC on 28 March 2026 is already 00:30 on the 29th in Lisbon (summer time)
-        self.assertEqual(collect.lisbon_today(datetime.datetime(2026, 3, 29, 0, 30, tzinfo=utc)),
-                         datetime.date(2026, 3, 29))
+        # 23:30 UTC on 28 March 2026 is still the 28th in Lisbon (summer time starts at 01:00 UTC on the 29th)
+        self.assertEqual(collect.lisbon_today(datetime.datetime(2026, 3, 28, 23, 30, tzinfo=utc)),
+                         datetime.date(2026, 3, 28))
         self.assertEqual(collect.lisbon_today(datetime.datetime(2026, 7, 1, 23, 30, tzinfo=utc)),
                          datetime.date(2026, 7, 2))
         self.assertEqual(collect.lisbon_today(datetime.datetime(2026, 12, 1, 23, 30, tzinfo=utc)),
                          datetime.date(2026, 12, 1))
+
+
+    def test_main_without_today_asks_lisbon_for_it(self):
+        with mock.patch.object(collect, "lisbon_today", return_value=datetime.date(2026, 10, 21)) as asked:
+            self.assertEqual(self.window([]), {"start": "2026-10-21", "end": "2026-11-22"})
+        asked.assert_called_once_with()
+
+    def test_without_a_time_zone_database_it_warns_and_uses_the_machine_date(self):
+        err = io.StringIO()
+        with mock.patch("zoneinfo.ZoneInfo", side_effect=KeyError("Europe/Lisbon")), \
+                contextlib.redirect_stderr(err):
+            day = collect.lisbon_today(datetime.datetime(2026, 7, 1, 12, 0, tzinfo=datetime.timezone.utc))
+        self.assertEqual(day, datetime.date(2026, 7, 1))
+        self.assertIn("warning", err.getvalue())
 
 
 class Config(unittest.TestCase):

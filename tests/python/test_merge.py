@@ -313,7 +313,7 @@ class MissingOk(Case):
         os.remove(os.path.join(self.cand, "g1.json"))
         code, out = self.run_ok()
         self.assertEqual(code, 0)
-        self.assertIn("missing group: g1\n", out)
+        self.assertIn("missing group: g1 (missing (", out)
         self.assertNotIn("missing group: g2", out)
         doc = self.output()
         self.assertEqual([e["title_pt"] for e in doc["events"]], ["Feira do Livro"])
@@ -339,6 +339,30 @@ class MissingOk(Case):
         self.assertEqual(code, 0)
         self.assertIn("missing group: g2", out)
         self.assertEqual([e["title_pt"] for e in self.output()["events"]], ["Concerto de Outono"])
+
+    def test_the_reason_is_printed(self):
+        self.cand_file("g1", [], collected_at="2026-10-19T08:00:00+01:00")
+        write(os.path.join(self.cand, "g2.json"), {"collected_at": STAMP, "group": "other", "events": []})
+        _, out = self.run_ok()
+        self.assertIn("missing group: g1 (stale, its collected_at is 2026-10-19", out)
+        self.assertIn("missing group: g2 (the file says group other)", out)
+
+    def test_bad_hints_skip_the_group_only_under_the_flag(self):
+        for bad in ("none", ["Frimor"]):
+            self.cand_file("g1", [event("X", "2026-10-26")], hints=bad)
+            code, out = self.run_ok()
+            self.assertEqual(code, 0)
+            self.assertIn("missing group: g1 (hints must be a list of events)", out)
+            self.assertEqual([e["title_pt"] for e in self.output()["events"]], ["Feira do Livro"])
+
+    def test_no_readable_group_exits_2_and_writes_nothing(self):
+        for g in ("g1", "g2"):
+            os.remove(os.path.join(self.cand, g + ".json"))
+        code, out = self.run_ok()
+        self.assertEqual(code, 2)
+        self.assertIn("every group is missing", out)
+        self.assertIn("missing group: g1", out)
+        self.assertFalse(os.path.exists(self.out))
 
     def test_without_the_flag_it_still_exits_2(self):
         os.remove(os.path.join(self.cand, "g2.json"))
@@ -462,6 +486,42 @@ class Finalize(unittest.TestCase):
         a = event("Feira", "2026-11-02", description_en="first", sources=self.src("Eventbrite"))
         b = event("Feira", "2026-11-02", description_en="second", sources=self.src("Facebook"))
         self.run_final(self.doc([a, b]))
+        self.assertEqual(self.result["events"][0]["description_en"], "first")
+
+    def test_the_winner_is_chosen_from_each_events_own_sources(self):
+        a = event("Feira", "2026-11-02", start_time="21:00", sources=self.src("Blog"))
+        b = event("Feira", "2026-11-02", sources=self.src("Município de Rio Maior"))
+        c = event("Feira", "2026-11-02", start_time="21:00", venue="Pavilhão", price={"free": True, "text": "Free"},
+                  sources=self.src("Município de Rio Maior", "https://c"))
+        for order in ([a, b, c], [c, b, a], [b, a, c], [a, c]):
+            self.run_final(self.doc(order))
+            [e] = self.result["events"]
+            self.assertEqual(e["venue"], "Pavilhão", [x["sources"][0]["name"] for x in order])
+            self.assertEqual(e["start_time"], "21:00")
+
+    def test_null_fields_are_filled_from_the_others_in_preference_order(self):
+        blog = event("Feira", "2026-11-02", start_time="21:00", sources=self.src("Blog"))
+        town = event("Feira", "2026-11-02", venue="Pavilhão", description_en="Official", drive_min=0,
+                     sources=self.src("cm-x"))
+        other = event("Feira", "2026-11-02", venue="Other", description_en="Other", drive_min=9,
+                      price={"free": False, "text": "5 EUR"}, sources=self.src("Eventbrite"))
+        self.run_final(self.doc([other, blog, town]))
+        [e] = self.result["events"]
+        self.assertEqual((e["start_time"], e["venue"], e["description_en"], e["drive_min"]),
+                         ("21:00", "Pavilhão", "Official", 0))
+        self.assertEqual(e["price"], {"free": False, "text": "5 EUR"})
+        self.assertEqual(render.check(self.result), [])
+
+    def test_a_town_name_is_not_a_venue_source(self):
+        a = event("Feira", "2026-11-02", venue="Casa da Cultura de Óbidos", description_en="first",
+                  sources=self.src("Óbidos"))
+        b = event("Feira", "2026-11-02", venue="Casa da Cultura de Óbidos", description_en="second",
+                  sources=self.src("Casa da Cultura de Óbidos — agenda"))
+        self.run_final(self.doc([a, b]))
+        self.assertEqual(self.result["events"][0]["description_en"], "second")
+        c = event("Feira", "2026-11-03", venue="Casa da Cultura de Óbidos", description_en="first", sources=self.src("Casa"))
+        d = event("Feira", "2026-11-03", venue="Casa da Cultura de Óbidos", description_en="second", sources=self.src("Óbidos"))
+        self.run_final(self.doc([c, d]))
         self.assertEqual(self.result["events"][0]["description_en"], "first")
 
     def test_note_is_written_from_unread_sources(self):
