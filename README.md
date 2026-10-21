@@ -73,10 +73,12 @@ every morning at 05:17 Lisbon time (and on demand from the Actions tab). It
 collects the listings, has `claude -p` readers write candidates (Haiku, one
 per piece of at most 30,000 characters cut from the six groups of sources; the
 workflow sets `READ_MODEL`, `EDIT_MODEL` and `READ_SPLIT_CHARS`, and without
-them the build reads whole groups with Sonnet), merges them, has one more `claude -p` editor settle
-duplicates, the note and the hints, and renders the page to GitHub Pages. A
-group that cannot be read twice is left out and named on the page; with fewer
-than four groups read, or if collecting fails, nothing is deployed and
+them the build reads whole groups with Sonnet), merges them, has one more
+`claude -p` editor (Sonnet) settle duplicates, the note and the hints, and
+renders the page to GitHub Pages. A group (or, with pieces, a piece) that
+cannot be read twice is left out and its sources are named on the page as not
+read; a group counts as read only when all its pieces were. With fewer than
+four groups read, or if collecting fails, nothing is deployed and
 yesterday's page stays. `run-summary.json` (turns, usage and cost per reader)
 and `merge-report.txt` are kept as a workflow artifact for 7 days.
 
