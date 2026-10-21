@@ -110,6 +110,7 @@ async function runClaude(label: string, cwd: string, editable: string, model: st
   }
   try {
     const proc = Bun.spawn([CLAUDE, ...claudeArgs(editable, model)], {
+      // @ts-ignore `detached` is in Bun 1.4's spawn options but not in @types/bun 1.3.0
       cwd, stdin: new Blob([prompt]), stdout: "pipe", stderr: "pipe", env, detached: true,
     });
     running.add(proc.pid);
