@@ -120,7 +120,9 @@ MARATONA" over "50ª Meia Maratona Internacional da Nazaré".
   `start_date` is its real start, even when that is before the window. An event
   whose own page gives different start and end days is never `single`: it is
   `multi_day`, `ongoing` or `recurring` by the rules here ("Open 2 to 4
-  November" is `multi_day`, not a `single` on the 2nd). If the
+  November" is `multi_day`, not a `single` on the 2nd). Drop the days that
+  are sold out, cancelled or past first: if one day is left, it is `single`
+  on that day. If the
   source shows no end, `end_date` is the last day the source shows, with
   `confidence: "low"` and a caveat saying the end is not stated;
   `recurring` for a pattern such as a weekly market, with `recurrence` in words

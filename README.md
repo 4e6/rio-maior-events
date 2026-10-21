@@ -70,8 +70,10 @@ TypeScript on [Bun](https://bun.sh) (version pinned in `package.json`), one runt
 
 A workflow ([.github/workflows/daily.yml](.github/workflows/daily.yml)) runs
 every morning at 05:17 Lisbon time (and on demand from the Actions tab). It
-collects the listings, has six `claude -p` readers (one per group of sources)
-write candidates, merges them, has one more `claude -p` editor settle
+collects the listings, has `claude -p` readers write candidates (Haiku, one
+per piece of at most 30,000 characters cut from the six groups of sources; the
+workflow sets `READ_MODEL`, `EDIT_MODEL` and `READ_SPLIT_CHARS`, and without
+them the build reads whole groups with Sonnet), merges them, has one more `claude -p` editor settle
 duplicates, the note and the hints, and renders the page to GitHub Pages. A
 group that cannot be read twice is left out and named on the page; with fewer
 than four groups read, or if collecting fails, nothing is deployed and
