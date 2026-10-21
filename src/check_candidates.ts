@@ -25,6 +25,9 @@ export function problemsIn(data: unknown, group: string, stamp: string, window: 
     items.forEach((e, i) => {
       const label = `${key}[${i}] ${dumps(has(e, "title_pt") ? e.title_pt : "")}`;
       for (const m of checkEvent(e, window)) bad.push(label + ": " + m);
+      if (key === "events" && e.kind === "recurring" && Array.isArray(e.dates) && e.dates.length === 1 && !textOk(e.recurrence)) {
+        bad.push(label + ": a recurring event with one date and no recurrence is one dated event: write it as single (or multi_day)");
+      }
     });
   }
   return bad;
