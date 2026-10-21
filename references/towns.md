@@ -10,6 +10,9 @@ minutes of the nearest listed place, not of its municipality's town (border vill
 source gives the distance from Rio Maior, about one minute per kilometre will
 do. If you cannot tell which listed place is nearest, `drive_min` is null.
 
+The villages in the table were not looked up by road: each has the minutes of the
+nearest listed town, as above (the table's order is by minutes, not by place).
+
 The area covered is everything up to about 45 minutes. At 50 minutes
 or more (Peniche, Leiria, Entroncamento, Chamusca, Golegã, Ourém, Vila Nova da
 Barquinha, Tomar), include an event only when it is big (a national festival, a
@@ -51,6 +54,24 @@ major concert) and say how far it is.
 | Nazaré | Nazaré | 45 |
 | Fátima | Ourém | 45 |
 | Alenquer | Alenquer | 45 |
+| Alvados | Porto de Mós | 30 |
+| São Jorge | Porto de Mós | 30 |
+| Mira de Aire | Porto de Mós | 30 |
+| Corredoura | Porto de Mós | 30 |
+| São Bento | Porto de Mós | 30 |
+| Arrimal | Porto de Mós | 30 |
+| Alqueidão do Arrimal | Porto de Mós | 30 |
+| São Gregório | Caldas da Rainha | 25 |
+| Arelho | Óbidos | 25 |
+| Abrigada | Alenquer | 30 |
+| Cabanas do Chão | Alenquer | 45 |
+| Ota | Alenquer | 45 |
+| Pontével | Cartaxo | 35 |
+| Cambelas | Torres Vedras | 40 |
+| Caixaria | Torres Vedras | 40 |
+| Glória do Ribatejo | Salvaterra de Magos | 40 |
+| Pedrogão | Torres Novas | 40 |
+| Santa Catarina da Serra | Leiria | 40 |
 | Peniche | Peniche | 50 |
 | Leiria | Leiria | 50 |
 | Entroncamento | Entroncamento | 50 |

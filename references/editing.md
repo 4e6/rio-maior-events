@@ -32,8 +32,17 @@ event.
   event. The municipal calendar's date and time win over a third-party listing
   only when the two are equally precise: a single day with a stated time on an
   event's own page beats a municipal date range or a missing time.
-- If they are two events (a matinee and an evening show, two different films,
-  two editions), leave both.
+- Merge the pairs the report lists unless they are clearly two events. A
+  pair the report marks "very likely the same event" is one event unless the
+  files show otherwise.
+- A town's day or stand at a festival held in one place is folded into the
+  festival's description; the festival's dates and town are kept. This is an
+  exception to "Which listing wins": the festival's listing stays, whichever
+  source is more precise. (A festival that moves between towns is one event per
+  town, as in reading.md: leave those.)
+- The same title on different days, each with its own time, is two
+  performances: keep both. So are a matinee and an evening show, two different
+  films and two editions.
 - Pairs from different groups are expected: neighbouring towns list each
   other's events. The report gives each event's group where it can.
 - Indexes shift when you remove an event. Work from the last pair to the first,

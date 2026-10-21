@@ -114,12 +114,20 @@ and each has its own traps.
   one context. The build runs a `claude -p` reader per group (`READ_MODEL`,
   `sonnet` by default), which keeps each context small; one retry per group, and a group that fails twice is
   named on the page as not read. A smaller model is used only after an eval on
-  one group shows it reads as well; there is none.
-- **`src/merge.ts` lists duplicates and never merges them.** Whether two listings
+  one group shows it reads as well; there is none. `READ_SPLIT_CHARS` (off by default) cuts each group's
+  sources into pieces (`src/split.ts`, `rio-maior-split/`; a source is never cut, sources of one town stay
+  together, a source over the limit is its own piece) with a reader per piece, to try a smaller model on
+  smaller reads; a group counts as read when all its pieces were, and a failed piece marks only its own
+  sources as not read.
+- **`src/merge.ts` merges only exact doubles and lists the rest.** Listings with the same
+  title, date and town (the page's id) are collapsed before the report, by the rule that finalize
+  uses; it also fills `drive_min` from `references/towns.md` for a listed town. Whether any other two listings
   are one event is a judgement (a town's municipal date beats a community
   one, a show on two dates is two events), so the script only pairs candidates
   (same town or a town and its parenthetical, date ranges that overlap or lie a
-  day apart, shared title words) and the editor decides; the rule it
+  day apart, shared title words; starts within a week with one title's distinctive words inside the other;
+  an event inside a festival's range that shares its words or names a town's day or a stand, in any town;
+  a title that continues another on the same day, marked as very likely the same) and the editor decides; the rule it
   decides by is "which listing wins" in `reading.md`. It refuses a missing or
   stale group file, and a stale `manual.json`, which it tells the editor to
   delete, rather than write a partial page. Running the check of `src/render.ts`
