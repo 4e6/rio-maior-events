@@ -579,3 +579,48 @@ export function defaultDetails(_source: Source, pages: Page[], _window: Window):
   }
   return details;
 }
+
+const CAL_YEAR_RE = /<input[^>]*\bname="year_ajax"[^>]*\bvalue="(\d{4})"|<input[^>]*\bvalue="(\d{4})"[^>]*\bname="year_ajax"/i;
+const CAL_MONTH_RE = /<input[^>]*\bname="month_ajax"[^>]*\bvalue="(\d{1,2})"|<input[^>]*\bvalue="(\d{1,2})"[^>]*\bname="month_ajax"/i;
+const CAL_CELL_RE = /<td\b[^>]*\bmod_eb_mincalendar_event\b[^>]*>(.*?)<\/td>/gis;
+const CAL_LINK_RE = /<a\b([^>]*)>\s*<span\b[^>]*>\s*(\d{1,2})\s*<\/span>/is;
+
+function attrOf(tag: string, name: string): string | null {
+  const m = new RegExp(`(?:^|[\\s"'])${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)')`, "i").exec(tag);
+  return m ? unescape(m[1] ?? m[2] ?? "") : null;
+}
+
+/** Events of a Joomla "Event Booking" mini calendar (a table whose cells with an event hold a link around the day
+ *  number). The month and year come from the calendar's hidden month_ajax and year_ajax fields; the day from the
+ *  cell. A link to a day's list (several events, "layout=daily") is not an event page and gives nothing. An event
+ *  shown on several days gets the first as `start` and, when the days are consecutive, the last as `end`. */
+export function miniCalendarItems(page: string, base: string | null | undefined, window: Window): MadeItem[] {
+  const y = CAL_YEAR_RE.exec(page);
+  const mo = CAL_MONTH_RE.exec(page);
+  if (!y || !mo) return [];
+  const year = Number(y[1] ?? y[2]);
+  const month = Number(mo[1] ?? mo[2]);
+  if (month < 1 || month > 12) return [];
+  const found = new Map<string, { title: string | null; days: number[] }>();
+  for (const cell of page.matchAll(CAL_CELL_RE)) {
+    const link = CAL_LINK_RE.exec(cell[1]!);
+    if (!link) continue;
+    const href = attrOf(link[1]!, "href");
+    if (!href || /[?&;]layout=daily\b/.test(href)) continue;
+    const url = cleanUrl(base, href);
+    const day = Number(link[2]);
+    if (!url || day < 1 || day > 31) continue;
+    const entry = found.get(url) ?? { title: plain(attrOf(link[1]!, "title")), days: [] };
+    entry.days.push(day);
+    found.set(url, entry);
+  }
+  const date = (day: number): string => `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  const items: MadeItem[] = [];
+  for (const [url, { title, days }] of found) {
+    days.sort((a, b) => a - b);
+    const last = days[days.length - 1]!;
+    const consecutive = days.length > 1 && last - days[0]! === days.length - 1;
+    items.push(makeItem(title, date(days[0]!), consecutive ? date(last) : null, null, url));
+  }
+  return keepWindow(items, window);
+}

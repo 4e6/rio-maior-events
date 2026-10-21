@@ -30,7 +30,8 @@ The group file is `rio-maior-collected/<group>.json`:
   what a yearly event did last time. It is empty until an adapter fills it (no
   adapter fills it yet); until then, hints come only from the known
   yearly list in sources.md.
-- `text`: the page's visible text, for sources that give no items.
+- `text`: the page's visible text, for sources that give no items (or only
+  the days of a mini calendar, see below).
 - `note`: what the script noticed, such as a page that shows the current month
   only.
 - `details`: for a source whose event pages the script fetched, one entry per
@@ -45,10 +46,14 @@ separated from a card's title by another card's text belongs to nobody, and a
 card with no marker cites the agenda page (the source's `url`). The same marker
 can appear more than once (a card shown twice); that is one page. Markers are
 never text of the event, only addresses. On some sites (Torres Novas,
-Entroncamento, Vila Nova da Barquinha) the link is a day of the mini calendar:
-the line after the marker is the link's title, which names the event, and the
-event's day is the number on the line AFTER that title, not the one before the
-marker (in "27 / <marker> / Banda da Armada / 28" the concert is on the 28th).
+Entroncamento, Vila Nova da Barquinha) the link is a day of the mini calendar,
+and the script reads that calendar from the page itself: the event's day is in
+its `items` entry (`start`, a date alone; `end` when the calendar shows it on
+consecutive days). The numbers in the text around such a marker are the
+calendar grid, not dates of the event ("27 / <marker> / Banda da Armada / 28"
+is the event of the 28th, and the item says so). A day with several events
+shows as "2 Eventos" without markers: those events have no day from the
+calendar.
 
 ### Event pages
 
