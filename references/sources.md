@@ -29,7 +29,6 @@ The source list is `scripts/sources.json`; the sections below describe how to re
 - Feeds of one platform: cm-nazare, cm-batalha, cm-chamusca
 - JSON sources: ourem, cm-cadaval
 - Next.js municipal sites: cm-bombarral, cm-lourinha, cm-alenquer
-- eventbrite
 - Known yearly events
 - Not used, and why
 
@@ -210,10 +209,6 @@ The pages have no readable text; the script takes the events from the page's emb
 - Trap: only page 1 is read, nine events. Lourinhã and Alenquer have more (17 at the time of checking) on page 2, and Bombarral had three. The source's `note` says "page 1 of N, M events in all" when there are more pages.
 - Many are long runs (an exhibition for months, a project to December): ongoing.
 
-## eventbrite
-
-`https://www.eventbrite.pt/d/portugal--rio-maior/events/`: JSON-LD `items` with locality. Trap: the page mixes in far-away and online events. Keep only events whose `addressLocality` or venue is in a town listed in `towns.md`; drop the rest. The page text under the items has each card's weekday and time ("sábado às 19:30"): where the item's `startDate` carries no time, take the time from there. Cards marked "Quase cheio" (almost full) are kept.
-
 ## Known yearly events
 
 From past listings, not from this collection. Use one only as "date to be confirmed" when its usual dates overlap the window (not merely its month) and no source lists a date for it; say it is expected, never state a date. A hint's `title_pt` is the `title_pt` column. The Title column says whether that is a name seen in a listing (`name`) or our own description of the event (`descriptive`, a translation or a gloss): a descriptive title is still the hint's `title_pt`, and its caveat says the name is not confirmed. Its source is the municipality's own site named in the last column; a hint rests on one sighting, so it is always low confidence.
@@ -251,4 +246,5 @@ From past listings, not from this collection. Use one only as "date to be confir
 - Azambuja: the agenda page answers 404 and its agendas are PDFs.
 - Facebook and Instagram: need a login. The Cineteatro now announces mainly on Facebook, so expect gaps.
 - Ticketline and riomaiortv.pt: unreachable.
+- Eventbrite (eventbrite.pt): refuses GitHub's runners (405); removed 2026-10-21.
 - Municipal app and digital street screens: none found online.

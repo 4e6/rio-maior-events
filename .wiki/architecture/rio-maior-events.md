@@ -33,7 +33,7 @@ and each has its own traps.
   replacement characters fails as unreadable instead of passing as ok.
 - **Readers read.** Portuguese dates with no year, two-digit years,
   times that are an hour off, the same event on two sources, far-away
-  Eventbrite listings: `references/sources.md` lists them
+  listings: `references/sources.md` lists them
   ([below](#the-sources)), and judging them is the model's job. One reader per
   group follows `references/reading.md` and writes
   `rio-maior-candidates/<group>.json`.
@@ -56,7 +56,8 @@ and each has its own traps.
   after a refusal, a timeout or a connection error the worker skips the rest of
   that site. Results come back in `sources.json` order, whatever finished
   first, and the slowest host (delay times requests) starts first, so a run
-  lasts about as long as the slowest host: 14.7 s for the list pages alone on 2026-10-20, 1 min 36 s with the event pages on 2026-10-21 (33 sources, 147 event pages).
+  lasts about as long as the slowest host: 14.7 s for the list pages alone on 2026-10-20, 1 min 36 s with the event pages on 2026-10-21 (33 sources then, 147 event pages).
+  Verification is on, with the system roots plus `certs/intermediates.pem`: three intermediates that servers fail to send and OpenSSL on Linux does not fetch (`certs/README.md`). No root of ours, never verification off.
   Viral Agenda, whose robots.txt asks for 15 s, was dropped: it refuses scripts with a 403, so no source needs the long delay today. Ctrl-C sets a stop
   event that ends each worker between requests (and in its wait), cancels the
   hosts not yet started, writes nothing and exits 130. The runner also holds
@@ -106,7 +107,7 @@ and each has its own traps.
   human `label` in `sources.json`, copied into the group file for the readers
   to use as the source's name on the page.
 - **Fan-out reading, on the same model by default.** The sources were once
-  read by one model in one pass, and the text of 33 pages does not read well in
+  read by one model in one pass, and the text of 32 pages does not read well in
   one context. A reader per group, run at the same time, keeps each context
   small. A smaller model is used only after an eval on one group shows it
   reads as well; there is none, so the readers use the model of the main
@@ -145,7 +146,7 @@ later weeks rest on few sources; the page says which in its `note`.
 
 [The overview](/overview.md) calls a skill a payload that runs on the user's
 host. This one reaches the network by its own code, so `compatibility` says
-what and how much: about 33 list pages and up to about 180 event pages per run,
+what and how much: about 32 list pages and up to about 180 event pages per run,
 one POST and the rest GETs, read-only, a few minutes.
 
 - `collect.py` is the only script that imports `urllib`; the adapters and `merge.py` reach nothing. `render.py` reads its

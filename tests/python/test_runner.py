@@ -14,6 +14,7 @@ import json
 import os
 import re
 import socket
+import ssl
 import tempfile
 import threading
 import types
@@ -21,6 +22,7 @@ import unittest
 from unittest import mock
 import urllib.error
 import urllib.parse
+import urllib.request
 
 import helpers
 from helpers import WINDOW
@@ -884,6 +886,41 @@ class SourceList(unittest.TestCase):
             doc = handle.read()
         for name in ADAPTERS:
             self.assertTrue(name in doc, name)
+
+
+class SslContextTests(unittest.TestCase):
+    """The intermediates certs/README.md explains are loaded, with verification on."""
+
+    def test_context_loads_the_intermediates_and_verifies(self):
+        context = collect.ssl_context()
+        names = {dict(item[0] for item in cert["subject"]).get("commonName") for cert in context.get_ca_certs()}
+        self.assertTrue({"GlobalSign GCC R3 DV TLS CA 2020", "GlobalSign GCC R6 AlphaSSL CA 2025",
+                         "Root YR"} <= names, names)
+        self.assertEqual(context.verify_mode, ssl.CERT_REQUIRED)
+        self.assertTrue(context.check_hostname)
+        # The shipped certificates must not become trust anchors (Python 3.13+ default).
+        self.assertFalse(context.verify_flags & getattr(ssl, "VERIFY_X509_PARTIAL_CHAIN", 0))
+
+    def test_both_fetches_use_that_context(self):
+        response = mock.MagicMock()
+        response.__enter__.return_value = response
+        response.status = 200
+        response.read.return_value = b""
+        response.headers = {}
+        with mock.patch("urllib.request.urlopen", return_value=response) as urlopen:
+            collect.fetch("https://h.example/")
+        self.assertIs(urlopen.call_args.kwargs["context"], collect.SSL_CONTEXT)
+        with mock.patch("urllib.request.build_opener") as build:
+            build.return_value.open.return_value = response
+            collect.fetch_follow("https://h.example/")
+        handlers = build.call_args.args
+        self.assertTrue(any(isinstance(h, urllib.request.HTTPSHandler)
+                            and h._context is collect.SSL_CONTEXT for h in handlers))
+
+    def test_a_missing_file_fails_loudly(self):
+        # A missing bundle must stop the run, not fall back to fewer certificates.
+        with self.assertRaises(OSError):
+            collect.ssl_context(os.path.join(tempfile.gettempdir(), "no-such-intermediates.pem"))
 
 
 if __name__ == "__main__":
