@@ -47,7 +47,9 @@ Keep this checklist to yourself.
 
 ## Step 1 — The window
 
-Default: from today to the first Sunday at least four weeks away. A period the
+Default: from today (in Europe/Lisbon) to the first Sunday at least four weeks
+(28 days) away; a Sunday exactly 28 days on counts. collect.py applies this when
+you give it no `--from` and `--to`. A period the
 person names replaces it: "this weekend" is Friday to Sunday, "November" the
 whole month. Do not ask; a request with no period gets the default. An interest
 they name narrows what you write in step 3, not what you collect.
@@ -122,7 +124,11 @@ python3 <this skill's directory>/scripts/merge.py rio-maior-collected rio-maior-
 ```
 
 Exit 2 names a missing or stale group: have that group read again, then run it
-again; it also names a stale `manual.json`, which you delete. Exit 0 writes
+again; it also names a stale `manual.json`, which you delete. With `--missing-ok`
+(for a run where nobody can have it read again) such a group is skipped instead:
+its sources are marked `ok` false with the error "not read" (a source that had
+failed keeps its own error), and a line "missing group: <name> (<reason>)" is
+printed; if no group can be read it still exits 2. Exit 0 writes
 `rio-maior-events.json` and prints four lists:
 
 - possible duplicates: decide whether each pair is one event; if so keep one,
@@ -136,7 +142,12 @@ again; it also names a stale `manual.json`, which you delete. Exit 0 writes
   plausible, and whose edition no event already covers, from the group's
   candidates file (`hints`) into `events`.
 
-Edit `rio-maior-events.json` in place; do not write `id`. An interest the
+Edit `rio-maior-events.json` in place; do not write `id`. For an unattended run
+there is a fallback that guarantees a page: `merge.py --finalize
+rio-maior-events.json` rewrites the file in place, dropping and naming (in `note`)
+the events render.py rejects, collapsing events with the same id into one (a stated
+time, then a single day, then a municipal or venue source wins; sources are
+combined) and writing `note` from the sources "not read" if it has none. An interest the
 person named narrows what you keep here, not what the readers wrote.
 
 ## Step 4 — Render, repair at most twice
