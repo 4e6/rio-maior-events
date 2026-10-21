@@ -1,7 +1,7 @@
 ---
 type: Module
 title: Rio Maior events
-description: "A twice-weekly build that gathers leisure events within about 45 minutes of Rio Maior and renders an agenda list beside a month calendar. Why a script collects and the model reads, which sources, how the page works, where it bends the payload rules."
+description: "A weekly build that gathers leisure events within about 45 minutes of Rio Maior and renders an agenda list beside a month calendar. Why a script collects and the model reads, which sources, how the page works, where it bends the payload rules."
 tags: [architecture, network, page]
 sources:
   - resource: src/**
@@ -11,7 +11,7 @@ sources:
   - resource: test/**
   - resource: .github/workflows/**
   - resource: certs/**
-sources_digest: 5cf9492d82776acd
+sources_digest: ff8742052728958a
 ---
 
 # What it is
@@ -216,7 +216,7 @@ later weeks rest on few sources; the page says which in its `note`.
 # What reaches the network, and where it is careful
 
 A run fetches about 32 list pages and up to about 180 event pages, one POST and the rest GETs, read-only, a few
-minutes. The project was a Claude skill driven by Python scripts and was ported to TypeScript on Bun, run twice a week (Mondays and Thursdays; daily until 2026-10-21) by a
+minutes. The project was a Claude skill driven by Python scripts and was ported to TypeScript on Bun, run once a week (Mondays; it ran daily, then twice a week, until 2026-10-21) by a
 GitHub Actions workflow; the `claude -p` readers and editor are confined to file tools on named files
 (`src/build.ts`).
 

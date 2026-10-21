@@ -1,6 +1,6 @@
 # rio-maior-events
 
-A build twice a week that gathers what is on in and around Rio Maior, Portugal — up to about 45 minutes away: Caldas da Rainha, Óbidos,
+A weekly build that gathers what is on in and around Rio Maior, Portugal — up to about 45 minutes away: Caldas da Rainha, Óbidos,
 Santarém, Alcobaça, Porto de Mós and the villages of the Serra dos Candeeiros —
 and lays it out as one page you can plan your free time from.
 
@@ -69,7 +69,7 @@ TypeScript on [Bun](https://bun.sh) (version pinned in `package.json`), one runt
 ## Scheduled build
 
 A workflow ([.github/workflows/build.yml](.github/workflows/build.yml)) runs
-on Mondays and Thursdays at 05:17 Lisbon time (and on demand from the Actions tab). It
+every Monday at 05:17 Lisbon time (and on demand from the Actions tab). It
 collects the listings, has `claude -p` readers write candidates (Haiku, one
 per piece of at most 30,000 characters cut from the six groups of sources; the
 workflow sets `READ_MODEL`, `EDIT_MODEL` and `READ_SPLIT_CHARS`, and without
