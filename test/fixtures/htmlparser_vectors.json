@@ -1,0 +1,5315 @@
+{
+"python": "3.14.8",
+"vectors": [
+{
+"name": "plain",
+"chunks": [
+"<p class=a>Hello &amp; <b>world</b> &copy 2026 &#65;&#x42; &bogus; &#xZZ</p>"
+],
+"events": [
+[
+"start",
+"p",
+[
+[
+"class",
+"a"
+]
+],
+"<p class=a>"
+],
+[
+"data",
+"Hello & "
+],
+[
+"start",
+"b",
+[],
+"<b>"
+],
+[
+"data",
+"world"
+],
+[
+"end",
+"b"
+],
+[
+"data",
+" © 2026 AB &bogus; &#xZZ"
+],
+[
+"end",
+"p"
+]
+]
+},
+{
+"name": "stray_end_tags",
+"chunks": [
+"</div></p>text</ span ></ x><b></b ></B foo=bar>"
+],
+"events": [
+[
+"end",
+"div"
+],
+[
+"end",
+"p"
+],
+[
+"data",
+"text"
+],
+[
+"comment",
+" span "
+],
+[
+"comment",
+" x"
+],
+[
+"start",
+"b",
+[],
+"<b>"
+],
+[
+"end",
+"b"
+],
+[
+"end",
+"b"
+]
+]
+},
+{
+"name": "end_tag_edge",
+"chunks": [
+"</>a</ >b</1>c</a"
+],
+"events": [
+[
+"data",
+"a"
+],
+[
+"comment",
+" "
+],
+[
+"data",
+"b"
+],
+[
+"comment",
+"1"
+],
+[
+"data",
+"c"
+]
+]
+},
+{
+"name": "duplicate_attrs",
+"chunks": [
+"<a href=1 href=2 HREF=\"3\" Title='x' title=y data-x>t</a>"
+],
+"events": [
+[
+"start",
+"a",
+[
+[
+"href",
+"1"
+],
+[
+"href",
+"2"
+],
+[
+"href",
+"3"
+],
+[
+"title",
+"x"
+],
+[
+"title",
+"y"
+],
+[
+"data-x",
+null
+]
+],
+"<a href=1 href=2 HREF=\"3\" Title='x' title=y data-x>"
+],
+[
+"data",
+"t"
+],
+[
+"end",
+"a"
+]
+]
+},
+{
+"name": "attr_quirks",
+"chunks": [
+"<a b = 'c'd=e f=\"g\"h i/j k=/>l=m=n>text"
+],
+"events": [
+[
+"start",
+"a",
+[
+[
+"b",
+"c"
+],
+[
+"d",
+"e"
+],
+[
+"f",
+"g"
+],
+[
+"h",
+null
+],
+[
+"i",
+null
+],
+[
+"j",
+null
+],
+[
+"k",
+"/"
+]
+],
+"<a b = 'c'd=e f=\"g\"h i/j k=/>"
+],
+[
+"data",
+"l=m=n>text"
+]
+]
+},
+{
+"name": "attr_entities",
+"chunks": [
+"<a href=\"?a=1&copy=2&reg;&amp;&#38;&#x26;&notit;&lt\" t=&amp;lt; u='&#0;&#128;'>x</a>"
+],
+"events": [
+[
+"start",
+"a",
+[
+[
+"href",
+"?a=1&copy=2®&&&&notit;<"
+],
+[
+"t",
+"&lt;"
+],
+[
+"u",
+"�€"
+]
+],
+"<a href=\"?a=1&copy=2&reg;&amp;&#38;&#x26;&notit;&lt\" t=&amp;lt; u='&#0;&#128;'>"
+],
+[
+"data",
+"x"
+],
+[
+"end",
+"a"
+]
+]
+},
+{
+"name": "attr_empty_values",
+"chunks": [
+"<a b= c='' d=\"\" e=>x</a>"
+],
+"events": [
+[
+"start",
+"a",
+[
+[
+"b",
+"c=''"
+],
+[
+"d",
+""
+],
+[
+"e",
+""
+]
+],
+"<a b= c='' d=\"\" e=>"
+],
+[
+"data",
+"x"
+],
+[
+"end",
+"a"
+]
+]
+},
+{
+"name": "unquoted_slash",
+"chunks": [
+"<a href=/x/y/>z</a><br/><br /><img src=a.png/>"
+],
+"events": [
+[
+"start",
+"a",
+[
+[
+"href",
+"/x/y/"
+]
+],
+"<a href=/x/y/>"
+],
+[
+"data",
+"z"
+],
+[
+"end",
+"a"
+],
+[
+"startend",
+"br",
+[],
+"<br/>"
+],
+[
+"startend",
+"br",
+[],
+"<br />"
+],
+[
+"start",
+"img",
+[
+[
+"src",
+"a.png/"
+]
+],
+"<img src=a.png/>"
+]
+]
+},
+{
+"name": "startend",
+"chunks": [
+"<br/><img src='a' /><x:y/ >"
+],
+"events": [
+[
+"startend",
+"br",
+[],
+"<br/>"
+],
+[
+"startend",
+"img",
+[
+[
+"src",
+"a"
+]
+],
+"<img src='a' />"
+],
+[
+"start",
+"x:y",
+[],
+"<x:y/ >"
+]
+]
+},
+{
+"name": "weird_tag_names",
+"chunks": [
+"<a$b>x</a$b><a\u0000b>y</a><A-B C-D=E>"
+],
+"events": [
+[
+"start",
+"a$b",
+[],
+"<a$b>"
+],
+[
+"data",
+"x"
+],
+[
+"end",
+"a$b"
+],
+[
+"start",
+"a\u0000b",
+[],
+"<a\u0000b>"
+],
+[
+"data",
+"y"
+],
+[
+"end",
+"a"
+],
+[
+"start",
+"a-b",
+[
+[
+"c-d",
+"E"
+]
+],
+"<A-B C-D=E>"
+]
+]
+},
+{
+"name": "unfinished_tag",
+"chunks": [
+"<a href='x"
+],
+"events": []
+},
+{
+"name": "unfinished_tag2",
+"chunks": [
+"<div class=\"a\" <b>after</b>"
+],
+"events": [
+[
+"start",
+"div",
+[
+[
+"class",
+"a"
+],
+[
+"<b",
+null
+]
+],
+"<div class=\"a\" <b>"
+],
+[
+"data",
+"after"
+],
+[
+"end",
+"b"
+]
+]
+},
+{
+"name": "lt_in_text",
+"chunks": [
+"a < b <3 <<p>x</p> <"
+],
+"events": [
+[
+"data",
+"a "
+],
+[
+"data",
+"<"
+],
+[
+"data",
+" b "
+],
+[
+"data",
+"<"
+],
+[
+"data",
+"3 "
+],
+[
+"data",
+"<"
+],
+[
+"start",
+"p",
+[],
+"<p>"
+],
+[
+"data",
+"x"
+],
+[
+"end",
+"p"
+],
+[
+"data",
+" "
+],
+[
+"data",
+"<"
+]
+]
+},
+{
+"name": "lt_at_end",
+"chunks": [
+"text<"
+],
+"events": [
+[
+"data",
+"text"
+],
+[
+"data",
+"<"
+]
+]
+},
+{
+"name": "amp_cases",
+"chunks": [
+"a & b &; &# &#x &#xg AT&T x&y=1 &amp &ampx &lt;&gt;"
+],
+"events": [
+[
+"data",
+"a & b &; &# &#x &#xg AT&T x&y=1 & &x <>"
+]
+]
+},
+{
+"name": "amp_at_end",
+"chunks": [
+"tail &am"
+],
+"events": [
+[
+"data",
+"tail &am"
+]
+]
+},
+{
+"name": "amp_at_end2",
+"chunks": [
+"tail &#12"
+],
+"events": [
+[
+"data",
+"tail \f"
+]
+]
+},
+{
+"name": "amp_at_end3",
+"chunks": [
+"tail &amp;"
+],
+"events": [
+[
+"data",
+"tail &"
+]
+]
+},
+{
+"name": "charref_in_data",
+"chunks": [
+"&#38;amp; &#0; &#x110000; &#150; &#xD800;"
+],
+"events": [
+[
+"data",
+"&amp; � � – �"
+]
+]
+},
+{
+"name": "comment",
+"chunks": [
+"<!-- a --><!---->x<!--->y<!-- -> z --><!--a--!>b<!-- --!-->c"
+],
+"events": [
+[
+"comment",
+" a "
+],
+[
+"comment",
+""
+],
+[
+"data",
+"x"
+],
+[
+"comment",
+""
+],
+[
+"data",
+"y"
+],
+[
+"comment",
+" -> z "
+],
+[
+"comment",
+"a"
+],
+[
+"data",
+"b"
+],
+[
+"comment",
+" --!"
+],
+[
+"data",
+"c"
+]
+]
+},
+{
+"name": "comment_abrupt",
+"chunks": [
+"<!-->a<!--->b<!-- --> c --> d"
+],
+"events": [
+[
+"comment",
+""
+],
+[
+"data",
+"a"
+],
+[
+"comment",
+""
+],
+[
+"data",
+"b"
+],
+[
+"comment",
+" "
+],
+[
+"data",
+" c --> d"
+]
+]
+},
+{
+"name": "comment_unclosed",
+"chunks": [
+"<!-- never closed"
+],
+"events": [
+[
+"comment",
+" never closed"
+]
+]
+},
+{
+"name": "comment_unclosed_dashes",
+"chunks": [
+"<!-- never closed --"
+],
+"events": [
+[
+"comment",
+" never closed "
+]
+]
+},
+{
+"name": "comment_unclosed_bang",
+"chunks": [
+"<!-- never closed --!"
+],
+"events": [
+[
+"comment",
+" never closed "
+]
+]
+},
+{
+"name": "comment_unclosed_dash",
+"chunks": [
+"<!-- never closed -"
+],
+"events": [
+[
+"comment",
+" never closed "
+]
+]
+},
+{
+"name": "comment_unclosed_dash2",
+"chunks": [
+"<!---"
+],
+"events": [
+[
+"comment",
+""
+]
+]
+},
+{
+"name": "bogus_comment",
+"chunks": [
+"<!x y><!><!- a>a</ b c>d<?pi stuff?>e<?never"
+],
+"events": [
+[
+"comment",
+"x y"
+],
+[
+"comment",
+""
+],
+[
+"comment",
+"- a"
+],
+[
+"data",
+"a"
+],
+[
+"comment",
+" b c"
+],
+[
+"data",
+"d"
+],
+[
+"pi",
+"pi stuff?"
+],
+[
+"data",
+"e"
+],
+[
+"pi",
+"never"
+]
+]
+},
+{
+"name": "bogus_comment_unclosed",
+"chunks": [
+"<!foo bar"
+],
+"events": [
+[
+"comment",
+"foo bar"
+]
+]
+},
+{
+"name": "bogus_end_unclosed",
+"chunks": [
+"</ foo bar"
+],
+"events": [
+[
+"comment",
+" foo bar"
+]
+]
+},
+{
+"name": "pi",
+"chunks": [
+"<?xml version='1.0'?><?php echo 1 ?>t"
+],
+"events": [
+[
+"pi",
+"xml version='1.0'?"
+],
+[
+"pi",
+"php echo 1 ?"
+],
+[
+"data",
+"t"
+]
+]
+},
+{
+"name": "doctype",
+"chunks": [
+"<!DOCTYPE html><!doctype html PUBLIC \"x>y\"><html>"
+],
+"events": [
+[
+"decl",
+"DOCTYPE html"
+],
+[
+"decl",
+"doctype html PUBLIC \"x"
+],
+[
+"data",
+"y\">"
+],
+[
+"start",
+"html",
+[],
+"<html>"
+]
+]
+},
+{
+"name": "doctype_unclosed",
+"chunks": [
+"<!DOCTYPE html"
+],
+"events": [
+[
+"decl",
+"DOCTYPE html"
+]
+]
+},
+{
+"name": "cdata",
+"chunks": [
+"<![CDATA[ a < b ]]>x<![CDATA[open"
+],
+"events": [
+[
+"unknown_decl",
+"CDATA[ a < b "
+],
+[
+"data",
+"x"
+],
+[
+"unknown_decl",
+"CDATA[open"
+]
+]
+},
+{
+"name": "cdata_unclosed2",
+"chunks": [
+"<![CDATA[open"
+],
+"events": [
+[
+"unknown_decl",
+"CDATA[open"
+]
+]
+},
+{
+"name": "script",
+"chunks": [
+"<script>if (a < b && c > d) { x = '</p>'; } // &amp;\n</script>after<SCRIPT >1</SCRIPT x>2"
+],
+"events": [
+[
+"start",
+"script",
+[],
+"<script>"
+],
+[
+"data",
+"if (a < b && c > d) { x = '</p>'; } // &amp;\n"
+],
+[
+"end",
+"script"
+],
+[
+"data",
+"after"
+],
+[
+"start",
+"script",
+[],
+"<SCRIPT >"
+],
+[
+"data",
+"1"
+],
+[
+"end",
+"script"
+],
+[
+"data",
+"2"
+]
+]
+},
+{
+"name": "script_unclosed",
+"chunks": [
+"<script>var x = 1; </scrip"
+],
+"events": [
+[
+"start",
+"script",
+[],
+"<script>"
+],
+[
+"data",
+"var x = 1; </scrip"
+]
+]
+},
+{
+"name": "script_unclosed2",
+"chunks": [
+"<script>var x = 1;"
+],
+"events": [
+[
+"start",
+"script",
+[],
+"<script>"
+],
+[
+"data",
+"var x = 1;"
+]
+]
+},
+{
+"name": "script_comment_like",
+"chunks": [
+"<script><!-- a --> <![CDATA[ x ]]> </script >z"
+],
+"events": [
+[
+"start",
+"script",
+[],
+"<script>"
+],
+[
+"data",
+"<!-- a --> <![CDATA[ x ]]> "
+],
+[
+"end",
+"script"
+],
+[
+"data",
+"z"
+]
+]
+},
+{
+"name": "style",
+"chunks": [
+"<style>a > b { content: '&amp;' }</style><style></styleX></style>ok"
+],
+"events": [
+[
+"start",
+"style",
+[],
+"<style>"
+],
+[
+"data",
+"a > b { content: '&amp;' }"
+],
+[
+"end",
+"style"
+],
+[
+"start",
+"style",
+[],
+"<style>"
+],
+[
+"data",
+"</styleX>"
+],
+[
+"end",
+"style"
+],
+[
+"data",
+"ok"
+]
+]
+},
+{
+"name": "xmp_iframe",
+"chunks": [
+"<xmp><b>&amp;</b></xmp><iframe><p>x</p></iframe><noembed>&amp;</noembed><noframes></noframes>"
+],
+"events": [
+[
+"start",
+"xmp",
+[],
+"<xmp>"
+],
+[
+"data",
+"<b>&amp;</b>"
+],
+[
+"end",
+"xmp"
+],
+[
+"start",
+"iframe",
+[],
+"<iframe>"
+],
+[
+"data",
+"<p>x</p>"
+],
+[
+"end",
+"iframe"
+],
+[
+"start",
+"noembed",
+[],
+"<noembed>"
+],
+[
+"data",
+"&amp;"
+],
+[
+"end",
+"noembed"
+],
+[
+"start",
+"noframes",
+[],
+"<noframes>"
+],
+[
+"end",
+"noframes"
+]
+]
+},
+{
+"name": "title_rcdata",
+"chunks": [
+"<title>a &amp; <b>b</b> &copy; &#65;</title>after"
+],
+"events": [
+[
+"start",
+"title",
+[],
+"<title>"
+],
+[
+"data",
+"a & <b>b</b> © A"
+],
+[
+"end",
+"title"
+],
+[
+"data",
+"after"
+]
+]
+},
+{
+"name": "title_rcdata_nested",
+"chunks": [
+"<title><title></title></title>"
+],
+"events": [
+[
+"start",
+"title",
+[],
+"<title>"
+],
+[
+"data",
+"<title>"
+],
+[
+"end",
+"title"
+],
+[
+"end",
+"title"
+]
+]
+},
+{
+"name": "textarea",
+"chunks": [
+"<textarea><p>a &lt;/p&gt;</textarea>z<textarea></TEXTAREA\n>"
+],
+"events": [
+[
+"start",
+"textarea",
+[],
+"<textarea>"
+],
+[
+"data",
+"<p>a </p>"
+],
+[
+"end",
+"textarea"
+],
+[
+"data",
+"z"
+],
+[
+"start",
+"textarea",
+[],
+"<textarea>"
+],
+[
+"end",
+"textarea"
+]
+]
+},
+{
+"name": "title_unclosed",
+"chunks": [
+"<title>abc &amp"
+],
+"events": [
+[
+"start",
+"title",
+[],
+"<title>"
+],
+[
+"data",
+"abc &"
+]
+]
+},
+{
+"name": "title_unclosed2",
+"chunks": [
+"<title>abc &amp; </tit"
+],
+"events": [
+[
+"start",
+"title",
+[],
+"<title>"
+],
+[
+"data",
+"abc & </tit"
+]
+]
+},
+{
+"name": "plaintext",
+"chunks": [
+"<plaintext><b>&amp;</b></plaintext>"
+],
+"events": [
+[
+"start",
+"plaintext",
+[],
+"<plaintext>"
+],
+[
+"data",
+"<b>&amp;</b></plaintext>"
+]
+]
+},
+{
+"name": "noscript",
+"chunks": [
+"<noscript><p>x</p><img src=a></noscript>"
+],
+"events": [
+[
+"start",
+"noscript",
+[],
+"<noscript>"
+],
+[
+"start",
+"p",
+[],
+"<p>"
+],
+[
+"data",
+"x"
+],
+[
+"end",
+"p"
+],
+[
+"start",
+"img",
+[
+[
+"src",
+"a"
+]
+],
+"<img src=a>"
+],
+[
+"end",
+"noscript"
+]
+]
+},
+{
+"name": "script_slash",
+"chunks": [
+"<script/>x</script>y<script src=a />z"
+],
+"events": [
+[
+"startend",
+"script",
+[],
+"<script/>"
+],
+[
+"data",
+"x"
+],
+[
+"end",
+"script"
+],
+[
+"data",
+"y"
+],
+[
+"startend",
+"script",
+[
+[
+"src",
+"a"
+]
+],
+"<script src=a />"
+],
+[
+"data",
+"z"
+]
+]
+},
+{
+"name": "script_end_variants",
+"chunks": [
+"<script>a</script\t>b<script>c</script/>d<script>e</script"
+],
+"events": [
+[
+"start",
+"script",
+[],
+"<script>"
+],
+[
+"data",
+"a"
+],
+[
+"end",
+"script"
+],
+[
+"data",
+"b"
+],
+[
+"start",
+"script",
+[],
+"<script>"
+],
+[
+"data",
+"c"
+],
+[
+"end",
+"script"
+],
+[
+"data",
+"d"
+],
+[
+"start",
+"script",
+[],
+"<script>"
+],
+[
+"data",
+"e</script"
+]
+]
+},
+{
+"name": "tag_whitespace",
+"chunks": [
+"<a\tb\n=\r\nc\fd=e>x</a\n>"
+],
+"events": [
+[
+"start",
+"a",
+[
+[
+"b",
+"c"
+],
+[
+"d",
+"e"
+]
+],
+"<a\tb\n=\r\nc\fd=e>"
+],
+[
+"data",
+"x"
+],
+[
+"end",
+"a"
+]
+]
+},
+{
+"name": "lowercase",
+"chunks": [
+"<DIV ID=Foo CLASS='Bar'>T</DIV>"
+],
+"events": [
+[
+"start",
+"div",
+[
+[
+"id",
+"Foo"
+],
+[
+"class",
+"Bar"
+]
+],
+"<DIV ID=Foo CLASS='Bar'>"
+],
+[
+"data",
+"T"
+],
+[
+"end",
+"div"
+]
+]
+},
+{
+"name": "unicode",
+"chunks": [
+"<p title='é😀'>naïve &eacute; 😀 &#128512;</p>"
+],
+"events": [
+[
+"start",
+"p",
+[
+[
+"title",
+"é😀"
+]
+],
+"<p title='é😀'>"
+],
+[
+"data",
+"naïve é 😀 😀"
+],
+[
+"end",
+"p"
+]
+]
+},
+{
+"name": "unicode_ws",
+"chunks": [
+"<a b=c>x</a> <b c>"
+],
+"events": [
+[
+"start",
+"a b=c",
+[],
+"<a b=c>"
+],
+[
+"data",
+"x"
+],
+[
+"end",
+"a"
+],
+[
+"data",
+" "
+],
+[
+"start",
+"b c",
+[],
+"<b c>"
+]
+]
+},
+{
+"name": "nul",
+"chunks": [
+"<p>a\u0000b</p>"
+],
+"events": [
+[
+"start",
+"p",
+[],
+"<p>"
+],
+[
+"data",
+"a\u0000b"
+],
+[
+"end",
+"p"
+]
+]
+},
+{
+"name": "crlf",
+"chunks": [
+"<p>a\r\nb</p>\r\n<!--x\r\ny-->"
+],
+"events": [
+[
+"start",
+"p",
+[],
+"<p>"
+],
+[
+"data",
+"a\r\nb"
+],
+[
+"end",
+"p"
+],
+[
+"data",
+"\r\n"
+],
+[
+"comment",
+"x\r\ny"
+]
+]
+},
+{
+"name": "empty",
+"chunks": [
+""
+],
+"events": []
+},
+{
+"name": "only_text",
+"chunks": [
+"just text"
+],
+"events": [
+[
+"data",
+"just text"
+]
+]
+},
+{
+"name": "nested_quotes",
+"chunks": [
+"<a title=\"it's\" alt='say \"hi\"'>x</a>"
+],
+"events": [
+[
+"start",
+"a",
+[
+[
+"title",
+"it's"
+],
+[
+"alt",
+"say \"hi\""
+]
+],
+"<a title=\"it's\" alt='say \"hi\"'>"
+],
+[
+"data",
+"x"
+],
+[
+"end",
+"a"
+]
+]
+},
+{
+"name": "attr_no_space",
+"chunks": [
+"<a b='1'c='2'd=\"3\"e=4>x</a>"
+],
+"events": [
+[
+"start",
+"a",
+[
+[
+"b",
+"1"
+],
+[
+"c",
+"2"
+],
+[
+"d",
+"3"
+],
+[
+"e",
+"4"
+]
+],
+"<a b='1'c='2'd=\"3\"e=4>"
+],
+[
+"data",
+"x"
+],
+[
+"end",
+"a"
+]
+]
+},
+{
+"name": "attr_lt",
+"chunks": [
+"<a b=<c>>x</a>"
+],
+"events": [
+[
+"start",
+"a",
+[
+[
+"b",
+"<c"
+]
+],
+"<a b=<c>"
+],
+[
+"data",
+">x"
+],
+[
+"end",
+"a"
+]
+]
+},
+{
+"name": "gt_in_value",
+"chunks": [
+"<a title='a>b'>x</a><a title=a>b>x</a>"
+],
+"events": [
+[
+"start",
+"a",
+[
+[
+"title",
+"a>b"
+]
+],
+"<a title='a>b'>"
+],
+[
+"data",
+"x"
+],
+[
+"end",
+"a"
+],
+[
+"start",
+"a",
+[
+[
+"title",
+"a"
+]
+],
+"<a title=a>"
+],
+[
+"data",
+"b>x"
+],
+[
+"end",
+"a"
+]
+]
+},
+{
+"name": "start_unfinished_eof_attrs",
+"chunks": [
+"<a b='c' d"
+],
+"events": []
+},
+{
+"name": "table",
+"chunks": [
+"<table><tr><td>1<td>2</table><br><hr/><p>a<p>b"
+],
+"events": [
+[
+"start",
+"table",
+[],
+"<table>"
+],
+[
+"start",
+"tr",
+[],
+"<tr>"
+],
+[
+"start",
+"td",
+[],
+"<td>"
+],
+[
+"data",
+"1"
+],
+[
+"start",
+"td",
+[],
+"<td>"
+],
+[
+"data",
+"2"
+],
+[
+"end",
+"table"
+],
+[
+"start",
+"br",
+[],
+"<br>"
+],
+[
+"startend",
+"hr",
+[],
+"<hr/>"
+],
+[
+"start",
+"p",
+[],
+"<p>"
+],
+[
+"data",
+"a"
+],
+[
+"start",
+"p",
+[],
+"<p>"
+],
+[
+"data",
+"b"
+]
+]
+},
+{
+"name": "long_amp_window",
+"chunks": [
+"xxxxxxxxxxxxxxxxxxxx&yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy end"
+],
+"events": [
+[
+"data",
+"xxxxxxxxxxxxxxxxxxxx&yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy end"
+]
+]
+},
+{
+"name": "amp_near_end",
+"chunks": [
+"zzzzzzzzzz &qqqqqqqqqqqqqqqqqqqqqqqqqqqqqq"
+],
+"events": [
+[
+"data",
+"zzzzzzzzzz &qqqqqqqqqqqqqqqqqqqqqqqqqqqqqq"
+]
+]
+},
+{
+"name": "plain@1",
+"chunks": [
+"<",
+"p",
+" ",
+"c",
+"l",
+"a",
+"s",
+"s",
+"=",
+"a",
+">",
+"H",
+"e",
+"l",
+"l",
+"o",
+" ",
+"&",
+"a",
+"m",
+"p",
+";",
+" ",
+"<",
+"b",
+">",
+"w",
+"o",
+"r",
+"l",
+"d",
+"<",
+"/",
+"b",
+">",
+" ",
+"&",
+"c",
+"o",
+"p",
+"y",
+" ",
+"2",
+"0",
+"2",
+"6",
+" ",
+"&",
+"#",
+"6",
+"5",
+";",
+"&",
+"#",
+"x",
+"4",
+"2",
+";",
+" ",
+"&",
+"b",
+"o",
+"g",
+"u",
+"s",
+";",
+" ",
+"&",
+"#",
+"x",
+"Z",
+"Z",
+"<",
+"/",
+"p",
+">"
+],
+"events": [
+[
+"start",
+"p",
+[
+[
+"class",
+"a"
+]
+],
+"<p class=a>"
+],
+[
+"data",
+"Hello"
+],
+[
+"data",
+" "
+],
+[
+"data",
+"& "
+],
+[
+"start",
+"b",
+[],
+"<b>"
+],
+[
+"data",
+"w"
+],
+[
+"data",
+"o"
+],
+[
+"data",
+"r"
+],
+[
+"data",
+"l"
+],
+[
+"data",
+"d"
+],
+[
+"end",
+"b"
+],
+[
+"data",
+" "
+],
+[
+"data",
+"© 20"
+],
+[
+"data",
+"2"
+],
+[
+"data",
+"6"
+],
+[
+"data",
+" "
+],
+[
+"data",
+"AB &bogus; &#xZZ"
+],
+[
+"end",
+"p"
+]
+]
+},
+{
+"name": "plain@3",
+"chunks": [
+"<p ",
+"cla",
+"ss=",
+"a>H",
+"ell",
+"o &",
+"amp",
+"; <",
+"b>w",
+"orl",
+"d</",
+"b> ",
+"&co",
+"py ",
+"202",
+"6 &",
+"#65",
+";&#",
+"x42",
+"; &",
+"bog",
+"us;",
+" &#",
+"xZZ",
+"</p",
+">"
+],
+"events": [
+[
+"start",
+"p",
+[
+[
+"class",
+"a"
+]
+],
+"<p class=a>"
+],
+[
+"data",
+"H"
+],
+[
+"data",
+"ell"
+],
+[
+"data",
+"o & "
+],
+[
+"start",
+"b",
+[],
+"<b>"
+],
+[
+"data",
+"w"
+],
+[
+"data",
+"orl"
+],
+[
+"data",
+"d"
+],
+[
+"end",
+"b"
+],
+[
+"data",
+" "
+],
+[
+"data",
+"© "
+],
+[
+"data",
+"202"
+],
+[
+"data",
+"6 AB &bogus; &#xZZ"
+],
+[
+"end",
+"p"
+]
+]
+},
+{
+"name": "plain@7",
+"chunks": [
+"<p clas",
+"s=a>Hel",
+"lo &amp",
+"; <b>wo",
+"rld</b>",
+" &copy ",
+"2026 &#",
+"65;&#x4",
+"2; &bog",
+"us; &#x",
+"ZZ</p>"
+],
+"events": [
+[
+"start",
+"p",
+[
+[
+"class",
+"a"
+]
+],
+"<p class=a>"
+],
+[
+"data",
+"Hel"
+],
+[
+"data",
+"lo & "
+],
+[
+"start",
+"b",
+[],
+"<b>"
+],
+[
+"data",
+"wo"
+],
+[
+"data",
+"rld"
+],
+[
+"end",
+"b"
+],
+[
+"data",
+" © "
+],
+[
+"data",
+"2026 AB &bogus; &#xZZ"
+],
+[
+"end",
+"p"
+]
+]
+},
+{
+"name": "attr_entities@1",
+"chunks": [
+"<",
+"a",
+" ",
+"h",
+"r",
+"e",
+"f",
+"=",
+"\"",
+"?",
+"a",
+"=",
+"1",
+"&",
+"c",
+"o",
+"p",
+"y",
+"=",
+"2",
+"&",
+"r",
+"e",
+"g",
+";",
+"&",
+"a",
+"m",
+"p",
+";",
+"&",
+"#",
+"3",
+"8",
+";",
+"&",
+"#",
+"x",
+"2",
+"6",
+";",
+"&",
+"n",
+"o",
+"t",
+"i",
+"t",
+";",
+"&",
+"l",
+"t",
+"\"",
+" ",
+"t",
+"=",
+"&",
+"a",
+"m",
+"p",
+";",
+"l",
+"t",
+";",
+" ",
+"u",
+"=",
+"'",
+"&",
+"#",
+"0",
+";",
+"&",
+"#",
+"1",
+"2",
+"8",
+";",
+"'",
+">",
+"x",
+"<",
+"/",
+"a",
+">"
+],
+"events": [
+[
+"start",
+"a",
+[
+[
+"href",
+"?a=1&copy=2®&&&&notit;<"
+],
+[
+"t",
+"&lt;"
+],
+[
+"u",
+"�€"
+]
+],
+"<a href=\"?a=1&copy=2&reg;&amp;&#38;&#x26;&notit;&lt\" t=&amp;lt; u='&#0;&#128;'>"
+],
+[
+"data",
+"x"
+],
+[
+"end",
+"a"
+]
+]
+},
+{
+"name": "attr_entities@3",
+"chunks": [
+"<a ",
+"hre",
+"f=\"",
+"?a=",
+"1&c",
+"opy",
+"=2&",
+"reg",
+";&a",
+"mp;",
+"&#3",
+"8;&",
+"#x2",
+"6;&",
+"not",
+"it;",
+"&lt",
+"\" t",
+"=&a",
+"mp;",
+"lt;",
+" u=",
+"'&#",
+"0;&",
+"#12",
+"8;'",
+">x<",
+"/a>"
+],
+"events": [
+[
+"start",
+"a",
+[
+[
+"href",
+"?a=1&copy=2®&&&&notit;<"
+],
+[
+"t",
+"&lt;"
+],
+[
+"u",
+"�€"
+]
+],
+"<a href=\"?a=1&copy=2&reg;&amp;&#38;&#x26;&notit;&lt\" t=&amp;lt; u='&#0;&#128;'>"
+],
+[
+"data",
+"x"
+],
+[
+"end",
+"a"
+]
+]
+},
+{
+"name": "attr_entities@7",
+"chunks": [
+"<a href",
+"=\"?a=1&",
+"copy=2&",
+"reg;&am",
+"p;&#38;",
+"&#x26;&",
+"notit;&",
+"lt\" t=&",
+"amp;lt;",
+" u='&#0",
+";&#128;",
+"'>x</a>"
+],
+"events": [
+[
+"start",
+"a",
+[
+[
+"href",
+"?a=1&copy=2®&&&&notit;<"
+],
+[
+"t",
+"&lt;"
+],
+[
+"u",
+"�€"
+]
+],
+"<a href=\"?a=1&copy=2&reg;&amp;&#38;&#x26;&notit;&lt\" t=&amp;lt; u='&#0;&#128;'>"
+],
+[
+"data",
+"x"
+],
+[
+"end",
+"a"
+]
+]
+},
+{
+"name": "comment@1",
+"chunks": [
+"<",
+"!",
+"-",
+"-",
+" ",
+"a",
+" ",
+"-",
+"-",
+">",
+"<",
+"!",
+"-",
+"-",
+"-",
+"-",
+">",
+"x",
+"<",
+"!",
+"-",
+"-",
+"-",
+">",
+"y",
+"<",
+"!",
+"-",
+"-",
+" ",
+"-",
+">",
+" ",
+"z",
+" ",
+"-",
+"-",
+">",
+"<",
+"!",
+"-",
+"-",
+"a",
+"-",
+"-",
+"!",
+">",
+"b",
+"<",
+"!",
+"-",
+"-",
+" ",
+"-",
+"-",
+"!",
+"-",
+"-",
+">",
+"c"
+],
+"events": [
+[
+"comment",
+" a "
+],
+[
+"comment",
+""
+],
+[
+"data",
+"x"
+],
+[
+"comment",
+""
+],
+[
+"data",
+"y"
+],
+[
+"comment",
+" -> z "
+],
+[
+"comment",
+"a"
+],
+[
+"data",
+"b"
+],
+[
+"comment",
+" --!"
+],
+[
+"data",
+"c"
+]
+]
+},
+{
+"name": "comment@3",
+"chunks": [
+"<!-",
+"- a",
+" --",
+"><!",
+"---",
+"->x",
+"<!-",
+"-->",
+"y<!",
+"-- ",
+"-> ",
+"z -",
+"-><",
+"!--",
+"a--",
+"!>b",
+"<!-",
+"- -",
+"-!-",
+"->c"
+],
+"events": [
+[
+"comment",
+" a "
+],
+[
+"comment",
+""
+],
+[
+"data",
+"x"
+],
+[
+"comment",
+""
+],
+[
+"data",
+"y"
+],
+[
+"comment",
+" -> z "
+],
+[
+"comment",
+"a"
+],
+[
+"data",
+"b"
+],
+[
+"comment",
+" --!"
+],
+[
+"data",
+"c"
+]
+]
+},
+{
+"name": "comment@7",
+"chunks": [
+"<!-- a ",
+"--><!--",
+"-->x<!-",
+"-->y<!-",
+"- -> z ",
+"--><!--",
+"a--!>b<",
+"!-- --!",
+"-->c"
+],
+"events": [
+[
+"comment",
+" a "
+],
+[
+"comment",
+""
+],
+[
+"data",
+"x"
+],
+[
+"comment",
+""
+],
+[
+"data",
+"y"
+],
+[
+"comment",
+" -> z "
+],
+[
+"comment",
+"a"
+],
+[
+"data",
+"b"
+],
+[
+"comment",
+" --!"
+],
+[
+"data",
+"c"
+]
+]
+},
+{
+"name": "script@1",
+"chunks": [
+"<",
+"s",
+"c",
+"r",
+"i",
+"p",
+"t",
+">",
+"i",
+"f",
+" ",
+"(",
+"a",
+" ",
+"<",
+" ",
+"b",
+" ",
+"&",
+"&",
+" ",
+"c",
+" ",
+">",
+" ",
+"d",
+")",
+" ",
+"{",
+" ",
+"x",
+" ",
+"=",
+" ",
+"'",
+"<",
+"/",
+"p",
+">",
+"'",
+";",
+" ",
+"}",
+" ",
+"/",
+"/",
+" ",
+"&",
+"a",
+"m",
+"p",
+";",
+"\n",
+"<",
+"/",
+"s",
+"c",
+"r",
+"i",
+"p",
+"t",
+">",
+"a",
+"f",
+"t",
+"e",
+"r",
+"<",
+"S",
+"C",
+"R",
+"I",
+"P",
+"T",
+" ",
+">",
+"1",
+"<",
+"/",
+"S",
+"C",
+"R",
+"I",
+"P",
+"T",
+" ",
+"x",
+">",
+"2"
+],
+"events": [
+[
+"start",
+"script",
+[],
+"<script>"
+],
+[
+"data",
+"if (a < b && c > d) { x = '</p>'; } // &amp;\n"
+],
+[
+"end",
+"script"
+],
+[
+"data",
+"after"
+],
+[
+"start",
+"script",
+[],
+"<SCRIPT >"
+],
+[
+"data",
+"1"
+],
+[
+"end",
+"script"
+],
+[
+"data",
+"2"
+]
+]
+},
+{
+"name": "script@3",
+"chunks": [
+"<sc",
+"rip",
+"t>i",
+"f (",
+"a <",
+" b ",
+"&& ",
+"c >",
+" d)",
+" { ",
+"x =",
+" '<",
+"/p>",
+"'; ",
+"} /",
+"/ &",
+"amp",
+";\n<",
+"/sc",
+"rip",
+"t>a",
+"fte",
+"r<S",
+"CRI",
+"PT ",
+">1<",
+"/SC",
+"RIP",
+"T x",
+">2"
+],
+"events": [
+[
+"start",
+"script",
+[],
+"<script>"
+],
+[
+"data",
+"if (a < b && c > d) { x = '</p>'; } // &amp;\n"
+],
+[
+"end",
+"script"
+],
+[
+"data",
+"after"
+],
+[
+"start",
+"script",
+[],
+"<SCRIPT >"
+],
+[
+"data",
+"1"
+],
+[
+"end",
+"script"
+],
+[
+"data",
+"2"
+]
+]
+},
+{
+"name": "script@7",
+"chunks": [
+"<script",
+">if (a ",
+"< b && ",
+"c > d) ",
+"{ x = '",
+"</p>'; ",
+"} // &a",
+"mp;\n</s",
+"cript>a",
+"fter<SC",
+"RIPT >1",
+"</SCRIP",
+"T x>2"
+],
+"events": [
+[
+"start",
+"script",
+[],
+"<script>"
+],
+[
+"data",
+"if (a < b && c > d) { x = '</p>'; } // &amp;\n"
+],
+[
+"end",
+"script"
+],
+[
+"data",
+"a"
+],
+[
+"data",
+"fter"
+],
+[
+"start",
+"script",
+[],
+"<SCRIPT >"
+],
+[
+"data",
+"1"
+],
+[
+"end",
+"script"
+],
+[
+"data",
+"2"
+]
+]
+},
+{
+"name": "title_rcdata@1",
+"chunks": [
+"<",
+"t",
+"i",
+"t",
+"l",
+"e",
+">",
+"a",
+" ",
+"&",
+"a",
+"m",
+"p",
+";",
+" ",
+"<",
+"b",
+">",
+"b",
+"<",
+"/",
+"b",
+">",
+" ",
+"&",
+"c",
+"o",
+"p",
+"y",
+";",
+" ",
+"&",
+"#",
+"6",
+"5",
+";",
+"<",
+"/",
+"t",
+"i",
+"t",
+"l",
+"e",
+">",
+"a",
+"f",
+"t",
+"e",
+"r"
+],
+"events": [
+[
+"start",
+"title",
+[],
+"<title>"
+],
+[
+"data",
+"a & <b>b</b> © A"
+],
+[
+"end",
+"title"
+],
+[
+"data",
+"after"
+]
+]
+},
+{
+"name": "title_rcdata@3",
+"chunks": [
+"<ti",
+"tle",
+">a ",
+"&am",
+"p; ",
+"<b>",
+"b</",
+"b> ",
+"&co",
+"py;",
+" &#",
+"65;",
+"</t",
+"itl",
+"e>a",
+"fte",
+"r"
+],
+"events": [
+[
+"start",
+"title",
+[],
+"<title>"
+],
+[
+"data",
+"a & <b>b</b> © A"
+],
+[
+"end",
+"title"
+],
+[
+"data",
+"after"
+]
+]
+},
+{
+"name": "title_rcdata@7",
+"chunks": [
+"<title>",
+"a &amp;",
+" <b>b</",
+"b> &cop",
+"y; &#65",
+";</titl",
+"e>after"
+],
+"events": [
+[
+"start",
+"title",
+[],
+"<title>"
+],
+[
+"data",
+"a & <b>b</b> © A"
+],
+[
+"end",
+"title"
+],
+[
+"data",
+"after"
+]
+]
+},
+{
+"name": "doctype@1",
+"chunks": [
+"<",
+"!",
+"D",
+"O",
+"C",
+"T",
+"Y",
+"P",
+"E",
+" ",
+"h",
+"t",
+"m",
+"l",
+">",
+"<",
+"!",
+"d",
+"o",
+"c",
+"t",
+"y",
+"p",
+"e",
+" ",
+"h",
+"t",
+"m",
+"l",
+" ",
+"P",
+"U",
+"B",
+"L",
+"I",
+"C",
+" ",
+"\"",
+"x",
+">",
+"y",
+"\"",
+">",
+"<",
+"h",
+"t",
+"m",
+"l",
+">"
+],
+"events": [
+[
+"decl",
+"DOCTYPE html"
+],
+[
+"decl",
+"doctype html PUBLIC \"x"
+],
+[
+"data",
+"y\">"
+],
+[
+"start",
+"html",
+[],
+"<html>"
+]
+]
+},
+{
+"name": "doctype@3",
+"chunks": [
+"<!D",
+"OCT",
+"YPE",
+" ht",
+"ml>",
+"<!d",
+"oct",
+"ype",
+" ht",
+"ml ",
+"PUB",
+"LIC",
+" \"x",
+">y\"",
+"><h",
+"tml",
+">"
+],
+"events": [
+[
+"decl",
+"DOCTYPE html"
+],
+[
+"decl",
+"doctype html PUBLIC \"x"
+],
+[
+"data",
+"y\">"
+],
+[
+"start",
+"html",
+[],
+"<html>"
+]
+]
+},
+{
+"name": "doctype@7",
+"chunks": [
+"<!DOCTY",
+"PE html",
+"><!doct",
+"ype htm",
+"l PUBLI",
+"C \"x>y\"",
+"><html>"
+],
+"events": [
+[
+"decl",
+"DOCTYPE html"
+],
+[
+"decl",
+"doctype html PUBLIC \"x"
+],
+[
+"data",
+"y\">"
+],
+[
+"start",
+"html",
+[],
+"<html>"
+]
+]
+},
+{
+"name": "cdata@1",
+"chunks": [
+"<",
+"!",
+"[",
+"C",
+"D",
+"A",
+"T",
+"A",
+"[",
+" ",
+"a",
+" ",
+"<",
+" ",
+"b",
+" ",
+"]",
+"]",
+">",
+"x",
+"<",
+"!",
+"[",
+"C",
+"D",
+"A",
+"T",
+"A",
+"[",
+"o",
+"p",
+"e",
+"n"
+],
+"events": [
+[
+"unknown_decl",
+"CDATA[ a < b "
+],
+[
+"data",
+"x"
+],
+[
+"unknown_decl",
+"CDATA[open"
+]
+]
+},
+{
+"name": "cdata@3",
+"chunks": [
+"<![",
+"CDA",
+"TA[",
+" a ",
+"< b",
+" ]]",
+">x<",
+"![C",
+"DAT",
+"A[o",
+"pen"
+],
+"events": [
+[
+"unknown_decl",
+"CDATA[ a < b "
+],
+[
+"data",
+"x"
+],
+[
+"unknown_decl",
+"CDATA[open"
+]
+]
+},
+{
+"name": "cdata@7",
+"chunks": [
+"<![CDAT",
+"A[ a < ",
+"b ]]>x<",
+"![CDATA",
+"[open"
+],
+"events": [
+[
+"unknown_decl",
+"CDATA[ a < b "
+],
+[
+"data",
+"x"
+],
+[
+"unknown_decl",
+"CDATA[open"
+]
+]
+},
+{
+"name": "amp_cases@1",
+"chunks": [
+"a",
+" ",
+"&",
+" ",
+"b",
+" ",
+"&",
+";",
+" ",
+"&",
+"#",
+" ",
+"&",
+"#",
+"x",
+" ",
+"&",
+"#",
+"x",
+"g",
+" ",
+"A",
+"T",
+"&",
+"T",
+" ",
+"x",
+"&",
+"y",
+"=",
+"1",
+" ",
+"&",
+"a",
+"m",
+"p",
+" ",
+"&",
+"a",
+"m",
+"p",
+"x",
+" ",
+"&",
+"l",
+"t",
+";",
+"&",
+"g",
+"t",
+";"
+],
+"events": [
+[
+"data",
+"a"
+],
+[
+"data",
+" "
+],
+[
+"data",
+"& "
+],
+[
+"data",
+"b"
+],
+[
+"data",
+" "
+],
+[
+"data",
+"&;"
+],
+[
+"data",
+" "
+],
+[
+"data",
+"&# &#x &#xg AT&T x&y=1 & &x <>"
+]
+]
+},
+{
+"name": "amp_cases@3",
+"chunks": [
+"a &",
+" b ",
+"&; ",
+"&# ",
+"&#x",
+" &#",
+"xg ",
+"AT&",
+"T x",
+"&y=",
+"1 &",
+"amp",
+" &a",
+"mpx",
+" &l",
+"t;&",
+"gt;"
+],
+"events": [
+[
+"data",
+"a & b "
+],
+[
+"data",
+"&; "
+],
+[
+"data",
+"&# "
+],
+[
+"data",
+"&#x &#xg AT&T x&y=1 & &x <>"
+]
+]
+},
+{
+"name": "amp_cases@7",
+"chunks": [
+"a & b &",
+"; &# &#",
+"x &#xg ",
+"AT&T x&",
+"y=1 &am",
+"p &ampx",
+" &lt;&g",
+"t;"
+],
+"events": [
+[
+"data",
+"a & b &; &# &#x &#xg AT&T x&y=1 & &x <>"
+]
+]
+},
+{
+"name": "unicode@1",
+"chunks": [
+"<",
+"p",
+" ",
+"t",
+"i",
+"t",
+"l",
+"e",
+"=",
+"'",
+"é",
+"😀",
+"'",
+">",
+"n",
+"a",
+"ï",
+"v",
+"e",
+" ",
+"&",
+"e",
+"a",
+"c",
+"u",
+"t",
+"e",
+";",
+" ",
+"😀",
+" ",
+"&",
+"#",
+"1",
+"2",
+"8",
+"5",
+"1",
+"2",
+";",
+"<",
+"/",
+"p",
+">"
+],
+"events": [
+[
+"start",
+"p",
+[
+[
+"title",
+"é😀"
+]
+],
+"<p title='é😀'>"
+],
+[
+"data",
+"na"
+],
+[
+"data",
+"ï"
+],
+[
+"data",
+"v"
+],
+[
+"data",
+"e"
+],
+[
+"data",
+" "
+],
+[
+"data",
+"é"
+],
+[
+"data",
+" "
+],
+[
+"data",
+"😀"
+],
+[
+"data",
+" "
+],
+[
+"data",
+"😀"
+],
+[
+"end",
+"p"
+]
+]
+},
+{
+"name": "unicode@3",
+"chunks": [
+"<p ",
+"tit",
+"le=",
+"'é😀",
+"'>n",
+"aïv",
+"e &",
+"eac",
+"ute",
+"; 😀",
+" &#",
+"128",
+"512",
+";</",
+"p>"
+],
+"events": [
+[
+"start",
+"p",
+[
+[
+"title",
+"é😀"
+]
+],
+"<p title='é😀'>"
+],
+[
+"data",
+"naïve é 😀 😀"
+],
+[
+"end",
+"p"
+]
+]
+},
+{
+"name": "unicode@7",
+"chunks": [
+"<p titl",
+"e='é😀'>",
+"naïve &",
+"eacute;",
+" 😀 &#12",
+"8512;</",
+"p>"
+],
+"events": [
+[
+"start",
+"p",
+[
+[
+"title",
+"é😀"
+]
+],
+"<p title='é😀'>"
+],
+[
+"data",
+"naïve é"
+],
+[
+"data",
+" 😀 😀"
+],
+[
+"end",
+"p"
+]
+]
+},
+{
+"name": "stray_end_tags@1",
+"chunks": [
+"<",
+"/",
+"d",
+"i",
+"v",
+">",
+"<",
+"/",
+"p",
+">",
+"t",
+"e",
+"x",
+"t",
+"<",
+"/",
+" ",
+"s",
+"p",
+"a",
+"n",
+" ",
+">",
+"<",
+"/",
+" ",
+"x",
+">",
+"<",
+"b",
+">",
+"<",
+"/",
+"b",
+" ",
+">",
+"<",
+"/",
+"B",
+" ",
+"f",
+"o",
+"o",
+"=",
+"b",
+"a",
+"r",
+">"
+],
+"events": [
+[
+"end",
+"div"
+],
+[
+"end",
+"p"
+],
+[
+"data",
+"te"
+],
+[
+"data",
+"x"
+],
+[
+"data",
+"t"
+],
+[
+"comment",
+" span "
+],
+[
+"comment",
+" x"
+],
+[
+"start",
+"b",
+[],
+"<b>"
+],
+[
+"end",
+"b"
+],
+[
+"end",
+"b"
+]
+]
+},
+{
+"name": "stray_end_tags@3",
+"chunks": [
+"</d",
+"iv>",
+"</p",
+">te",
+"xt<",
+"/ s",
+"pan",
+" ><",
+"/ x",
+"><b",
+"></",
+"b >",
+"</B",
+" fo",
+"o=b",
+"ar>"
+],
+"events": [
+[
+"end",
+"div"
+],
+[
+"end",
+"p"
+],
+[
+"data",
+"te"
+],
+[
+"data",
+"xt"
+],
+[
+"comment",
+" span "
+],
+[
+"comment",
+" x"
+],
+[
+"start",
+"b",
+[],
+"<b>"
+],
+[
+"end",
+"b"
+],
+[
+"end",
+"b"
+]
+]
+},
+{
+"name": "stray_end_tags@7",
+"chunks": [
+"</div><",
+"/p>text",
+"</ span",
+" ></ x>",
+"<b></b ",
+"></B fo",
+"o=bar>"
+],
+"events": [
+[
+"end",
+"div"
+],
+[
+"end",
+"p"
+],
+[
+"data",
+"text"
+],
+[
+"comment",
+" span "
+],
+[
+"comment",
+" x"
+],
+[
+"start",
+"b",
+[],
+"<b>"
+],
+[
+"end",
+"b"
+],
+[
+"end",
+"b"
+]
+]
+},
+{
+"name": "bogus_comment@1",
+"chunks": [
+"<",
+"!",
+"x",
+" ",
+"y",
+">",
+"<",
+"!",
+">",
+"<",
+"!",
+"-",
+" ",
+"a",
+">",
+"a",
+"<",
+"/",
+" ",
+"b",
+" ",
+"c",
+">",
+"d",
+"<",
+"?",
+"p",
+"i",
+" ",
+"s",
+"t",
+"u",
+"f",
+"f",
+"?",
+">",
+"e",
+"<",
+"?",
+"n",
+"e",
+"v",
+"e",
+"r"
+],
+"events": [
+[
+"comment",
+"x y"
+],
+[
+"comment",
+""
+],
+[
+"comment",
+"- a"
+],
+[
+"data",
+"a"
+],
+[
+"comment",
+" b c"
+],
+[
+"data",
+"d"
+],
+[
+"pi",
+"pi stuff?"
+],
+[
+"data",
+"e"
+],
+[
+"pi",
+"never"
+]
+]
+},
+{
+"name": "bogus_comment@3",
+"chunks": [
+"<!x",
+" y>",
+"<!>",
+"<!-",
+" a>",
+"a</",
+" b ",
+"c>d",
+"<?p",
+"i s",
+"tuf",
+"f?>",
+"e<?",
+"nev",
+"er"
+],
+"events": [
+[
+"comment",
+"x y"
+],
+[
+"comment",
+""
+],
+[
+"comment",
+"- a"
+],
+[
+"data",
+"a"
+],
+[
+"comment",
+" b c"
+],
+[
+"data",
+"d"
+],
+[
+"pi",
+"pi stuff?"
+],
+[
+"data",
+"e"
+],
+[
+"pi",
+"never"
+]
+]
+},
+{
+"name": "bogus_comment@7",
+"chunks": [
+"<!x y><",
+"!><!- a",
+">a</ b ",
+"c>d<?pi",
+" stuff?",
+">e<?nev",
+"er"
+],
+"events": [
+[
+"comment",
+"x y"
+],
+[
+"comment",
+""
+],
+[
+"comment",
+"- a"
+],
+[
+"data",
+"a"
+],
+[
+"comment",
+" b c"
+],
+[
+"data",
+"d"
+],
+[
+"pi",
+"pi stuff?"
+],
+[
+"data",
+"e"
+],
+[
+"pi",
+"never"
+]
+]
+},
+{
+"name": "textarea@1",
+"chunks": [
+"<",
+"t",
+"e",
+"x",
+"t",
+"a",
+"r",
+"e",
+"a",
+">",
+"<",
+"p",
+">",
+"a",
+" ",
+"&",
+"l",
+"t",
+";",
+"/",
+"p",
+"&",
+"g",
+"t",
+";",
+"<",
+"/",
+"t",
+"e",
+"x",
+"t",
+"a",
+"r",
+"e",
+"a",
+">",
+"z",
+"<",
+"t",
+"e",
+"x",
+"t",
+"a",
+"r",
+"e",
+"a",
+">",
+"<",
+"/",
+"T",
+"E",
+"X",
+"T",
+"A",
+"R",
+"E",
+"A",
+"\n",
+">"
+],
+"events": [
+[
+"start",
+"textarea",
+[],
+"<textarea>"
+],
+[
+"data",
+"<p>a </p>"
+],
+[
+"end",
+"textarea"
+],
+[
+"data",
+"z"
+],
+[
+"start",
+"textarea",
+[],
+"<textarea>"
+],
+[
+"end",
+"textarea"
+]
+]
+},
+{
+"name": "textarea@3",
+"chunks": [
+"<te",
+"xta",
+"rea",
+"><p",
+">a ",
+"&lt",
+";/p",
+"&gt",
+";</",
+"tex",
+"tar",
+"ea>",
+"z<t",
+"ext",
+"are",
+"a><",
+"/TE",
+"XTA",
+"REA",
+"\n>"
+],
+"events": [
+[
+"start",
+"textarea",
+[],
+"<textarea>"
+],
+[
+"data",
+"<p>a </p>"
+],
+[
+"end",
+"textarea"
+],
+[
+"data",
+"z"
+],
+[
+"start",
+"textarea",
+[],
+"<textarea>"
+],
+[
+"end",
+"textarea"
+]
+]
+},
+{
+"name": "textarea@7",
+"chunks": [
+"<textar",
+"ea><p>a",
+" &lt;/p",
+"&gt;</t",
+"extarea",
+">z<text",
+"area></",
+"TEXTARE",
+"A\n>"
+],
+"events": [
+[
+"start",
+"textarea",
+[],
+"<textarea>"
+],
+[
+"data",
+"<p>a </p>"
+],
+[
+"end",
+"textarea"
+],
+[
+"data",
+"z"
+],
+[
+"start",
+"textarea",
+[],
+"<textarea>"
+],
+[
+"end",
+"textarea"
+]
+]
+},
+{
+"name": "plaintext@1",
+"chunks": [
+"<",
+"p",
+"l",
+"a",
+"i",
+"n",
+"t",
+"e",
+"x",
+"t",
+">",
+"<",
+"b",
+">",
+"&",
+"a",
+"m",
+"p",
+";",
+"<",
+"/",
+"b",
+">",
+"<",
+"/",
+"p",
+"l",
+"a",
+"i",
+"n",
+"t",
+"e",
+"x",
+"t",
+">"
+],
+"events": [
+[
+"start",
+"plaintext",
+[],
+"<plaintext>"
+],
+[
+"data",
+"<b>&a"
+],
+[
+"data",
+"m"
+],
+[
+"data",
+"p"
+],
+[
+"data",
+";"
+],
+[
+"data",
+"<"
+],
+[
+"data",
+"/"
+],
+[
+"data",
+"b"
+],
+[
+"data",
+">"
+],
+[
+"data",
+"<"
+],
+[
+"data",
+"/"
+],
+[
+"data",
+"p"
+],
+[
+"data",
+"l"
+],
+[
+"data",
+"a"
+],
+[
+"data",
+"i"
+],
+[
+"data",
+"n"
+],
+[
+"data",
+"t"
+],
+[
+"data",
+"e"
+],
+[
+"data",
+"x"
+],
+[
+"data",
+"t"
+],
+[
+"data",
+">"
+]
+]
+},
+{
+"name": "plaintext@3",
+"chunks": [
+"<pl",
+"ain",
+"tex",
+"t><",
+"b>&",
+"amp",
+";</",
+"b><",
+"/pl",
+"ain",
+"tex",
+"t>"
+],
+"events": [
+[
+"start",
+"plaintext",
+[],
+"<plaintext>"
+],
+[
+"data",
+"<"
+],
+[
+"data",
+"b>&"
+],
+[
+"data",
+"amp"
+],
+[
+"data",
+";</"
+],
+[
+"data",
+"b><"
+],
+[
+"data",
+"/pl"
+],
+[
+"data",
+"ain"
+],
+[
+"data",
+"tex"
+],
+[
+"data",
+"t>"
+]
+]
+},
+{
+"name": "plaintext@7",
+"chunks": [
+"<plaint",
+"ext><b>",
+"&amp;</",
+"b></pla",
+"intext>"
+],
+"events": [
+[
+"start",
+"plaintext",
+[],
+"<plaintext>"
+],
+[
+"data",
+"<b>"
+],
+[
+"data",
+"&amp;</"
+],
+[
+"data",
+"b></pla"
+],
+[
+"data",
+"intext>"
+]
+]
+},
+{
+"name": "long_amp_window@1",
+"chunks": [
+"x",
+"x",
+"x",
+"x",
+"x",
+"x",
+"x",
+"x",
+"x",
+"x",
+"x",
+"x",
+"x",
+"x",
+"x",
+"x",
+"x",
+"x",
+"x",
+"x",
+"&",
+"y",
+"y",
+"y",
+"y",
+"y",
+"y",
+"y",
+"y",
+"y",
+"y",
+"y",
+"y",
+"y",
+"y",
+"y",
+"y",
+"y",
+"y",
+"y",
+"y",
+"y",
+"y",
+"y",
+"y",
+"y",
+"y",
+"y",
+"y",
+"y",
+"y",
+"y",
+"y",
+"y",
+"y",
+"y",
+"y",
+"y",
+"y",
+"y",
+"y",
+" ",
+"e",
+"n",
+"d"
+],
+"events": [
+[
+"data",
+"x"
+],
+[
+"data",
+"x"
+],
+[
+"data",
+"x"
+],
+[
+"data",
+"x"
+],
+[
+"data",
+"x"
+],
+[
+"data",
+"x"
+],
+[
+"data",
+"x"
+],
+[
+"data",
+"x"
+],
+[
+"data",
+"x"
+],
+[
+"data",
+"x"
+],
+[
+"data",
+"x"
+],
+[
+"data",
+"x"
+],
+[
+"data",
+"x"
+],
+[
+"data",
+"x"
+],
+[
+"data",
+"x"
+],
+[
+"data",
+"x"
+],
+[
+"data",
+"x"
+],
+[
+"data",
+"x"
+],
+[
+"data",
+"x"
+],
+[
+"data",
+"x"
+],
+[
+"data",
+"&yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy end"
+]
+]
+},
+{
+"name": "long_amp_window@3",
+"chunks": [
+"xxx",
+"xxx",
+"xxx",
+"xxx",
+"xxx",
+"xxx",
+"xx&",
+"yyy",
+"yyy",
+"yyy",
+"yyy",
+"yyy",
+"yyy",
+"yyy",
+"yyy",
+"yyy",
+"yyy",
+"yyy",
+"yyy",
+"yyy",
+"y e",
+"nd"
+],
+"events": [
+[
+"data",
+"xxx"
+],
+[
+"data",
+"xxx"
+],
+[
+"data",
+"xxx"
+],
+[
+"data",
+"xxx"
+],
+[
+"data",
+"xxx"
+],
+[
+"data",
+"xxx"
+],
+[
+"data",
+"xx&yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy end"
+]
+]
+},
+{
+"name": "long_amp_window@7",
+"chunks": [
+"xxxxxxx",
+"xxxxxxx",
+"xxxxxx&",
+"yyyyyyy",
+"yyyyyyy",
+"yyyyyyy",
+"yyyyyyy",
+"yyyyyyy",
+"yyyyy e",
+"nd"
+],
+"events": [
+[
+"data",
+"xxxxxxx"
+],
+[
+"data",
+"xxxxxxx"
+],
+[
+"data",
+"xxxxxx&yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy end"
+]
+]
+},
+{
+"name": "comment_abrupt@1",
+"chunks": [
+"<",
+"!",
+"-",
+"-",
+">",
+"a",
+"<",
+"!",
+"-",
+"-",
+"-",
+">",
+"b",
+"<",
+"!",
+"-",
+"-",
+" ",
+"-",
+"-",
+">",
+" ",
+"c",
+" ",
+"-",
+"-",
+">",
+" ",
+"d"
+],
+"events": [
+[
+"comment",
+""
+],
+[
+"data",
+"a"
+],
+[
+"comment",
+""
+],
+[
+"data",
+"b"
+],
+[
+"comment",
+" "
+],
+[
+"data",
+" "
+],
+[
+"data",
+"c"
+],
+[
+"data",
+" "
+],
+[
+"data",
+"-"
+],
+[
+"data",
+"-"
+],
+[
+"data",
+">"
+],
+[
+"data",
+" "
+],
+[
+"data",
+"d"
+]
+]
+},
+{
+"name": "comment_abrupt@3",
+"chunks": [
+"<!-",
+"->a",
+"<!-",
+"-->",
+"b<!",
+"-- ",
+"-->",
+" c ",
+"-->",
+" d"
+],
+"events": [
+[
+"comment",
+""
+],
+[
+"data",
+"a"
+],
+[
+"comment",
+""
+],
+[
+"data",
+"b"
+],
+[
+"comment",
+" "
+],
+[
+"data",
+" c "
+],
+[
+"data",
+"-->"
+],
+[
+"data",
+" d"
+]
+]
+},
+{
+"name": "comment_abrupt@7",
+"chunks": [
+"<!-->a<",
+"!--->b<",
+"!-- -->",
+" c --> ",
+"d"
+],
+"events": [
+[
+"comment",
+""
+],
+[
+"data",
+"a"
+],
+[
+"comment",
+""
+],
+[
+"data",
+"b"
+],
+[
+"comment",
+" "
+],
+[
+"data",
+" c --> "
+],
+[
+"data",
+"d"
+]
+]
+},
+{
+"name": "split_charref",
+"chunks": [
+"a &am",
+"p; b &#6",
+"5; c &#x4",
+"1 d &",
+"lt",
+"; e"
+],
+"events": [
+[
+"data",
+"a & b A c A d < e"
+]
+]
+},
+{
+"name": "split_tag",
+"chunks": [
+"<a hr",
+"ef='x",
+"y'>t</",
+"a",
+">"
+],
+"events": [
+[
+"start",
+"a",
+[
+[
+"href",
+"xy"
+]
+],
+"<a href='xy'>"
+],
+[
+"data",
+"t"
+],
+[
+"end",
+"a"
+]
+]
+},
+{
+"name": "split_comment",
+"chunks": [
+"<!-",
+"- a -",
+"-",
+"!",
+">",
+"z"
+],
+"events": [
+[
+"comment",
+" a "
+],
+[
+"data",
+"z"
+]
+]
+},
+{
+"name": "empty_feeds",
+"chunks": [
+"",
+"<p>",
+"",
+"x",
+""
+],
+"events": [
+[
+"start",
+"p",
+[],
+"<p>"
+],
+[
+"data",
+"x"
+]
+]
+},
+{
+"name": "plain/raw_charrefs",
+"chunks": [
+"<p class=a>Hello &amp; <b>world</b> &copy 2026 &#65;&#x42; &bogus; &#xZZ</p>"
+],
+"options": {
+"convertCharrefs": false
+},
+"events": [
+[
+"start",
+"p",
+[
+[
+"class",
+"a"
+]
+],
+"<p class=a>"
+],
+[
+"data",
+"Hello "
+],
+[
+"entityref",
+"amp"
+],
+[
+"data",
+" "
+],
+[
+"start",
+"b",
+[],
+"<b>"
+],
+[
+"data",
+"world"
+],
+[
+"end",
+"b"
+],
+[
+"data",
+" "
+],
+[
+"entityref",
+"copy"
+],
+[
+"data",
+" 2026 "
+],
+[
+"charref",
+"65"
+],
+[
+"charref",
+"x42"
+],
+[
+"data",
+" "
+],
+[
+"entityref",
+"bogus"
+],
+[
+"data",
+" "
+],
+[
+"data",
+"&#"
+],
+[
+"data",
+"xZZ"
+],
+[
+"end",
+"p"
+]
+]
+},
+{
+"name": "amp_cases/raw_charrefs",
+"chunks": [
+"a & b &; &# &#x &#xg AT&T x&y=1 &amp &ampx &lt;&gt;"
+],
+"options": {
+"convertCharrefs": false
+},
+"events": [
+[
+"data",
+"a "
+],
+[
+"data",
+"&"
+],
+[
+"data",
+" b "
+],
+[
+"data",
+"&"
+],
+[
+"data",
+"; "
+],
+[
+"data",
+"&#"
+],
+[
+"data",
+" "
+],
+[
+"data",
+"&#"
+],
+[
+"data",
+"x "
+],
+[
+"data",
+"&#"
+],
+[
+"data",
+"xg AT"
+],
+[
+"entityref",
+"T"
+],
+[
+"data",
+" x"
+],
+[
+"entityref",
+"y"
+],
+[
+"data",
+"=1 "
+],
+[
+"entityref",
+"amp"
+],
+[
+"data",
+" "
+],
+[
+"entityref",
+"ampx"
+],
+[
+"data",
+" "
+],
+[
+"entityref",
+"lt"
+],
+[
+"entityref",
+"gt"
+]
+]
+},
+{
+"name": "title_rcdata/raw_charrefs",
+"chunks": [
+"<title>a &amp; <b>b</b> &copy; &#65;</title>after"
+],
+"options": {
+"convertCharrefs": false
+},
+"events": [
+[
+"start",
+"title",
+[],
+"<title>"
+],
+[
+"data",
+"a "
+],
+[
+"entityref",
+"amp"
+],
+[
+"data",
+" <b>b</b> "
+],
+[
+"entityref",
+"copy"
+],
+[
+"data",
+" "
+],
+[
+"charref",
+"65"
+],
+[
+"end",
+"title"
+],
+[
+"data",
+"after"
+]
+]
+},
+{
+"name": "textarea/raw_charrefs",
+"chunks": [
+"<textarea><p>a &lt;/p&gt;</textarea>z<textarea></TEXTAREA\n>"
+],
+"options": {
+"convertCharrefs": false
+},
+"events": [
+[
+"start",
+"textarea",
+[],
+"<textarea>"
+],
+[
+"data",
+"<p>a "
+],
+[
+"entityref",
+"lt"
+],
+[
+"data",
+"/p"
+],
+[
+"entityref",
+"gt"
+],
+[
+"end",
+"textarea"
+],
+[
+"data",
+"z"
+],
+[
+"start",
+"textarea",
+[],
+"<textarea>"
+],
+[
+"end",
+"textarea"
+]
+]
+},
+{
+"name": "charref_in_data/raw_charrefs",
+"chunks": [
+"&#38;amp; &#0; &#x110000; &#150; &#xD800;"
+],
+"options": {
+"convertCharrefs": false
+},
+"events": [
+[
+"charref",
+"38"
+],
+[
+"data",
+"amp; "
+],
+[
+"charref",
+"0"
+],
+[
+"data",
+" "
+],
+[
+"charref",
+"x110000"
+],
+[
+"data",
+" "
+],
+[
+"charref",
+"150"
+],
+[
+"data",
+" "
+],
+[
+"charref",
+"xD800"
+]
+]
+},
+{
+"name": "amp_at_end/raw_charrefs",
+"chunks": [
+"tail &am"
+],
+"options": {
+"convertCharrefs": false
+},
+"events": [
+[
+"data",
+"tail "
+],
+[
+"entityref",
+"am"
+]
+]
+},
+{
+"name": "amp_at_end2/raw_charrefs",
+"chunks": [
+"tail &#12"
+],
+"options": {
+"convertCharrefs": false
+},
+"events": [
+[
+"data",
+"tail "
+],
+[
+"charref",
+"12"
+]
+]
+},
+{
+"name": "noscript/scripting",
+"chunks": [
+"<noscript><p>x</p><img src=a></noscript>"
+],
+"options": {
+"scripting": true
+},
+"events": [
+[
+"start",
+"noscript",
+[],
+"<noscript>"
+],
+[
+"data",
+"<p>x</p><img src=a>"
+],
+[
+"end",
+"noscript"
+]
+]
+}
+]
+}
