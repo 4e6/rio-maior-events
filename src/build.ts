@@ -5,11 +5,13 @@
 //
 // --collected skips the collect step and uses that folder (tests, reruns).
 // Environment: CLAUDE_BIN (default claude), READ_MODEL (sonnet),
+// READ_SPLIT_CHARS (0: a reader per group; N: sources cut into pieces of at most N characters, a reader per piece),
 // EDIT_MODEL (READ_MODEL), MAX_TURNS (40), AGENT_TIMEOUT_MS (20 min), MIN_GROUPS (4),
 // BUILD_DEADLINE_MIN (75: no agent runs past it minus DEADLINE_MARGIN_MIN, default 5,
 // kept for finalize and render), KILL_GRACE_MS (10000), COLLECT_SCRIPT (src/cli/collect.ts).
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync, copyFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { splitCollected } from "./split.ts";
 
 const ROOT = resolve(import.meta.dir, "..");
 const env = process.env;
@@ -19,6 +21,7 @@ const EDIT_MODEL = env.EDIT_MODEL || READ_MODEL;
 const MAX_TURNS = env.MAX_TURNS || "40";
 const TIMEOUT_MS = Number(env.AGENT_TIMEOUT_MS || 20 * 60 * 1000);
 const MIN_GROUPS = Number(env.MIN_GROUPS || 4);
+const SPLIT_CHARS = Number(env.READ_SPLIT_CHARS || 0);
 const STARTED = Date.now();
 const DEADLINE = STARTED + Number(env.BUILD_DEADLINE_MIN || 75) * 60_000;
 const MARGIN_MS = Number(env.DEADLINE_MARGIN_MIN || 5) * 60_000;
@@ -29,8 +32,10 @@ const EDIT_ROUNDS = 2;
 
 type Json = Record<string, any>;
 type Run = { ok: boolean; reason: string; log: Json };
-const summary: { started: string; readers: Json[]; editor: Json[]; groups_read: string[]; groups_failed: string[]; result: string } = {
-  started: new Date().toISOString(), readers: [], editor: [], groups_read: [], groups_failed: [], result: "",
+const summary: {
+  started: string; readers: Json[]; editor: Json[]; groups_read: string[]; groups_failed: string[]; pieces_failed: string[]; result: string;
+} = {
+  started: new Date().toISOString(), readers: [], editor: [], groups_read: [], groups_failed: [], pieces_failed: [], result: "",
 };
 
 function parseArgs(argv: string[]) {
@@ -191,42 +196,59 @@ async function collect(work: string, given: string): Promise<boolean> {
   return code === 0 || existsSync(join(dir, "index.json"));
 }
 
-function readerPrompt(work: string, window: Json, group: string): string {
+/** What one reader reads: a whole group, or (with READ_SPLIT_CHARS) a piece of one. */
+type Unit = { id: string; group: string; file: string; sources: string[]; piece: boolean };
+
+function readerPrompt(work: string, window: Json, unit: Unit): string {
   const refs = join(work, "references");
   return [
     `Read ${refs}/reading.md first and follow it. The window is ${window.start} to ${window.end}.`,
     `Then read ${refs}/sources.md, ${refs}/towns.md and ${refs}/events-schema.json (the format your events follow),`,
-    `then your group file ${work}/rio-maior-collected/${group}.json, and write your candidates file`,
-    `${work}/rio-maior-candidates/${group}.json as reading.md describes (use Write to create it).`,
+    `then your group file ${unit.file}, and write your candidates file`,
+    `${work}/rio-maior-candidates/${unit.id}.json as reading.md describes (use Write to create it).`,
+    ...(unit.piece ? [`The group file holds some of the sources of the group ${unit.group}; read it as you would a whole group file.`] : []),
     "Work only from these files; do not look for anything else.",
   ].join("\n");
 }
 
-async function checkCandidates(work: string, group: string): Promise<string> {
-  const file = join(work, "rio-maior-candidates", `${group}.json`);
+async function checkCandidates(work: string, unit: Unit): Promise<string> {
+  const file = join(work, "rio-maior-candidates", `${unit.id}.json`);
   if (!existsSync(file)) return "no candidates file";
-  const { code, stdout } = await cli("check_candidates", file, "--index", join(work, "rio-maior-collected", "index.json"), "--group", group);
+  const index = unit.piece ? join(work, "rio-maior-split", "index.json") : join(work, "rio-maior-collected", "index.json");
+  const { code, stdout } = await cli("check_candidates", file, "--index", index, "--group", unit.id);
   return code === 0 ? "" : `invalid candidates: ${stdout.trim().split("\n").slice(0, 3).join(" | ")}`;
 }
 
 /** One reader, with one retry; the stale file is deleted before each attempt. */
-async function readGroup(work: string, window: Json, group: string, sources: Json[]): Promise<boolean> {
-  if (!sources.some((s) => s.group === group && s.ok)) {
-    console.error(`group ${group}: no source was read, no reader started`);
-    summary.readers.push({ group, attempt: 0, reason: "no source read" });
+async function readUnit(work: string, window: Json, unit: Unit, sources: Json[]): Promise<boolean> {
+  if (!sources.some((s) => unit.sources.includes(s.name) && s.ok)) {
+    console.error(`group ${unit.id}: no source was read, no reader started`);
+    summary.readers.push({ group: unit.id, attempt: 0, reason: "no source read" });
     return false;
   }
-  const file = join(work, "rio-maior-candidates", `${group}.json`);
+  const file = join(work, "rio-maior-candidates", `${unit.id}.json`);
   for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
     rmSync(file, { force: true });
-    const r = await runClaude(`reader ${group}`, work, `./rio-maior-candidates/${group}.json`, READ_MODEL, readerPrompt(work, window, group));
-    let reason = r.reason || (await checkCandidates(work, group));
-    summary.readers.push({ group, attempt, ...r.log, reason: reason || "ok" });
+    const r = await runClaude(`reader ${unit.id}`, work, `./rio-maior-candidates/${unit.id}.json`, READ_MODEL, readerPrompt(work, window, unit));
+    let reason = r.reason || (await checkCandidates(work, unit));
+    summary.readers.push({ group: unit.id, attempt, ...r.log, reason: reason || "ok" });
     if (!reason) return true;
-    console.error(`reader ${group} attempt ${attempt}: ${reason}`);
+    console.error(`reader ${unit.id} attempt ${attempt}: ${reason}`);
   }
   rmSync(file, { force: true });
   return false;
+}
+
+/** The reading units: one per group, or one per piece of a group when the split is on. */
+function unitsOf(work: string, index: Json): Unit[] {
+  if (SPLIT_CHARS > 0) {
+    const pieces = splitCollected(join(work, "rio-maior-collected"), join(work, "rio-maior-split"), SPLIT_CHARS);
+    return pieces.map((p) => ({ id: p.id, group: p.group, file: join(work, "rio-maior-split", p.file), sources: p.sources, piece: true }));
+  }
+  return Object.keys(index.groups).map((g) => ({
+    id: g, group: g, file: join(work, "rio-maior-collected", `${g}.json`), piece: false,
+    sources: index.sources.filter((s: Json) => s.group === g).map((s: Json) => s.name),
+  }));
 }
 
 async function editorRound(work: string, window: Json, renderOutput: string): Promise<void> {
@@ -300,7 +322,7 @@ function finish(work: string, code: number, result: string): number {
 
 export async function main(argv: string[]): Promise<number> {
   const { work, collected } = parseArgs(argv);
-  for (const dir of ["rio-maior-collected", "rio-maior-candidates", "references", "_site"]) rmSync(join(work, dir), { recursive: true, force: true });
+  for (const dir of ["rio-maior-collected", "rio-maior-candidates", "rio-maior-split", "references", "_site"]) rmSync(join(work, dir), { recursive: true, force: true });
   mkdirSync(work, { recursive: true });
 
   if (!(await collect(work, collected))) return finish(work, 1, "collect failed; nothing deployed");
@@ -309,16 +331,21 @@ export async function main(argv: string[]): Promise<number> {
   const index: Json = JSON.parse(readFileSync(join(work, "rio-maior-collected", "index.json"), "utf8"));
 
   const groups = Object.keys(index.groups);
-  const done = await Promise.all(groups.map((g) => readGroup(work, index.window, g, index.sources)));
-  summary.groups_read = groups.filter((_, i) => done[i]);
-  summary.groups_failed = groups.filter((_, i) => !done[i]);
+  const units = unitsOf(work, index);
+  const done = await Promise.all(units.map((u) => readUnit(work, index.window, u, index.sources)));
+  summary.pieces_failed = SPLIT_CHARS > 0 ? units.filter((_, i) => !done[i]).map((u) => u.id) : [];
+  // a group counts as read when every one of its units was read (and it has at least one)
+  const groupRead = (g: string) => units.some((u) => u.group === g) && units.every((u, i) => u.group !== g || done[i]);
+  summary.groups_read = groups.filter(groupRead);
+  summary.groups_failed = groups.filter((g) => !groupRead(g));
   const need = Math.min(MIN_GROUPS, groups.length);
   if (summary.groups_read.length < need) {
     return finish(work, 1, `only ${summary.groups_read.length} of ${groups.length} groups read; nothing deployed`);
   }
 
   const events = join(work, "rio-maior-events.json");
-  const merged = await cli("merge", join(work, "rio-maior-collected"), join(work, "rio-maior-candidates"), events, "--missing-ok");
+  const merged = await cli("merge", join(work, "rio-maior-collected"), join(work, "rio-maior-candidates"), events, "--missing-ok",
+    ...(SPLIT_CHARS > 0 ? ["--split", join(work, "rio-maior-split")] : []));
   writeFileSync(join(work, "merge-report.txt"), merged.stdout + merged.stderr);
   if (merged.code !== 0) return finish(work, 1, "merge failed; nothing deployed");
   copyFileSync(events, join(work, "rio-maior-events.raw.json"));

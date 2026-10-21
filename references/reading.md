@@ -82,7 +82,9 @@ no `id`, and no `window` or `sources_checked`: those come from the merge.
 ## What to keep
 
 - Leisure only: what a resident might go to for enjoyment. Leave out council
-  meetings, seminars, careers and business events.
+  meetings, seminars, careers and business events, and talks or presentations
+  for patients or for professionals only (a seminar for nurses, a session for
+  people with a given illness). A talk open to anyone stays.
 - Keep: book launches and talks that are open to anyone; a session marked
   "almost full" (quase cheio, últimas vagas).
 - Drop: sold-out sessions; cancelled or postponed ones; a period for signing up
@@ -115,7 +117,10 @@ MARATONA" over "50ª Meia Maratona Internacional da Nazaré".
   are `other`. `kids: true` when the event is aimed at children.
 - `kind`: `single`; `multi_day` for 2-7 days; `ongoing` for anything longer
   (exhibitions, a fortnight's festival), with its hours in the description. Its
-  `start_date` is its real start, even when that is before the window. If the
+  `start_date` is its real start, even when that is before the window. An event
+  whose own page gives different start and end days is never `single`: it is
+  `multi_day`, `ongoing` or `recurring` by the rules here ("Open 2 to 4
+  November" is `multi_day`, not a `single` on the 2nd). If the
   source shows no end, `end_date` is the last day the source shows, with
   `confidence: "low"` and a caveat saying the end is not stated;
   `recurring` for a pattern such as a weekly market, with `recurrence` in words
@@ -132,19 +137,41 @@ MARATONA" over "50ª Meia Maratona Internacional da Nazaré".
   card (see "Link markers"), else the agenda page it was listed on.
 - `start_time` only where a source states it plainly (a card, or a detail's
   `start` with a time); otherwise null.
+- `venue` is the place where it happens (a hall, a church, a square), never the
+  performer, the organiser or the band named in the text: "Banda Aurora plays
+  in the parish church of Vale Fundo" has the church as its venue. Where the
+  source names no place, `venue` is null.
 - `town` from the venue: the place name alone, without parentheses ("Cambelas",
-  not "Cambelas (Torres Vedras)"); `drive_min` from towns.md. A race from
+  not "Cambelas (Torres Vedras)"); `drive_min` from towns.md. A village keeps
+  its own name and is never renamed to its municipality: a concert in the hall
+  of Vale Fundo, in the municipality of Serra Alta, has `town` "Vale Fundo". A race from
   Portugal Running that gives only the municipality: `town` is that
   municipality's town and `drive_min` is from it; add a caveat only when the
   start place matters (a trail far from the town). A village not in
   towns.md: `town` is the village name, and `drive_min` is the minutes of the
   nearest listed place, or null when that cannot be told.
 - Several sessions on one day are one event: the times go in the description and
-  `start_time` is the first session. A festival whose days are hosted by
-  different towns is one event per town. A card that shows a date range for what
-  is really a one-day event: use the day the event's own details give; with none,
-  keep the range and set `confidence: "low"`.
-- `price` only as a source states it; null when unknown.
+  `start_time` is the first session. A festival that moves between towns, each
+  hosting its own days, is one event per town (a route festival with three
+  stops: three events, each with its town and days). A town's themed day at a
+  festival held in one place is not its own event: it is part of that festival,
+  in the festival's town, and goes in the festival's description ("Dia de Vale
+  Fundo, 10 Nov" at the Serra Alta food festival is a line in that festival's
+  description, not a second event in Vale Fundo). If your file holds only the
+  town's day and not the festival itself, write that day as its own event,
+  in the town the card gives, with the festival's full name in its `title_pt` ("Dia de
+  Vale Fundo no Festival de Gastronomia da Serra Alta"); the merge step pairs it
+  with the festival by that name. A card that shows a date range
+  for what is really a one-day event: when the event's own page gives one day,
+  use that day; with no page of its own, keep the range and set
+  `confidence: "low"`.
+- `price` only as a source states it, from a line or card that says what a
+  visitor or participant pays (preço, bilhete, entrada, ingresso, inscrição,
+  valor, or a bare amount such as "5 EUR" on the event's own card); null when
+  unknown. The one exception: a registration fee for exhibitors, sellers or
+  stallholders is not the visitors' price ("stall registration 20 EUR" on a
+  craft fair: price null, or free if it says so). A participant's fee for a race
+  or a workshop is the price.
 - `confidence: "low"` with a short `caveat` when the year was inferred against
   a weekday that does not match, sources disagree, or the source looks stale.
 

@@ -19,6 +19,10 @@ first.
 - the window (first and last day) to keep to;
 - the events file.
 
+The merge script has already joined listings with the same title, date and town
+(the report lists them under an "already merged:" line; check them if a title looks wrong), so those are not in the
+list below; the pairs left are the ones that took judgement.
+
 ## 1. Possible duplicates
 
 The report lists pairs of events, by their index in the `events` list of the
@@ -34,6 +38,16 @@ event.
   event's own page beats a municipal date range or a missing time.
 - If they are two events (a matinee and an evening show, two different films,
   two editions), leave both.
+- A pair marked "very likely the same event" has the same day and town and one
+  title continuing the other ("Name" and "Name, by Author"). It is still a
+  pair to decide: look at the times, the sources and the descriptions.
+- A town's day or stand at a festival held in one place is folded into the
+  festival's description; the festival's dates and town are kept. This is an
+  exception to "Which listing wins": the festival's listing stays, whichever
+  source is more precise. (A festival that moves between towns is one event per
+  town, as in reading.md: leave those.)
+- The same title on different days, each with its own time, is two
+  performances: keep both.
 - Pairs from different groups are expected: neighbouring towns list each
   other's events. The report gives each event's group where it can.
 - Indexes shift when you remove an event. Work from the last pair to the first,

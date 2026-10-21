@@ -13,7 +13,7 @@ afterEach(() => { while (dirs.length) rmSync(dirs.pop()!, { recursive: true, for
 
 type Plan = { readers?: Record<string, string>; editor?: string };
 
-type Opts = { env?: Record<string, string>; deadAfter?: string[]; collect?: string };
+type Opts = { env?: Record<string, string>; deadAfter?: string[]; collect?: string; extraSources?: Record<string, number>; failSources?: string[] };
 
 /** Run build.ts against the fixture. deadAfter lists groups whose sources all failed in the index. */
 async function build(plan: Plan = {}, opts: Opts = {}) {
@@ -24,11 +24,30 @@ async function build(plan: Plan = {}, opts: Opts = {}) {
   writeFileSync(planFile, JSON.stringify({ ...plan, log }));
   const work = join(tmp, "work");
   let collected = COLLECTED;
-  if (opts.deadAfter) {
+  if (opts.deadAfter || opts.extraSources || opts.failSources) {
     collected = join(tmp, "collected");
     cpSync(COLLECTED, collected, { recursive: true });
     const index = JSON.parse(readFileSync(join(collected, "index.json"), "utf8"));
-    for (const s of index.sources) if (opts.deadAfter.includes(s.group)) { s.ok = false; s.error = "refused"; }
+    for (const s of index.sources) if (opts.deadAfter?.includes(s.group)) { s.ok = false; s.error = "refused"; }
+    for (const [group, count] of Object.entries(opts.extraSources ?? {})) {
+      const file = join(collected, `${group}.json`);
+      const data = JSON.parse(readFileSync(file, "utf8"));
+      for (let n = 1; n <= count; n++) {
+        const name = `${group}-extra${n}`;
+        const row = { name, label: name, url: `https://example.org/${name}`, town: `Town ${n}`, ok: true, items: [], text: "Filler text. ".repeat(40) };
+        data.sources.push(row);
+        index.groups[group].sources.push(name);
+        index.sources.push({ name, group, url: row.url, ok: true, error: null });
+      }
+      writeFileSync(file, JSON.stringify(data, null, 1));
+    }
+    for (const name of opts.failSources ?? []) {
+      for (const s of index.sources) if (s.name === name) { s.ok = false; s.error = "HTTP 403"; }
+      const file = join(collected, `${index.sources.find((s: any) => s.name === name).group}.json`);
+      const data = JSON.parse(readFileSync(file, "utf8"));
+      for (const s of data.sources) if (s.name === name) { s.ok = false; s.error = "HTTP 403"; s.text = ""; s.items = []; }
+      writeFileSync(file, JSON.stringify(data, null, 1));
+    }
     writeFileSync(join(collected, "index.json"), JSON.stringify(index));
   }
   const source = opts.collect ? [] : ["--collected", collected];
@@ -247,6 +266,78 @@ describe("daily build", () => {
       const r = await build({}, { env });
       expect(r.code).toBe(1); // no reader had time either, so the gate holds
       expect(r.calls).toHaveLength(0);
+    });
+  });
+
+  describe("split readers", () => {
+    // the fixture's sources are small; the added ones (about 600 characters each) are over this limit
+    const split = { READ_SPLIT_CHARS: "500" };
+    const opts: Opts = { env: split, extraSources: { ribatejo: 2 } };
+
+    test("unset, a group is read whole and no split folder is made", async () => {
+      const r = await build({}, { extraSources: { ribatejo: 2 } });
+      expect(r.code).toBe(0);
+      expect(forGroup(r.calls, "ribatejo")).toHaveLength(1);
+      expect(existsSync(join(r.work, "rio-maior-split"))).toBe(false);
+      expect(r.summary.pieces_failed).toEqual([]);
+    });
+
+    test("a big group is read in pieces, the others whole, and the page has them all", async () => {
+      const r = await build({}, opts);
+      expect(r.code).toBe(0);
+      const roles = new Set(r.calls.map((c) => c.role));
+      for (const piece of ["ribatejo-1", "ribatejo-2", "ribatejo-3"]) expect(roles.has(piece)).toBe(true);
+      expect(roles.has("ribatejo")).toBe(false);
+      expect(roles.has("regional")).toBe(true);
+      expect(r.summary.groups_read).toEqual(GROUPS);
+      const first = forGroup(r.calls, "ribatejo-2")[0];
+      expect(first.prompt).toContain(`${r.work}/rio-maior-split/ribatejo-2.json`);
+      expect(first.prompt).toContain("some of the sources of the group ribatejo");
+      expect(first.argv).toContain("Edit(./rio-maior-candidates/ribatejo-2.json)");
+      expect(r.html).toContain("Concerto ribatejo-3");
+      const index = JSON.parse(readFileSync(join(r.work, "rio-maior-split", "index.json"), "utf8"));
+      expect(index.pieces.map((p: any) => p.id)).toContain("ribatejo-3");
+      // sources_checked keeps the real source rows
+      const raw = JSON.parse(readFileSync(join(r.work, "rio-maior-events.raw.json"), "utf8"));
+      expect(raw.sources_checked.map((s: any) => s.name)).toContain("ribatejo-extra2");
+      expect(raw.sources_checked.map((s: any) => s.name)).not.toContain("ribatejo-1");
+    });
+
+    test("a failed piece is retried, the other pieces still land, and only its sources are not read", async () => {
+      const r = await build({ readers: { "ribatejo-2": "fail" } }, opts);
+      expect(r.code).toBe(0);
+      expect(forGroup(r.calls, "ribatejo-2")).toHaveLength(2);
+      expect(r.summary.pieces_failed).toEqual(["ribatejo-2"]);
+      expect(r.summary.groups_failed).toEqual(["ribatejo"]);
+      expect(r.html).toContain("Concerto ribatejo-1");
+      expect(r.html).toContain("Concerto ribatejo-3");
+      expect(r.html).not.toContain("Concerto ribatejo-2");
+      expect(readFileSync(join(r.work, "merge-report.txt"), "utf8")).toContain("missing group: ribatejo-2");
+      const raw = JSON.parse(readFileSync(join(r.work, "rio-maior-events.raw.json"), "utf8"));
+      const unread = raw.sources_checked.filter((s: any) => s.error === "not read").map((s: any) => s.name);
+      expect(unread).toEqual(["ribatejo-extra1"]);
+    });
+
+    test("a group counts as read only when all its pieces were", async () => {
+      const r = await build({ readers: { "ribatejo-3": "fail", regional: "fail", "oeste-sul": "fail" } }, opts);
+      expect(r.code).toBe(1);
+      expect(r.summary.groups_failed.sort()).toEqual(["oeste-sul", "regional", "ribatejo"]);
+      expect(r.summary.result).toContain("3 of 6");
+    });
+
+    test("a failed source next to oversized ones does not fail its group", async () => {
+      const r = await build({}, { ...opts, failSources: ["src-ribatejo"] });
+      expect(r.code).toBe(0);
+      expect(r.summary.groups_failed).toEqual([]);
+      expect(r.summary.pieces_failed).toEqual([]);
+      expect(r.summary.readers.some((x: any) => x.attempt === 0)).toBe(false);
+      const raw = JSON.parse(readFileSync(join(r.work, "rio-maior-events.raw.json"), "utf8"));
+      expect(raw.sources_checked.find((s: any) => s.name === "src-ribatejo").error).toBe("HTTP 403");
+    });
+
+    test("an invalid piece file is checked against the split index", async () => {
+      const r = await build({ readers: { "ribatejo-1": "garbage" } }, opts);
+      expect(r.summary.pieces_failed).toEqual(["ribatejo-1"]);
     });
   });
 });

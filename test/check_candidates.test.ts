@@ -49,6 +49,24 @@ describe("Check", () => {
     expect(found.some((p) => p.startsWith("hints[0]"))).toBe(true);
   });
 
+  test("a recurring event with one date and no pattern is refused", () => {
+    const d = good();
+    d.events[0] = event({ kind: "recurring", dates: ["2026-10-25"] });
+    const found = problems(d);
+    expect(found).toHaveLength(1);
+    expect(found[0]).toContain("recurring event with one date");
+  });
+
+  test("a recurring event keeps its one date when it has a pattern, and dates null with words is fine", () => {
+    const d = good();
+    d.events = [
+      event({ kind: "recurring", dates: ["2026-10-25"], recurrence: "every Sunday in October" }),
+      event({ kind: "recurring", dates: null, recurrence: "Fridays and Saturdays", title_pt: "Outro" }),
+      event({ kind: "recurring", dates: ["2026-10-25", "2026-11-01"], recurrence: null, title_pt: "Terceiro" }),
+    ];
+    expect(problems(d)).toEqual([]);
+  });
+
   test("test_cli_exit_codes", () => {
     const tmp = mkdtempSync(join(tmpdir(), "cc-"));
     try {

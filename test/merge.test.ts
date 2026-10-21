@@ -200,7 +200,7 @@ describe("Duplicates", () => {
   test("test_near_misses", () => {
     const t = pairs([
       event("Grande Concerto Natal", "2026-11-20"),
-      event("Grande Concerto Natal", "2026-11-23"), // too far apart
+      event("Grande Concerto Natal", "2026-11-29"), // too far apart (9 days)
       event("Grande Concerto Natal", "2026-11-20", "Caldas"), // other town
       event("Feira de Artesanato", "2026-11-20"), // other title
       event("Grande Jazz Festival", "2026-11-20"), // 1 of 3 words shared
@@ -595,5 +595,261 @@ describe("Finalize", () => {
     const r = capture(() => merge.main(["--finalize", path, "a", "b", "c"]));
     expect(r.result).toBe(2);
     expect(r.stderr).toContain("--finalize takes no folders");
+  });
+});
+
+describe("Collapse before the report", () => {
+  beforeEach(setUpCase);
+  afterEach(tearDownCase);
+
+  test("the same title, date and town from two groups is one event before the report", () => {
+    const other = [{ name: "B", url: "https://example.org/b" }];
+    candFile("g1", [event("Concerto da Primavera", "2026-11-10", "Caldas da Rainha", { venue: null })]);
+    candFile("g2", [event("CONCERTO DA PRIMAVERA", "2026-11-10", "caldas da rainha", { venue: "Sala Azul", sources: other, start_time: "21:00" })]);
+    const [code, text] = runMerge();
+    expect(code).toBe(0);
+    const events = output().events;
+    expect(events).toHaveLength(1);
+    expect(events[0].start_time).toBe("21:00"); // a stated time wins
+    expect(events[0].sources.map((x: Doc) => x.name).sort()).toEqual(["A", "B"]);
+    expect(text).toContain("already merged: 1");
+    expect(text).not.toContain("same event as");
+    expect(tail(text).trim()).toBe("");
+  });
+
+  test("the same title on different dates is not collapsed", () => {
+    candFile("g1", [event("Peça Lua Nova", "2026-11-05", "Rio Maior", { start_time: "21:00" })]);
+    candFile("g2", [event("Peça Lua Nova", "2026-11-12", "Rio Maior", { start_time: "16:00" })]);
+    const [, text] = runMerge();
+    expect(output().events).toHaveLength(2);
+    expect(text).not.toContain("already merged");
+    expect(tail(text)).toContain("<->"); // flagged for the editor, not merged
+  });
+
+  test("an event the check rejects is left where it is, not collapsed", () => {
+    const bad = event("Concerto Mau", "2026-11-10", "Rio Maior", { category: "bogus" });
+    candFile("g1", [bad, { ...bad }]);
+    candFile("g2", []);
+    runMerge();
+    expect(output().events).toHaveLength(2);
+  });
+
+  test("a null drive_min is filled from towns.md for a listed town only", () => {
+    candFile("g1", [
+      event("Alfa Um", "2026-11-03", "Cartaxo", { drive_min: null }),
+      event("Beta Dois", "2026-11-04", "Aldeola", { drive_min: null }),
+      event("Gama Tres", "2026-11-05", "Aldeola (Cartaxo)", { drive_min: null }),
+      event("Delta Quatro", "2026-11-06", "Alcobertas", { drive_min: 99 }),
+    ]);
+    candFile("g2", []);
+    runMerge();
+    expect(output().events.map((e: Doc) => e.drive_min)).toEqual([35, null, null, 99]);
+  });
+
+  test("an ambiguous name or a town with a parenthetical is never filled", () => {
+    const towns = new Map([["sao jorge", 30], ["atalaia", 40], ["cartaxo", 35], ["alvados", 40]]);
+    candFile("g1", [
+      event("Um", "2026-11-03", "São Jorge", { drive_min: null }),
+      event("Dois", "2026-11-04", "Atalaia (Vila Nova da Barquinha)", { drive_min: null }),
+      event("Tres", "2026-11-05", "Cartaxo (Outro Concelho)", { drive_min: null }),
+      event("Quatro", "2026-11-06", "Alvados", { drive_min: null }),
+    ]);
+    candFile("g2", []);
+    const [doc] = merge.merge(col, cand, NOW, false, { towns });
+    expect(doc!.events.map((e: Doc) => e.drive_min)).toEqual([null, null, null, 40]);
+  });
+
+  test("listings with different stated times are not collapsed; the collapsed titles are listed", () => {
+    candFile("g1", [event("Concerto Aurora", "2026-11-10", "Rio Maior", { start_time: "16:00" }),
+      event("Feira Velha", "2026-11-11", "Rio Maior")]);
+    candFile("g2", [event("Concerto Aurora", "2026-11-10", "Rio Maior", { start_time: "21:00" }),
+      event("FEIRA VELHA", "2026-11-11", "Rio Maior")]);
+    const [, text] = runMerge();
+    expect(output().events).toHaveLength(3);
+    expect(text).toContain("already merged: 1");
+    expect(text).toContain("  Feira Velha | 2026-11-11 | Rio Maior");
+  });
+});
+
+describe("Hints for the editor", () => {
+  beforeEach(setUpCase);
+  afterEach(tearDownCase);
+
+  function report(events: Doc[], other: Doc[] = []): [string, Doc[]] {
+    candFile("g1", events);
+    candFile("g2", other);
+    const text = tail(runMerge()[1]);
+    return [text, output().events];
+  }
+
+  test("same town, starts within a week, every distinctive word of the shorter title shared", () => {
+    const [t] = report([
+      event("Trail do Vale", "2026-11-08", "Alcobaça"),
+      event("Grande Trail do Vale Internacional", "2026-11-14", "Alcobaça"),
+      event("Trail do Vale", "2026-11-25", "Alcobaça"), // too far from both
+      event("Trail da Serra", "2026-11-12", "Alcobaça"), // a different name
+    ]);
+    expect(t.split("<->").length - 1).toBe(1);
+    expect(t).toContain("events[0]");
+    expect(t).toContain("events[1]");
+  });
+
+  test("a bare category word is not a name", () => {
+    const [t] = report([event("Concerto", "2026-11-08", "Alcobaça"), event("Concerto de Gala Aurora", "2026-11-10", "Alcobaça")]);
+    expect(t.trim()).toBe("");
+  });
+
+  test("a town's day at a festival is paired with the festival, in any town", () => {
+    const festival = event("Festival do Queijo da Serra Alta", "2026-11-06", "Serra Alta",
+      { kind: "ongoing", end_date: "2026-11-15" });
+    const [t] = report([
+      festival,
+      event("Dia de Vale Fundo no Festival do Queijo", "2026-11-10", "Vale Fundo"), // shares the festival's words
+      event("Dia do Casal Novo - Queijo", "2026-11-09", "Casal Novo"), // a town day sharing one word
+      event("Concerto de Gala", "2026-11-09", "Casal Novo"), // unrelated
+      event("Dia do Casal Novo - Queijo", "2026-11-20", "Casal Novo"), // outside the range
+      event("Dia do Casal Velho", "2026-11-09", "Casal Velho"), // a town day, but no word of the festival
+    ]);
+    expect(t).toContain("events[0]");
+    expect(t).toMatch(/events\[0\].*<->.*events\[1\]/);
+    expect(t).toMatch(/events\[0\].*<->.*events\[2\]/);
+    expect(t).not.toMatch(/events\[3\]/);
+    expect(t).not.toMatch(/<->  events\[4\]/);
+    expect(t).not.toMatch(/<->  events\[5\]/);
+    expect(t.split("<->").length - 1).toBe(2);
+  });
+
+  test("two trails in the same weeks are not a festival and its day", () => {
+    const [t] = report([
+      event("Trail Alfa 2026", "2026-11-21", "Serra Alta", { kind: "multi_day", end_date: "2026-11-22" }),
+      event("Trail Beta Urbano 2026", "2026-11-22", "Vale Fundo"),
+    ]);
+    expect(t.trim()).toBe("");
+  });
+
+  test("an exhibition is not a festival: a Christmas exhibition and Christmas markets elsewhere are not paired", () => {
+    const [t] = report([
+      event("Exposição de Natal", "2026-11-20", "Rio Maior", { kind: "ongoing", end_date: "2026-12-24" }),
+      event("Mercado de Natal", "2026-12-05", "Cartaxo"),
+      event("Mercado de Natal", "2026-12-06", "Alenquer"),
+    ]);
+    expect(t.trim()).toBe("");
+  });
+
+  test("the town's own name is not a shared word", () => {
+    const [t] = report([
+      event("Música de Cá Peniche 2026", "2026-11-08", "Peniche"),
+      event("Rip Curl Pro Peniche 2026", "2026-11-13", "Peniche"),
+    ]);
+    expect(t.trim()).toBe("");
+  });
+
+  test("a stand inside a festival is paired with it", () => {
+    const [t] = report([
+      event("Feira do Mel", "2026-11-06", "Serra Alta", { kind: "multi_day", end_date: "2026-11-08" }),
+      event("Stand do Mel da Cooperativa", "2026-11-07", "Serra Baixa"),
+    ]);
+    expect(t).toMatch(/events\[0\].*<->.*events\[1\]/);
+  });
+
+  test("a title that continues the other, same day and town, is marked very likely", () => {
+    const [t] = report([
+      event("Teatro Infantil", "2026-11-10", "Rio Maior", { start_time: "16:00" }),
+      event("Teatro Infantil O Gato Mágico", "2026-11-10", "Rio Maior"),
+      event("Conto Aurora", "2026-11-12", "Rio Maior"),
+      event("Conto Aurora Especial", "2026-11-12", "Rio Maior"),
+    ]);
+    const lines = t.trim().split("\n");
+    expect(lines.filter((l) => l.includes("very likely"))).toHaveLength(2);
+  });
+
+  test("two stated, different times on one day are flagged but not marked very likely", () => {
+    const [t, events] = report([
+      event("Conto da Lua", "2026-11-10", "Rio Maior", { start_time: "21:00" }),
+      event("Conto da Lua - Sessão Escolar", "2026-11-10", "Rio Maior", { start_time: "10:00" }),
+    ]);
+    expect(t.split("<->").length - 1).toBe(1);
+    expect(t).not.toContain("very likely");
+    expect(events).toHaveLength(2);
+  });
+
+  test("a school session without a stated time is marked, and the script still leaves both events", () => {
+    const [t, events] = report([
+      event("Conto da Lua", "2026-11-10", "Rio Maior", { start_time: "21:00" }),
+      event("Conto da Lua - Sessão Escolar", "2026-11-10", "Rio Maior"),
+    ]);
+    expect(t).toContain("very likely");
+    expect(events).toHaveLength(2); // the editor decides; the marker is a hint
+  });
+
+  test("distinct events stay in the file: flagged where the hints reach, never merged", () => {
+    const [t, events] = report([
+      event("Ciclo Aurora", "2026-11-01", "Rio Maior", { start_time: "21:00" }),
+      event("Ciclo Aurora", "2026-11-07", "Rio Maior", { start_time: "21:00" }), // another concert of the cycle
+      event("Peça Lua Nova", "2026-11-05", "Cartaxo", { start_time: "21:00" }),
+      event("Peça Lua Nova", "2026-11-12", "Cartaxo", { start_time: "16:00" }), // second performance
+      event("Sessão Escolar - O Gato Mágico", "2026-11-18", "Torres Novas", { start_time: "10:00" }),
+      event("O Gato Mágico", "2026-11-18", "Torres Novas", { start_time: "21:00" }), // public show
+    ]);
+    expect(events).toHaveLength(6);
+    expect(t.split("<->").length - 1).toBe(3);
+  });
+});
+
+describe("Split pieces", () => {
+  beforeEach(setUpCase);
+  afterEach(tearDownCase);
+
+  function setUpSplit(): string {
+    const split = join(tmp, "split");
+    mkdirSync(split);
+    write(join(split, "index.json"), {
+      collected_at: STAMP, window: { start: "2026-10-20", end: "2026-11-30" },
+      pieces: [
+        { id: "g1-1", group: "g1", file: "g1-1.json", sources: ["s1"] },
+        { id: "g1-2", group: "g1", file: "g1-2.json", sources: ["s2"] },
+        { id: "g2", group: "g2", file: "g2.json", sources: ["s3"] },
+      ],
+    });
+    return split;
+  }
+
+  test("reads one candidates file per piece and tags problems with the piece", () => {
+    const split = setUpSplit();
+    candFile("g1-1", [event("Alfa Um", "2026-10-25")]);
+    candFile("g1-2", [event("Beta Dois", "2026-10-26"), event("Gama", "2026-10-27", "Rio Maior", { category: "bogus" })]);
+    candFile("g2", [event("Delta", "2026-10-28")]);
+    const r = capture(() => merge.main([col, cand, out, "--split", split], NOW));
+    expect(r.result).toBe(0);
+    expect(output().events).toHaveLength(4);
+    expect(r.stdout).toContain("[group g1-2]");
+  });
+
+  test("a missing piece marks only its own sources as not read", () => {
+    const split = setUpSplit();
+    candFile("g1-1", [event("Alfa Um", "2026-10-25")]);
+    candFile("g2", [event("Delta", "2026-10-28")]);
+    const r = capture(() => merge.main([col, cand, out, "--split", split, "--missing-ok"], NOW));
+    expect(r.result).toBe(0);
+    expect(r.stdout).toContain("missing group: g1-2 (part of g1: s2; ");
+    const checked = Object.fromEntries(output().sources_checked.map((x: Doc) => [x.name, x]));
+    expect(checked.s1.ok).toBe(true);
+    expect(checked.s2.error).toBe("HTTP 403"); // its own error stays
+    expect(checked.s3.ok).toBe(true);
+    expect(output().events).toHaveLength(2);
+  });
+
+  test("a piece file for the wrong piece is refused", () => {
+    const split = setUpSplit();
+    candFile("g1-1", [event("Alfa Um", "2026-10-25")], { group: "g1" });
+    candFile("g1-2", []);
+    candFile("g2", []);
+    expect(capture(() => merge.main([col, cand, out, "--split", split], NOW)).result).toBe(2);
+  });
+
+  test("an unreadable split folder is an error", () => {
+    const r = capture(() => merge.main([col, cand, out, "--split", join(tmp, "nope")], NOW));
+    expect(r.result).toBe(2);
+    expect(r.stdout).toContain("split");
   });
 });
