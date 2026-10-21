@@ -48,7 +48,7 @@ never text of the event, only addresses. On some sites (Torres Novas,
 Entroncamento, Vila Nova da Barquinha) the link is a day of the mini calendar:
 the line after the marker is the link's title, which names the event, and the
 event's day is the number on the line AFTER that title, not the one before the
-marker (in "27 / <marker> / Banda da Armada / 28" the concert is on the 28th).
+marker (in "27 / <marker> / Banda da Armada / 28" the concert is on the 28th). In the rare case of two events on one day, both share the day number that follows the second title.
 
 ### Event pages
 

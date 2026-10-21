@@ -1,0 +1,12 @@
+.*
+**/.*
+**/*.md
+**/*.txt
+**/*.lock
+**/*.test.*
+test/**
+**/LICENSE*
+package.json
+tsconfig.json
+examples/**
+tools/**

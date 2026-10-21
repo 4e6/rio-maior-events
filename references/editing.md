@@ -34,8 +34,7 @@ event.
   the municipal or venue source wins; keep the more complete title. Put both
   sources in the kept event's `sources` (no source twice), and remove the other
   event. The municipal calendar's date and time win over a third-party listing
-  only when the two are equally precise: a single day with a stated time on an
-  event's own page beats a municipal date range or a missing time.
+  only when the two are equally precise: a single day with a stated time beats a municipal date range or a missing time.
 - If they are two events (a matinee and an evening show, two different films,
   two editions), leave both.
 - A pair marked "very likely the same event" has the same day and town and one

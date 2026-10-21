@@ -10,6 +10,7 @@ sources:
   - resource: references/**
   - resource: test/**
   - resource: .github/workflows/**
+sources_digest: 3085be3eca25596d
 ---
 
 # What it is
@@ -60,7 +61,7 @@ and each has its own traps.
   that site. Results come back in `sources.json` order, whatever finished
   first, and the slowest host (delay times requests) starts first, so a run
   lasts about as long as the slowest host: 14.7 s for the list pages alone on 2026-10-20, 1 min 36 s with the event pages on 2026-10-21 (33 sources then, 147 event pages).
-  Verification is on, with the system roots plus `certs/intermediates.pem`: three intermediates that servers fail to send and OpenSSL on Linux does not fetch (`certs/README.md`). No root of ours, never verification off.
+  Verification is on ([why](/decisions/0002-ship-three-intermediate-certificates.md)), with the system roots plus `certs/intermediates.pem`: three intermediates that servers fail to send and OpenSSL on Linux does not fetch (`certs/README.md`). No root of ours, never verification off.
   Viral Agenda, whose robots.txt asks for 15 s, was dropped: it refuses scripts with a 403, so no source needs the long delay today. Ctrl-C sets a stop
   event that ends each worker between requests (and in its wait), cancels the
   hosts not yet started, writes nothing and exits 130. The runner also holds
@@ -119,7 +120,7 @@ and each has its own traps.
   a failed piece marks only its own sources as not read. **The daily run reads
   with Haiku on 30,000-character pieces and edits with Sonnet** (daily.yml sets
   `READ_MODEL=haiku`, `EDIT_MODEL=sonnet`, `READ_SPLIT_CHARS=30000`), by the
-  user's decision of 2026-10-21 and against the evaluation's advice: on one
+  user's decision of 2026-10-21 ([why](/decisions/0003-haiku-readers-and-a-sonnet-editor.md)) and against the evaluation's advice: on one
   collected run, read three times each way, it cost about $1.15 a run against
   about $3 for Sonnet readers on whole groups and missed 0–1 events against
   2–3, but put 4–7 fact slips on the page each run (a performer as the venue,
@@ -177,7 +178,7 @@ GitHub Actions workflow; the `claude -p` readers and editor are confined to file
   connection error the rest of that site's pages are skipped, and requests to
   one site are spaced by that host's delay. GoTrail and Running.life answered the TLS
   handshake with a 403 while a browser got the page; a fallback to `curl` was
-  built and removed, because getting round a refusal is not this script's call,
+  built and removed, because getting round a refusal is not this script's call ([the rule](/decisions/0001-sources-must-answer-a-github-runner.md)),
   and both were later dropped for Portugal Running. Some sites throttle a
   visitor after repeated runs, so the README says never to fetch a source
   repeatedly.

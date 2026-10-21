@@ -1,0 +1,9 @@
+---
+okf_version: "0.2"
+---
+
+# Subdirectories
+
+* [Architecture](architecture/)
+* [Conventions](conventions/)
+* [Decisions](decisions/)

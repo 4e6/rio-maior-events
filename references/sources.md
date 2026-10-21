@@ -161,7 +161,7 @@ One template. A mini calendar and a short "Próximos Eventos" list (month, title
 - Entroncamento and Barquinha list whole-season programmes ("14/09/2026 - 30/06/2027"): ongoing, not a reason to go.
 - An event with only a date has no time.
 - Torres Novas shows page 1 of 4 only, so its events reach about a week ahead. Name it in the coverage line.
-- Markers: the four sources have `links` for `/index.php/<section>/agenda/<category>/<name>`, and 10 event pages each are fetched (`follow` 10). A page gives the time (Entroncamento's gives the time only). In Torres Novas and Entroncamento the event links are the day links of the mini calendar, so a marker there may be followed by a line holding the link's title attribute, which names the event, with no card text around it; the fetched page (the first ones in page order) gives the time.
+- Markers: the four sources have `links` for `/index.php/<section>/agenda/<category>/<name>`, and 10 event pages each are fetched (`follow` 10). A page gives the time (Entroncamento's gives the time only). In Torres Novas, Entroncamento and Vila Nova da Barquinha the event links are the day links of the mini calendar, so a marker there may be followed by a line holding the link's title attribute, which names the event, with no card text around it; the fetched page (the first ones in page order) gives the time.
 
 ## Almeirim
 
