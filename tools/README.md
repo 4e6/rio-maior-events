@@ -8,3 +8,6 @@
   - `gen_entities.py`, `gen_unicode.py`, `gen_vectors.py`, `gen_htmlparser_vectors.py` use only the standard library.
   - `gen_py_vectors.py` and `gen_url_vectors.py` import the Python collector (`scripts/`), which was deleted when the
     port landed. To regenerate their output, run them from a checkout of the commit before that deletion.
+
+Comments in `src/` and `test/` that cite `scripts/*.py` or `tests/python/` name the Python code the TypeScript was
+ported from; it is in the git history before the commit "Delete the Python pipeline".
