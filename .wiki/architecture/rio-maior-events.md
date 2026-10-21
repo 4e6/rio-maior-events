@@ -11,7 +11,7 @@ sources:
   - resource: test/**
   - resource: .github/workflows/**
   - resource: certs/**
-sources_digest: 526448421c546365
+sources_digest: da4bf79ef5d23ab4
 ---
 
 # What it is

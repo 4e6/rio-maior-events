@@ -7,7 +7,7 @@ sources:
   - resource: sources.json
   - resource: src/adapters/**
   - resource: references/sources.md
-sources_digest: b04a327fbfc14950
+sources_digest: 1cac9af1d73d2601
 ---
 
 # What this page is for
