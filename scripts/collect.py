@@ -35,7 +35,7 @@ own), counted from the end of the previous response. After a refusal (403, 429,
 a 5xx), a timeout or a connection error the rest of that host's sources are
 skipped; any other failed request, a 404 say, fails only its own source. A
 source that fails is recorded with ok false and an error and the rest carry on.
-A run makes about 33 list requests and, with the event pages, up to about 180
+A run makes about 32 list requests and, with the event pages, up to about 180
 more, and takes a few minutes, the sites being worked in parallel. Ctrl-C stops
 the workers between requests, writes nothing and exits 130.
 
@@ -61,6 +61,7 @@ import datetime
 import json
 import os
 import socket
+import ssl
 import sys
 import threading
 import time
@@ -122,6 +123,23 @@ def garbled(body, content_type, limit=0.05, sample=2000):
     return bad / len(text) > limit
 
 
+CERTS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "certs", "intermediates.pem")
+
+
+def ssl_context(path=CERTS):
+    """The system's trusted roots plus the intermediates some servers fail to send
+    (certs/README.md). Verification stays on; a missing file raises."""
+    context = ssl.create_default_context()
+    # Python 3.13+ sets VERIFY_X509_PARTIAL_CHAIN, which would let the intermediates
+    # act as trust anchors; clear it so the chain must still reach a system root.
+    context.verify_flags &= ~getattr(ssl, "VERIFY_X509_PARTIAL_CHAIN", 0)
+    context.load_verify_locations(cafile=path)
+    return context
+
+
+SSL_CONTEXT = ssl_context()
+
+
 def fetch(url, data=None):
     # Only encodings inflate() can undo are offered.
     headers = {"User-Agent": USER_AGENT, "Accept-Language": "pt-PT,pt;q=0.9,en;q=0.5",
@@ -129,7 +147,7 @@ def fetch(url, data=None):
     if data is not None:
         headers["Content-Type"] = "application/x-www-form-urlencoded"
     request = urllib.request.Request(url, data=data, headers=headers)
-    with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
+    with urllib.request.urlopen(request, timeout=TIMEOUT, context=SSL_CONTEXT) as response:
         body = inflate(response.read(), response.headers.get("Content-Encoding"))
         return response.status, body, response.headers.get("Content-Type")
 
@@ -154,7 +172,8 @@ def fetch_follow(url, data=None):
     https is refused before it is requested. Also returns the final URL."""
     headers = {"User-Agent": USER_AGENT, "Accept-Language": "pt-PT,pt;q=0.9,en;q=0.5",
                "Accept-Encoding": "gzip, deflate"}
-    opener = urllib.request.build_opener(_SameHost(urllib.parse.urlsplit(url).hostname))
+    opener = urllib.request.build_opener(_SameHost(urllib.parse.urlsplit(url).hostname),
+                                         urllib.request.HTTPSHandler(context=SSL_CONTEXT))
     with opener.open(urllib.request.Request(url, headers=headers), timeout=TIMEOUT) as response:
         body = inflate(response.read(), response.headers.get("Content-Encoding"))
         return response.status, body, response.headers.get("Content-Type"), response.geturl()

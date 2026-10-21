@@ -102,13 +102,13 @@ browser; the page should show dated cards for the coming weeks.
   `description`): the description holds the time, venue and price, and its UTC
   dates become Lisbon time (follow 10 each, in date order). Its `schedule` field, when it is one clock time or a range, gives the start (and end) a time; any non-empty value is put first in the excerpt as "Horário: ...". A page whose payload
   has another shape is read as any page.
-- **Supplementary agendas and Eventbrite.** As before: plain text, expect gaps.
+- **Supplementary agendas.** As before: plain text, expect gaps.
 
 # Event links and event pages
 
 Which sources have `links` (markers) and how many event pages each fetches
 (`follow` in `sources.json`); what a page gives was checked offline on the saved
-pages of 2026-10-20 and live on 2026-10-21: 33 sources ok, 147 event pages read, 1 min 36 s.
+pages of 2026-10-20 and live on 2026-10-21: 33 sources ok (Eventbrite, one of them, has since been removed), 147 event pages read, 1 min 36 s.
 
 - **Torres Vedras music (15):** time, venue and the real title. Cineteatro
   (Rio Maior), Santarém Acontece, Alcobaça, Caldas (MCR), Cartaxo, Leiria, Almeirim:

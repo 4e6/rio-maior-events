@@ -9,7 +9,7 @@
     "oeste-sul": "Southern Oeste: Cadaval, Lourinhã, Torres Vedras, Alenquer",
     "ribatejo": "Ribatejo: Santarém, Cartaxo, Almeirim, Alcanena, Chamusca",
     "medio-tejo": "Médio Tejo: Torres Novas, Entroncamento, Ourém, Vila Nova da Barquinha",
-    "regional": "Regional listings: Portugal Running and Eventbrite"
+    "regional": "Regional listings: Portugal Running"
   },
   "sources": [
     {"name": "cm-riomaior", "label": "Município de Rio Maior", "adapter": "riomaior_calendar", "town": "Rio Maior", "group": "rio-maior", "url": "https://www.cm-riomaior.pt/index.php?option=com_ajax&module=calendar&method=getEvents&format=json", "options": {"categories": ["116", "121", "122", "134", "135", "136", "137", "138", "139"]}},
@@ -22,7 +22,6 @@
     {"name": "mcr-caldas", "label": "Município de Caldas da Rainha (MCR)", "adapter": "text", "town": "Caldas da Rainha", "group": "oeste-norte", "url": "https://www.mcr.pt/agenda", "links": "^/agenda/[^/?]+$"},
     {"name": "cm-torresnovas", "label": "Município de Torres Novas", "adapter": "text", "town": "Torres Novas", "group": "medio-tejo", "url": "https://cm-torresnovas.pt/index.php/comunicacao/agenda", "links": "^/index\\.php/comunicacao/agenda/[^/?]+/[^/?]+$", "follow": 10},
     {"name": "cm-cartaxo", "label": "Município do Cartaxo", "adapter": "text", "town": "Cartaxo", "group": "ribatejo", "url": "https://www.cm-cartaxo.pt/informacao/agenda", "links": "^/informacao/agenda/[^/?]+$"},
-    {"name": "eventbrite", "label": "Eventbrite", "adapter": "text", "town": "Rio Maior", "group": "regional", "url": "https://www.eventbrite.pt/d/portugal--rio-maior/events/"},
     {"name": "leiriagenda", "label": "Agenda de Leiria", "adapter": "text", "town": "Leiria", "group": "oeste-norte", "url": "https://leiriagenda.cm-leiria.pt/pt", "links": "^/pt/agenda/(?!a-decorrer$)[^/?]+$"},
     {"name": "teatro-virginia", "label": "Teatro Virgínia", "adapter": "text", "town": "Torres Novas", "group": "medio-tejo", "url": "https://www.teatrovirginia.pt/", "links": "^/index\\.php/[^/?]+/\\d+$", "follow": 10},
     {"name": "cm-tvedras-musica", "label": "Município de Torres Vedras – música", "adapter": "text", "town": "Torres Vedras", "group": "oeste-sul", "url": "https://www.cm-tvedras.pt/agenda/categoria/37", "links": "^/agenda/detalhes/\\d+$", "follow": 15},
