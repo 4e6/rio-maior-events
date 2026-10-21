@@ -1,6 +1,7 @@
 # Wiki Update Log
 
 ## 2026-10-21
+* **Proxy fallback**: sites that refuse a direct request are read through a residential proxy in CI (`FALLBACK_PROXY_URL`), as in [the decision](/decisions/0004-a-residential-proxy-for-the-sites-that-refuse-github-runners.md) and [the architecture](/architecture/rio-maior-events.md); collect became a workflow step of its own so the secret stays out of the process that runs claude.
 * **Decision removed**: "a source must answer a GitHub runner, and a refusal is not routed around" is withdrawn by the user, ahead of a proxy fallback for the sites that refuse GitHub's runners.
 * **Twice a week**: the build runs on Mondays and Thursdays at 05:17 Lisbon time instead of every morning; the workflow is now `build.yml` ([architecture](/architecture/rio-maior-events.md)).
 * **Build status page**: the sources list moved from the bottom of the agenda to `status.html`, built by `src/status.ts` with timings, readers, usage and event counts ([architecture](/architecture/rio-maior-events.md)).

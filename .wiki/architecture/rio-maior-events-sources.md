@@ -9,7 +9,7 @@ sources:
   - resource: references/sources.md
   - resource: tools/probe_*.ts
   - resource: .github/workflows/probe.yml
-sources_digest: c5a2350e8d1185b7
+sources_digest: d0d94bc11e7634fd
 ---
 
 # What this page is for
@@ -42,7 +42,8 @@ From a GitHub runner the picture differs: the `probe` workflow
 line per source (`tools/probe_summary.ts`), plus one plain GET per source with
 Bun (`tools/probe_bun.ts`). On 2026-10-21 it gave 27 of 32 ok; Santarém (timeout),
 Torres Novas (503), Alcanena, Entroncamento and Vila Nova da Barquinha
-(connection reset) refuse the runner's address while answering a home one.
+(connection reset) refuse the runner's address while answering a home one. The scheduled build reads these five through the fallback proxy
+([the decision](../decisions/0004-a-residential-proxy-for-the-sites-that-refuse-github-runners.md)); the probe's last step checks them through it.
 
 # Per source or group
 
@@ -136,7 +137,7 @@ pages of 2026-10-20 and live on 2026-10-21: 33 sources ok (Eventbrite, one of th
   day with several events is one link to a day view ("N Eventos"), so those get
   no date from the calendar. When no calendar can be read, the source's `note`
   says so and reading.md falls back to the number after the title. All of them
-  refuse GitHub's runners today, so this helps local runs until that changes.
+  refuse GitHub's runners directly today; the fallback proxy reads them in the scheduled build.
 - **Óbidos (10):** hours and venue. **Porto de Mós (10)**: calendar data
   (start, end, venue); Batalha's pages carry the same, but its feed is read
   with no event pages.

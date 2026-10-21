@@ -142,4 +142,6 @@ export interface SourceResult {
   details: Detail[];
   /** Set when the site refused or did not answer; goes to index.json, not to the group file. */
   refused?: boolean;
+  /** Set to "proxy" when any of the source's requests went through the fallback proxy; goes to index.json only. */
+  via?: "proxy";
 }

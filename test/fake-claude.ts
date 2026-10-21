@@ -17,6 +17,7 @@ const attempt = calls.filter((c) => c.role === (isEditor ? "editor" : group)).le
 appendFileSync(plan.log, JSON.stringify({
   role: isEditor ? "editor" : group, attempt, argv: process.argv.slice(2), cwd: process.cwd(),
   existed: existsSync(output), prompt, sawToken: Boolean(process.env.CLAUDE_CODE_OAUTH_TOKEN),
+  sawProxy: Object.keys(process.env).some((k) => k.startsWith("FALLBACK_PROXY")),
 }) + "\n");
 
 async function hang(mode: string): Promise<never> {

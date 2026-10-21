@@ -16,7 +16,7 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 105
     steps:
       - uses: actions/checkout@v7
         with:
@@ -31,6 +31,14 @@ jobs:
           echo "DISABLE_AUTOUPDATER=1" >> "$GITHUB_ENV"
           "$HOME/.local/bin/claude" --version | grep -F "$CLAUDE_CODE_VERSION"
       - run: bun install --frozen-lockfile
+      - name: Collect the sources
+        timeout-minutes: 15
+        # The only step that sees the fallback proxy's URL: a host that refuses a direct request is read through it.
+        # It succeeds when index.json was written, even if some sources failed. Written outside the build's work
+        # folder so the build step, which runs claude, never needs the secret.
+        env:
+          FALLBACK_PROXY_URL: ${{ secrets.FALLBACK_PROXY_URL }}
+        run: bun src/cli/collect.ts "$RUNNER_TEMP/collected"
       - name: Build the page
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -41,7 +49,7 @@ jobs:
           READ_MODEL: haiku
           EDIT_MODEL: sonnet
           READ_SPLIT_CHARS: "30000"
-        run: bun run build -- --work "$RUNNER_TEMP/work"
+        run: bun run build -- --work "$RUNNER_TEMP/work" --collected "$RUNNER_TEMP/collected"
       - name: Keep the run summary
         if: always()
         uses: actions/upload-artifact@v7

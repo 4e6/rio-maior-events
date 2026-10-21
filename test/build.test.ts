@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, setDefaultTimeout, test } from "bun:test";
-import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -79,6 +79,45 @@ describe("scheduled build", () => {
     expect(keys).not.toContain("GH_TOKEN");
     expect(r.calls.length).toBeGreaterThan(0);
     expect(r.calls.every((c) => c.sawToken)).toBe(true);
+  });
+
+  test("the fallback proxy's URL reaches neither the collect step nor claude", async () => {
+    const env = { FALLBACK_PROXY_URL: "http://user:pass@gw.example:823", FALLBACK_PROXY_MAX_MB: "5", CLAUDE_CODE_OAUTH_TOKEN: "t" };
+    const r = await build({}, { collect: "collect-env.ts", env });
+    expect(r.code).toBe(0);
+    const keys: string[] = JSON.parse(readFileSync(join(r.work, "collect-env.json"), "utf8"));
+    expect(keys.filter((k) => k.startsWith("FALLBACK_PROXY"))).toEqual([]);
+    expect(r.calls.length).toBeGreaterThan(0);
+    expect(r.calls.every((c) => c.sawToken && !c.sawProxy)).toBe(true);
+    expect(r.stdout + r.stderr).not.toContain("gw.example");
+  });
+
+  test("a collected folder without an index.json fails the build before any reader", async () => {
+    const tmp = mkdtempSync(join(tmpdir(), "rme-"));
+    dirs.push(tmp);
+    mkdirSync(join(tmp, "empty"));
+    const proc = Bun.spawn(["bun", join(ROOT, "src", "build.ts"), "--work", join(tmp, "work"), "--collected", join(tmp, "empty")], {
+      cwd: ROOT, stdout: "pipe", stderr: "pipe", env: { ...process.env, CLAUDE_BIN: join(tmp, "must-not-run") },
+    });
+    const [stdout, code] = await Promise.all([new Response(proc.stdout).text(), proc.exited]);
+    expect(code).toBe(1);
+    expect(stdout).toContain("collect failed; nothing deployed");
+  });
+
+  test("the status page keeps the collect step's own duration (collect_s of index.json)", async () => {
+    const tmp = mkdtempSync(join(tmpdir(), "rme-"));
+    dirs.push(tmp);
+    cpSync(COLLECTED, join(tmp, "collected"), { recursive: true });
+    const file = join(tmp, "collected", "index.json");
+    writeFileSync(file, JSON.stringify({ ...JSON.parse(readFileSync(file, "utf8")), collect_s: 123.4 }));
+    const planFile = join(tmp, "plan.json");
+    writeFileSync(planFile, JSON.stringify({ log: join(tmp, "calls.jsonl") }));
+    const proc = Bun.spawn(["bun", join(ROOT, "src", "build.ts"), "--work", join(tmp, "work"), "--collected", join(tmp, "collected")], {
+      cwd: ROOT, stdout: "pipe", stderr: "pipe", env: { ...process.env, CLAUDE_BIN: FAKE, FAKE_PLAN: planFile, READ_MODEL: "opus", MAX_TURNS: "7" },
+    });
+    expect(await proc.exited).toBe(0);
+    const summary = JSON.parse(readFileSync(join(tmp, "work", "run-summary.json"), "utf8"));
+    expect(summary.timings.collect_s).toBe(123.4);
   });
 
   test("all good: six readers, an editor, a page", async () => {

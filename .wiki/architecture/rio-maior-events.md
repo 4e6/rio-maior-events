@@ -11,7 +11,7 @@ sources:
   - resource: test/**
   - resource: .github/workflows/**
   - resource: certs/**
-sources_digest: 565efc87e97ca3fa
+sources_digest: 5cf9492d82776acd
 ---
 
 # What it is
@@ -54,8 +54,8 @@ and each has its own traps.
   its in-memory summary: a table of the sources (events the readers wrote that
   name each one, counted per source and before any duplicates were merged, so
   the column adds up to more than the candidate total; or its error, marked when
-  the site refused it; "not read" when its reader failed), the step timings,
-  the readers and the editor, usage at list price, and the event counts after
+  the site refused it, or marked "proxy" when it was read through the fallback proxy; "not read" when its reader failed), the step timings,
+  the readers and the editor, usage at list price, the proxy's estimated bytes against its cap, and the event counts after
   each step. The agenda's header line links to it in place of the old sources
   list at the bottom. Its text comes from counts, fixed outcome words, source
   labels and URLs and short scrubbed error strings, never from a reader's or the
@@ -87,6 +87,37 @@ and each has its own traps.
   hosts not yet started, writes nothing and exits 130. The runner also holds
   an adapter to its contract: a result of the wrong shape, or a request to a
   host other than the source's own, fails that source rather than the run.
+- **A residential proxy, only as a fallback.** When `FALLBACK_PROXY_URL` is set
+  (CI only), a host whose direct request is refused is read through the proxy
+  ([why](/decisions/0004-a-residential-proxy-for-the-sites-that-refuse-github-runners.md)).
+  Direct is always first. The one trigger is a timeout, a connection reset or
+  refusal by the site, HTTP 403 or a 5xx (`triggersFallback` in
+  `src/net-errors.ts`); not a 429 (a throttle, respected), a TLS verification
+  error, a DNS failure, a 404 or other 4xx, a redirect refusal or a parse
+  failure. The refused request is retried once through the proxy, and the host's
+  remaining requests, other sources' list pages and follows, go through it with
+  no second direct attempt; a follow refused directly switches the host the same
+  way. The delay and order are unchanged, and a refusal through the proxy ends
+  the host as a refusal does. The proxied request is the same request: the same
+  User-Agent and headers, timeout and redirect rules, and HTTPS through CONNECT
+  with TLS verified end to end against the same CA list. Every proxied request
+  opens its own tunnel (keepalive off); direct and proxied connections are never
+  shared. **Proxy failures are not site refusals.** A 407 or 402 from the gateway, or
+  a proxy that cannot be reached (ECONNREFUSED or ENOTFOUND on its host), marks it
+  dead for the run; a gateway 5xx ends only that host ("proxy failed: 502");
+  the source fails with those words, is not marked refused, and the budget gives
+  "proxy budget reached". **The budget** (`FALLBACK_PROXY_MAX_MB`, 30 MB) is an
+  estimate: body bytes plus 2 KB a request and 8 KB a tunnel, counted per host and
+  per run (`ProxyGateway` in `src/net.ts`); the provider's own traffic cap is
+  the real limit. `index.json` gets `via` per source, `collect_s` and, when the
+  proxy is on, `proxy` (bytes, cap, why dead, bytes per host). **The secret stays in
+  one step.** Errors are built from fields and scrubbed of the proxy's host, user
+  and password, raw and percent-decoded; collect prints `::add-mask::` for them on stderr only (stdout may be tee'd into an uploaded file) in
+  Actions. The variable is `FALLBACK_PROXY_URL`, never `HTTP(S)_PROXY`, which Bun
+  would read for direct requests too. `build.yml` runs collect as a step of its
+  own with the secret, into `$RUNNER_TEMP/collected`, and the build step takes
+  `--collected` without it, so it is never in the process tree that runs
+  `claude`; `src/build.ts` also drops it from the claude environment.
 - **Two stages: list pages, then capped event pages.** A card often lacks the
   time, the venue or a real title that the event's own page has (Torres Vedras
   256173 gives the time; the cards of some sites give a generic title). So an
@@ -193,12 +224,15 @@ GitHub Actions workflow; the `claude -p` readers and editor are confined to file
   input and two assets and writes one file; nothing it writes fetches anything
   when opened (no remote script, stylesheet or font).
 - It names third-party sites, because they are its subject.
-- A site that refuses (a 403) or does not answer is recorded as failed and not
-  retried another way. After a refusal (403, 429, a 5xx), a timeout or a
+- A site that refuses (a 403) or does not answer is retried once through the
+  fallback proxy when one is configured, and otherwise, or after the proxy
+  refuses too, recorded as failed. Never proxy first, and never for a path a site's
+  robots.txt disallows; the source list stays the reviewed one. After a refusal (403, 429, a 5xx), a timeout or a
   connection error the rest of that site's pages are skipped, and requests to
   one site are spaced by that host's delay. GoTrail and Running.life refused the
   script with a 403 while a browser got the page; a fallback to `curl` was
-  built and removed, because getting round a refusal was not this script's call then,
+  built and removed, because getting round a refusal was not this script's call then
+  (the user withdrew that rule on 2026-10-21 and chose the proxy instead),
   and both were later dropped for Portugal Running. Some sites throttle a
   visitor after repeated runs, so the README says never to fetch a source
   repeatedly.
@@ -244,7 +278,7 @@ dark.
 
 `test/` holds offline unit tests (`bun test`), run in CI: the runner (fake clock,
 result order), the adapters on small hand-written fixtures and on saved pages,
-`src/merge.ts`, and the renderer's validation, ids,
+`src/merge.ts`, the proxy fallback (`test/proxy.test.ts`: a local CONNECT proxy and HTTPS origin with throwaway fixture certificates, and a fake proxy fetcher beside the direct one), and the renderer's validation, ids,
 escaping, byte-stable sample and its rules for `page.js`. A live run is not in
 CI: the sources change and some throttle. No eval measures the model's reading.
 The gap: `page.js` behaviour (bands, filters, `.ics`) is checked in headless

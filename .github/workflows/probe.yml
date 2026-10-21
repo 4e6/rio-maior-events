@@ -25,10 +25,17 @@ jobs:
         run: |
           UA=$(bun -e 'import { USER_AGENT } from "./src/net.ts"; console.log(USER_AGENT)')
           NODE_EXTRA_CA_CERTS=certs/intermediates.pem bun tools/probe_bun.ts "$UA" | tee bun.txt
+      - name: Fetch the sites that refuse a direct request through the fallback proxy
+        # Optional: skipped without the secret. One GET per site; prints statuses only.
+        env:
+          FALLBACK_PROXY_URL: ${{ secrets.FALLBACK_PROXY_URL }}
+        # Writes proxy.txt itself; its stdout is not piped anywhere, and the masks go to stderr only.
+        run: bun tools/probe_proxy.ts proxy.txt
       - uses: actions/upload-artifact@v4
         with:
           name: probe-summary
           path: |
             summary.txt
             bun.txt
+            proxy.txt
           retention-days: 7

@@ -5,9 +5,9 @@ import { ADAPTERS } from "./adapters/index.ts";
 import { defaultDetails } from "./adapters/common.ts";
 import { AdapterError } from "./adapters/types.ts";
 import type { Adapter, Config, Detail, Page, ParseResult, Request, Source, SourceResult, Window } from "./adapters/types.ts";
-import { classifyFailure, classifyFollowFailure } from "./net-errors.ts";
-import { fetchFollow, fetchPage, garbled, toPage } from "./net.ts";
-import type { Fetcher } from "./net.ts";
+import { classifyFailure, classifyFollowFailure, ProxyError, triggersFallback } from "./net-errors.ts";
+import { fetchFollow, fetchPage, garbled, ProxyGateway, toPage } from "./net.ts";
+import type { FetchResult, Fetcher } from "./net.ts";
 import { defaultEnd, lisbonToday, localIsoNow, parseIsoDate } from "./py/datetime.ts";
 import { cpLen } from "./py/str.ts";
 import { cleanUrl, hostOf, sameSite } from "./url.ts";
@@ -24,6 +24,17 @@ export interface Outcome {
   error: string | null;
   /** The site refused or did not answer (a 403/429/5xx, a timeout, a connection error), here or earlier on its host. */
   refused?: boolean;
+  /** Some request of the source went through the fallback proxy. */
+  viaProxy?: boolean;
+}
+
+/** The fallback proxy as collect sees it: a fetcher pair, and (optionally) what it has used. */
+export interface ProxyFetchers {
+  fetch: Fetcher;
+  followFetch: Fetcher;
+  /** False when the proxy is dead or out of budget: a refused host then stays a direct refusal. */
+  available?: () => boolean;
+  stats?: () => { bytes: number; max_bytes: number; dead: string | null; hosts: Record<string, number> };
 }
 
 /** Everything collectAll lets a test replace (collect.collect_all's fetch/sleep/clock/max_workers/report/follow_fetch). */
@@ -45,6 +56,8 @@ export interface CollectDeps {
   defaultDetails?: Adapter["details"];
   /** Aborted by SIGINT/SIGTERM: no further request is made. Replaces threading.Event `stop`. */
   signal?: AbortSignal;
+  /** The fallback proxy: a host whose direct request is refused (net-errors.triggersFallback) goes through it. Default: none. */
+  proxy?: ProxyFetchers | null;
 }
 
 const abortError = (): Error => Object.assign(new Error("interrupted"), { name: "AbortError" });
@@ -104,17 +117,18 @@ export async function collectAll(sources: Source[], window: Window, hosts: Confi
   const work = async (host: string, entries: [Source, Request[]][]): Promise<void> => {
     const byName = new Map(entries.map(([s]) => [s.name, s] as const));
     await runHost(host, entries.map(([s, r]) => [s.name, r] as [string, Request[]]), {
-      fetch, sleep, clock, delay: delayOf(host), signal, followFetch,
+      fetch, sleep, clock, delay: delayOf(host), signal, followFetch, proxy: deps.proxy,
       onDone(name, outcome) {
         const [result, follow] = parseOutcome(byName.get(name)!, outcome, window, parseDeps.adapters);
         results.set(name, result);
         report(summaryLine(result));
         return follow;
       },
-      onFollowed(name, pages) {
+      onFollowed(name, pages, viaProxy) {
         const details = buildDetails(byName.get(name)!, pages, window, parseDeps.adapters, parseDeps.defaultDetails);
         const result = results.get(name)!;
         result.details = details;
+        if (viaProxy) result.via = "proxy";
         report(detailsLine(result));
       },
     });
@@ -162,9 +176,11 @@ export function planRequests(source: Source, window: Window, adapters: Record<st
 /** collect.run_host: one host's requests in turn (async); see the Python docstring for the refusal rules. */
 export async function runHost(host: string, jobs: [name: string, requests: Request[]][], deps: Required<Pick<CollectDeps, "fetch" | "sleep" | "clock">> & {
   delay: number; onDone?: (name: string, outcome: Outcome) => Request[] | null | undefined; signal?: AbortSignal;
-  followFetch?: Fetcher; onFollowed?: (name: string, pages: Page[]) => void;
+  followFetch?: Fetcher; onFollowed?: (name: string, pages: Page[], viaProxy: boolean) => void;
+  /** The fallback proxy; see CollectDeps.proxy. */
+  proxy?: ProxyFetchers | null;
 }): Promise<Record<string, Outcome>> {
-  const { fetch, sleep, clock, delay, onDone, signal, onFollowed } = deps;
+  const { fetch, sleep, clock, delay, onDone, signal, onFollowed, proxy } = deps;
   const followFetch = deps.followFetch ?? fetch;
   const outcomes: Record<string, Outcome> = {};
   const wanted: [string, Request[]][] = [];
@@ -181,6 +197,33 @@ export async function runHost(host: string, jobs: [name: string, requests: Reque
     return true;
   };
 
+  // Direct first. The first refusal (net-errors.triggersFallback) switches the host to the proxy: that request is
+  // retried once through it and every later request of the host goes through it, with no second direct attempt.
+  let viaProxy = false;
+  const STOPPED = Symbol("stopped");
+  const go = async (request: Request, follow: boolean): Promise<FetchResult> => {
+    const direct = follow ? followFetch : fetch;
+    const proxied = follow ? proxy?.followFetch : proxy?.fetch;
+    if (!viaProxy || !proxied) {
+      try {
+        return await direct(request.url, follow ? null : request.data, signal);
+      } catch (err) {
+        if (!proxied || !triggersFallback(err) || proxy?.available?.() === false) throw err;
+        viaProxy = true;
+      }
+      lastEnd = clock();
+      if (!(await pause())) throw STOPPED;
+    }
+    return proxied!(request.url, follow ? null : request.data, signal);
+  };
+  /** The proxy failed or ran out of budget: ends the host without counting as the site refusing. */
+  let proxyStopped: string | null = null;
+  const stopOnProxy = (err: unknown): boolean => {
+    if (!(err instanceof ProxyError)) return false;
+    proxyStopped = err.message;
+    return true;
+  };
+
   let refused = false;
   for (const [name, requests] of jobs) {
     if (signal?.aborted) break;
@@ -188,20 +231,26 @@ export async function runHost(host: string, jobs: [name: string, requests: Reque
     if (refused) {
       outcome.error = `skipped: ${host} refused or did not answer`;
       outcome.refused = true;
+    } else if (proxyStopped) {
+      outcome.error = `skipped: ${proxyStopped}`;
     } else {
       const pages: Page[] = [];
       for (const request of requests) {
         if (!(await pause())) return outcomes;
         try {
-          const result = await fetch(request.url, request.data, signal);
+          const result = await go(request, false);
+          if (viaProxy) outcome.viaProxy = true;
           outcome.status = result.status;
           if (garbled(result.body, result.contentType)) outcome.error = "unreadable response (binary or garbled)";
           else pages.push({ url: request.url, status: result.status, body: result.body, contentType: result.contentType });
         } catch (err) {
+          if (err === STOPPED) return outcomes;
+          if (viaProxy) outcome.viaProxy = true;
           const failure = classifyFailure(err);
           if (failure.status !== null) outcome.status = failure.status;
           outcome.error = failure.message;
-          if (failure.refused) { refused = true; outcome.refused = true; }
+          if (stopOnProxy(err)) { /* the host ends, the site did not refuse */ }
+          else if (failure.refused) { refused = true; outcome.refused = true; }
         } finally {
           lastEnd = clock();
         }
@@ -214,8 +263,9 @@ export async function runHost(host: string, jobs: [name: string, requests: Reque
     if (follows && follows.length > 0 && !outcome.error) wanted.push([name, follows]);
   }
 
-  if (refused || wanted.length === 0) return outcomes;
+  if (refused || proxyStopped || wanted.length === 0) return outcomes;
   const got = new Map<string, Page | null>(); // url asked for -> Page, or null when it failed
+  const proxiedUrls = new Set<string>();
   outer:
   for (const [, urls] of wanted) {
     for (const request of urls) {
@@ -223,9 +273,12 @@ export async function runHost(host: string, jobs: [name: string, requests: Reque
       got.set(request.url, null);
       if (!(await pause())) return outcomes;
       try {
-        const result = await followFetch(request.url, null, signal);
+        const result = await go(request, true);
+        if (viaProxy) proxiedUrls.add(request.url);
         if (!garbled(result.body, result.contentType)) got.set(request.url, toPage(request, result));
       } catch (err) {
+        if (err === STOPPED) return outcomes;
+        if (viaProxy) proxiedUrls.add(request.url);
         if (classifyFollowFailure(err) === "stop") break outer; // a refusal ends the host's follows
       } finally {
         lastEnd = clock();
@@ -235,7 +288,7 @@ export async function runHost(host: string, jobs: [name: string, requests: Reque
   if (onFollowed) {
     for (const [name, urls] of wanted) {
       const pages = urls.map((r) => got.get(r.url)).filter((p): p is Page => !!p);
-      if (pages.length > 0) onFollowed(name, pages);
+      if (pages.length > 0) onFollowed(name, pages, urls.some((r) => proxiedUrls.has(r.url)));
     }
   }
   return outcomes;
@@ -249,6 +302,7 @@ export function newResult(source: Source, outcome: Outcome): SourceResult {
     error: outcome.error, note: null, items: [], past: [],
     text: null, truncated: false, details: [],
     ...(outcome.refused ? { refused: true } : {}),
+    ...(outcome.viaProxy ? { via: "proxy" as const } : {}),
   };
 }
 
@@ -326,9 +380,10 @@ const pad30 = (s: string): string => s + " ".repeat(Math.max(0, 30 - cpLen(s)));
 
 /** collect.summary_line */
 export function summaryLine(result: SourceResult): string {
-  if (!result.ok) return `${pad30(result.name)} FAILED  ${result.error}`;
+  const via = result.via === "proxy" ? " (via proxy)" : "";
+  if (!result.ok) return `${pad30(result.name)} FAILED  ${result.error}${via}`;
   const text = result.text === null ? "" : `, ${cpLen(result.text)} chars of text`;
-  return `${pad30(result.name)} ok  ${result.items.length} items${text}${result.truncated ? " (truncated)" : ""}`;
+  return `${pad30(result.name)} ok  ${result.items.length} items${text}${result.truncated ? " (truncated)" : ""}${via}`;
 }
 
 /** collect.details_line */
@@ -344,17 +399,20 @@ export function loadConfig(path: string = SOURCES_PATH): Config {
 const dumps = (value: unknown): string => JSON.stringify(value, null, 1) + "\n";
 
 /** collect.write_output: index.json and one <group>.json per group in outDir (JSON.stringify(x, null, 1) + "\n"). */
-export function writeOutput(outDir: string, collectedAt: string, window: Window, groups: string[], sources: Source[], results: SourceResult[]): unknown {
+export function writeOutput(outDir: string, collectedAt: string, window: Window, groups: string[], sources: Source[], results: SourceResult[],
+  extra: { collect_s?: number; proxy?: ReturnType<NonNullable<ProxyFetchers["stats"]>> } = {}): unknown {
   mkdirSync(outDir, { recursive: true });
   const groupOf = new Map(sources.map((s) => [s.name, s.group] as const));
   const span = { start: window[0], end: window[1] };
-  const index: { collected_at: string; window: typeof span; groups: Record<string, { file: string; sources: string[] }>; sources: unknown[] } =
+  const index: { collected_at: string; collect_s?: number; proxy?: unknown; window: typeof span; groups: Record<string, { file: string; sources: string[] }>; sources: unknown[] } =
     { collected_at: collectedAt, window: span, groups: {}, sources: [] };
+  if (extra.collect_s !== undefined) index.collect_s = extra.collect_s;
+  if (extra.proxy) index.proxy = extra.proxy;
   for (const group of groups) {
     const names = sources.filter((s) => s.group === group).map((s) => s.name);
     if (names.length === 0) continue;
     index.groups[group] = { file: group + ".json", sources: names };
-    const body = { collected_at: collectedAt, window: span, group, sources: results.filter((r) => groupOf.get(r.name) === group).map(({ refused: _refused, ...rest }) => rest) };
+    const body = { collected_at: collectedAt, window: span, group, sources: results.filter((r) => groupOf.get(r.name) === group).map(({ refused: _refused, via: _via, ...rest }) => rest) };
     writeFileSync(join(outDir, group + ".json"), dumps(body));
   }
   sources.forEach((source, i) => {
@@ -362,7 +420,7 @@ export function writeOutput(outDir: string, collectedAt: string, window: Window,
     index.sources.push({
       name: source.name, group: source.group, town: source.town,
       adapter: source.adapter, url: source.url, ok: result.ok,
-      status: result.status, error: result.error, refused: result.refused === true, note: result.note,
+      status: result.status, error: result.error, refused: result.refused === true, via: result.via === "proxy" ? "proxy" : "direct", note: result.note,
       items: result.items.length, past: result.past.length,
       chars: cpLen(result.text || ""), details: result.details.length,
     });
@@ -416,6 +474,8 @@ export interface MainDeps extends CollectDeps {
   err?: (line: string) => void;
   /** Where sources.json is. Default: sources.json. */
   config?: Config;
+  /** The environment FALLBACK_PROXY_URL and FALLBACK_PROXY_MAX_MB are read from. Default: process.env. */
+  env?: Record<string, string | undefined>;
 }
 
 /** collect.main(argv): returns the exit code (0, 2, 130). */
@@ -432,6 +492,23 @@ export async function main(argv: string[], deps: MainDeps = {}): Promise<number>
     err(`collect.ts: error: ${args}`);
     return 2;
   }
+
+  // The fallback proxy, only when FALLBACK_PROXY_URL is set. Nothing about it is printed except the masks Actions needs.
+  const env = deps.env ?? process.env;
+  let proxy: ProxyFetchers | null | undefined = deps.proxy;
+  if (proxy === undefined) {
+    try {
+      proxy = ProxyGateway.fromEnv(env);
+    } catch (e) {
+      err(`FALLBACK_PROXY_URL ignored: ${errMessage(e)}`);
+      proxy = null;
+    }
+  }
+  if (proxy instanceof ProxyGateway && env.GITHUB_ACTIONS === "true") {
+    // stderr only: stdout may be tee'd into a file that is uploaded
+    for (const value of proxy.maskValues()) if (!/[\r\n]/.test(value)) err(`::add-mask::${value}`);
+  }
+  if (proxy) out(`fallback proxy on: a host that refuses a direct request is read through it${proxy instanceof ProxyGateway ? `, at most ${Math.round(proxy.maxBytes / 1048576)} MB` : ""}`);
 
   const config = deps.config ?? loadConfig();
   const sources = config.sources;
@@ -476,9 +553,10 @@ export async function main(argv: string[], deps: MainDeps = {}): Promise<number>
   process.on("SIGINT", onSigint);
   process.on("SIGTERM", stop);
   let results: SourceResult[];
+  const collectStart = Date.now();
   try {
     results = await collectAll(chosen, window, config.hosts, config.default_delay ?? 1.5,
-      { ...deps, signal: controller.signal, report: deps.report ?? out });
+      { ...deps, proxy, signal: controller.signal, report: deps.report ?? out });
   } catch (e) {
     if (controller.signal.aborted) {
       err("interrupted; nothing written");
@@ -497,11 +575,14 @@ export async function main(argv: string[], deps: MainDeps = {}): Promise<number>
   }
   let index: { groups: Record<string, unknown> };
   try {
-    index = writeOutput(args.out, localIsoNow(now), window, Object.keys(config.groups), chosen, results) as typeof index;
+    index = writeOutput(args.out, localIsoNow(now), window, Object.keys(config.groups), chosen, results,
+      { collect_s: Math.round((Date.now() - collectStart) / 100) / 10, proxy: proxy?.stats?.() }) as typeof index;
   } catch (e) {
     err(`cannot write ${args.out}: ${errMessage(e)}`);
     return 2;
   }
+  const used = proxy?.stats?.();
+  if (used) out(`fallback proxy: about ${(used.bytes / 1048576).toFixed(1)} MB of ${Math.round(used.max_bytes / 1048576)} MB used${used.dead ? `, ${used.dead}` : ""}`);
   out(`wrote ${args.out}: ${ok} sources ok, ${results.length - ok} failed in ${Object.keys(index.groups).length} groups`);
   return 0;
 }

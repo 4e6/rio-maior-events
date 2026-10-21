@@ -164,6 +164,24 @@ describe("status data", () => {
 describe("status page", () => {
   const html = (over: Partial<StatusInput> = {}) => renderStatus(buildStatus(input(over)), "/*css*/", "/*status*/");
 
+  test("a source read through the fallback proxy gets a pill, and the run shows the bytes used", () => {
+    const base = input();
+    const index = { ...base.index, proxy: { bytes: 3 * 1048576, max_bytes: 30 * 1048576, dead: null, hosts: { "a1.example.org": 1 } },
+      sources: base.index.sources.map((s: Json) => (s.name === "a1" ? { ...s, via: "proxy" } : { ...s, via: "direct" })) };
+    const d = buildStatus(input({ index }));
+    expect(src(d, "a1").via_proxy).toBe(true);
+    expect(src(d, "b1").via_proxy).toBe(false);
+    expect(d.proxy).toEqual({ bytes: 3 * 1048576, max_bytes: 30 * 1048576, dead: null });
+    const h = renderStatus(d, "", "");
+    expect(h.match(/<span class="pill">proxy<\/span>/g)).toHaveLength(1);
+    expect(h).toContain("Fallback proxy");
+    expect(h).toContain("1 source read that way, about 3.0 MB of 30.0 MB");
+    expect(h).not.toContain("a1.example.org\": 1");
+    // off: no proxy line
+    expect(buildStatus(input()).proxy).toBeNull();
+    expect(renderStatus(buildStatus(input()), "", "")).not.toContain("Fallback proxy");
+  });
+
   test("shows the sources table, the readers and the totals", () => {
     const h = html();
     expect(h).toContain("Build status");

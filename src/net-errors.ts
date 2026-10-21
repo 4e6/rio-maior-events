@@ -28,6 +28,16 @@ export class RedirectRefused extends Error {
   override name = "RedirectRefused";
 }
 
+/** The fallback proxy failed or its budget is spent: not a refusal by the site. The message is built from fields
+ *  only ("proxy failed: 502", "proxy failed: ECONNREFUSED", "proxy budget reached"), never from the underlying error.
+ *  `dead`: the proxy is unusable for the rest of the run (407/402 from the gateway, or it cannot be reached). */
+export class ProxyError extends Error {
+  override name = "ProxyError";
+  constructor(message: string, public dead = false) {
+    super(message);
+  }
+}
+
 /** What run_host records for a failed list request. */
 export interface Failure {
   /** HTTP status when the error is an HttpError, else null. */
@@ -45,6 +55,7 @@ export function classifyFailure(err: unknown): Failure {
   if (err instanceof HttpError) {
     return { status: err.code, message: `HTTP ${err.code} ${err.reason}`, refused: isRefusalCode(err.code) };
   }
+  if (err instanceof ProxyError) return { status: null, message: err.message, refused: false };
   const e = err as { name?: string; message?: string };
   const message = `${e?.name ?? "Error"}: ${e?.message ?? String(err)}`;
   return { status: null, message, refused: err instanceof TimeoutError || err instanceof NetworkError };
@@ -54,6 +65,17 @@ export function classifyFailure(err: unknown): Failure {
  *  "skip" = RedirectRefused, other HTTP codes and other errors; "stop" = a refusal (403/429/>=500,
  *  timeout, network error), which ends the host's follows. */
 export function classifyFollowFailure(err: unknown): "skip" | "stop" {
+  if (err instanceof ProxyError) return "stop";
   if (err instanceof HttpError) return isRefusalCode(err.code) ? "stop" : "skip";
   return err instanceof TimeoutError || err instanceof NetworkError ? "stop" : "skip";
+}
+
+/** The one definition of "the site refused our direct request": a timeout, a connection reset or refusal by the site,
+ *  HTTP 403 or HTTP 5xx. Not a 429 (a throttle, respected), a TLS verification error, a DNS failure, a 404 or other 4xx,
+ *  a redirect refusal, or a parse failure. Only then may a host fall back to the proxy. */
+export function triggersFallback(err: unknown): boolean {
+  if (err instanceof HttpError) return err.code === 403 || err.code >= 500;
+  if (err instanceof TimeoutError) return true;
+  if (err instanceof NetworkError) return err.code === "ECONNRESET" || err.code === "ECONNREFUSED" || err.code === "ConnectionClosed";
+  return false;
 }

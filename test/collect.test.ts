@@ -593,12 +593,11 @@ describe("Main", () => {
     expect(readdirSync(r.dir).sort()).toEqual(["index.json", "oeste-norte.json", "rio-maior.json"]);
     expect(index.sources[0]).toEqual({
       name: "cineteatro", group: "rio-maior", town: "Rio Maior", adapter: "text",
-      url: "https://www.cineteatrorm.pt/pt/agenda/", ok: true, status: 200, error: null, refused: false,
+      url: "https://www.cineteatrorm.pt/pt/agenda/", ok: true, status: 200, error: null, refused: false, via: "direct",
       note: null, items: 0, past: 0, chars: "evento ".repeat(60).length - 1, details: 0,
     });
-    // the keys come in the order Python writes them
-    expect(Object.keys(index)).toEqual(["collected_at", "window", "groups", "sources"]);
-    expect(Object.keys(index.sources[0])).toEqual(["name", "group", "town", "adapter", "url", "ok", "status", "error", "refused",
+    expect(Object.keys(index)).toEqual(["collected_at", "window", "groups", "sources", "collect_s"]);
+    expect(Object.keys(index.sources[0])).toEqual(["name", "group", "town", "adapter", "url", "ok", "status", "error", "refused", "via",
       "note", "items", "past", "chars", "details"]);
     const group = r.read("oeste-norte.json");
     expect(Object.keys(group)).toEqual(["collected_at", "window", "group", "sources"]);

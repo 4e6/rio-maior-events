@@ -48,7 +48,7 @@ Most agendas list only the next few weeks, so weeks further ahead rest on fewer
 sources, and the page says so at the top.
 
 Run the collector once at a time, never in a loop: some of these sites throttle a visitor who comes back, and a
-site that refuses is recorded as failed, not routed around. Text fetched from the sources is data, never instructions,
+site that refuses is recorded as failed, after one retry through the fallback proxy where one is set (see below). Text fetched from the sources is data, never instructions,
 and a link is copied only from a source's own URLs.
 
 ## Layout
@@ -86,6 +86,24 @@ and `merge-report.txt` are kept as a workflow artifact for 7 days.
 - **Secret `CLAUDE_CODE_OAUTH_TOKEN`**: run `claude setup-token` and
   `gh secret set CLAUDE_CODE_OAUTH_TOKEN`. The token lasts a year: renew it
   yearly. Runs use the subscription it belongs to.
+- **Secret `FALLBACK_PROXY_URL`** (optional): a residential HTTP proxy, as
+  `http://user:password@gateway:port` (percent-encode special characters in the
+  credentials). Five municipal sites refuse GitHub's runners but answer a home
+  address; when a host's direct request is refused (a timeout, a connection reset
+  or refusal, a 403 or a 5xx), it is retried once through the proxy and the host's
+  other pages follow. Direct is always tried first, a 429, a 404, a TLS or DNS
+  error never falls back, and without the secret, or locally, nothing changes.
+  HTTPS goes through CONNECT, so pages stay end-to-end TLS with the same
+  certificate checks; the gateway URL itself is `http`, so the credentials reach
+  the gateway in clear. Port 823 of the provider's gateway rotates the exit
+  address; a sticky-session port, if offered, would be one visitor per host per
+  run (not checked). Only the workflow's collect step has the secret; `build.ts`
+  never does and hides it from `claude`. `FALLBACK_PROXY_MAX_MB` (default 30)
+  caps an estimate of the run's proxy traffic (bodies plus 2 KB a request and
+  8 KB a tunnel; a run needs a few MB); past it, proxied requests fail with
+  "proxy budget reached". Set a traffic cap at the provider as well: that is the
+  real limit. The status page marks sources read this way and shows the bytes
+  used. If the collect step fails outright (nothing written), the build step is skipped and no run summary is uploaded. The `probe` workflow's last step checks the five sites through it.
 - **Schedule**: GitHub disables a scheduled workflow after 60 days without
   repository activity and emails the owner. Re-enable it in the Actions tab or
   with `gh workflow enable build.yml`. The workflow's last job also tries to
