@@ -38,7 +38,6 @@ About 33 list pages a run, each read once, then up to about 180 event pages of t
   (Torres Novas), Teatro-Cine (Torres Vedras), Cine-Teatro de Alcobaça and the
   Centro Cultural e de Congressos in Caldas da Rainha.
 - **The race calendar** of Portugal Running, for road races and trails.
-- **Eventbrite**.
 
 Gaps: Facebook and Instagram are not read, and the Cineteatro now announces
 mostly there. Azambuja, Alpiarça, Salvaterra de Magos, Golegã and Tomar have no
