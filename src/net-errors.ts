@@ -38,14 +38,22 @@ export interface Failure {
   refused: boolean;
 }
 
+const isRefusalCode = (code: number) => code === 403 || code === 429 || code >= 500;
+
 /** Python counterpart: the except chain in collect.run_host for a list request. */
-export function classifyFailure(_err: unknown): Failure {
-  throw new Error("not ported");
+export function classifyFailure(err: unknown): Failure {
+  if (err instanceof HttpError) {
+    return { status: err.code, message: `HTTP ${err.code} ${err.reason}`, refused: isRefusalCode(err.code) };
+  }
+  const e = err as { name?: string; message?: string };
+  const message = `${e?.name ?? "Error"}: ${e?.message ?? String(err)}`;
+  return { status: null, message, refused: err instanceof TimeoutError || err instanceof NetworkError };
 }
 
 /** Python counterpart: the except chain in collect.run_host for a followed page:
  *  "skip" = RedirectRefused, other HTTP codes and other errors; "stop" = a refusal (403/429/>=500,
  *  timeout, network error), which ends the host's follows. */
-export function classifyFollowFailure(_err: unknown): "skip" | "stop" {
-  throw new Error("not ported");
+export function classifyFollowFailure(err: unknown): "skip" | "stop" {
+  if (err instanceof HttpError) return isRefusalCode(err.code) ? "stop" : "skip";
+  return err instanceof TimeoutError || err instanceof NetworkError ? "stop" : "skip";
 }
