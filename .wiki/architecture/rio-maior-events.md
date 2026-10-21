@@ -10,7 +10,8 @@ sources:
   - resource: references/**
   - resource: test/**
   - resource: .github/workflows/**
-sources_digest: fb15085479ec683a
+  - resource: certs/**
+sources_digest: 526448421c546365
 ---
 
 # What it is
