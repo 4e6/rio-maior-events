@@ -15,7 +15,7 @@ import { cleanUrl, hostOf, sameSite } from "./url.ts";
 export { defaultEnd, lisbonToday };
 
 export const MAX_WORKERS = 8;
-export const SOURCES_PATH = join(import.meta.dir, "..", "scripts", "sources.json");
+export const SOURCES_PATH = join(import.meta.dir, "..", "sources.json");
 
 /** collect.run_host's per-source record. */
 export interface Outcome {
@@ -332,7 +332,7 @@ export function detailsLine(result: SourceResult): string {
   return `${pad30(result.name)}    ${result.details.length} event pages read`;
 }
 
-/** collect.load_config (scripts/sources.json, kept there until the switch-over is done). */
+/** collect.load_config (sources.json). */
 export function loadConfig(path: string = SOURCES_PATH): Config {
   return JSON.parse(readFileSync(path, "utf8")) as Config;
 }
@@ -410,7 +410,7 @@ export interface MainDeps extends CollectDeps {
   /** stdout / stderr lines. Default: console.log / console.error. */
   out?: (line: string) => void;
   err?: (line: string) => void;
-  /** Where sources.json is. Default: scripts/sources.json. */
+  /** Where sources.json is. Default: sources.json. */
   config?: Config;
 }
 

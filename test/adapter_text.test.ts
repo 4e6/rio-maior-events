@@ -10,7 +10,7 @@ import { ROOT, fixtureText } from "./helpers.ts";
 
 const enc = (s: string) => new TextEncoder().encode(s);
 const req = (url: string) => ({ url, data: null });
-const sources = (): Source[] => JSON.parse(readFileSync(join(ROOT, "scripts", "sources.json"), "utf-8")).sources;
+const sources = (): Source[] => JSON.parse(readFileSync(join(ROOT, "sources.json"), "utf-8")).sources;
 
 describe("Follows", () => {
   const source = { name: "s", url: "https://example.org/agenda", town: "T", adapter: "text", label: "", group: "",

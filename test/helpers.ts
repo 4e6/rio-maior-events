@@ -1,9 +1,9 @@
-// Port of tests/python/helpers.py. Fixtures stay where they are (tests/python/fixtures); they are not copied.
+// Helpers for the adapter tests. Page fixtures live in test/fixtures/pages.
 import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 export const ROOT = resolve(import.meta.dir, "..");
-export const FIXTURES = join(ROOT, "tests", "python", "fixtures");
+export const FIXTURES = join(ROOT, "test", "fixtures", "pages");
 
 /** helpers.WINDOW */
 export const WINDOW = ["2026-10-20", "2026-12-01"] as const;

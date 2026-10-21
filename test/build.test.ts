@@ -174,14 +174,14 @@ describe("daily build", () => {
   });
 
   test("collect failing without an index stops the build", async () => {
-    const r = await build({}, { collect: "collect-fail.py" });
+    const r = await build({}, { collect: "collect-fail.ts" });
     expect(r.code).toBe(1);
     expect(r.html).toBeNull();
     expect(r.calls).toHaveLength(0);
   });
 
   test("collect failing after writing an index carries on", async () => {
-    const r = await build({}, { collect: "collect-partial.py" });
+    const r = await build({}, { collect: "collect-partial.ts" });
     expect(r.code).toBe(0);
     expect(r.html).toContain("Concerto rio-maior");
   });
