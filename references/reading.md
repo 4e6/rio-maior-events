@@ -30,7 +30,8 @@ The group file is `rio-maior-collected/<group>.json`:
   what a yearly event did last time. It is empty until an adapter fills it (no
   adapter fills it yet); until then, hints come only from the known
   yearly list in sources.md.
-- `text`: the page's visible text, for sources that give no items.
+- `text`: the page's visible text, for sources that give no items (or only
+  the days of a mini calendar, see below).
 - `note`: what the script noticed, such as a page that shows the current month
   only.
 - `details`: for a source whose event pages the script fetched, one entry per
@@ -44,11 +45,17 @@ the marker line at or just before the line of the card's title. A marker
 separated from a card's title by another card's text belongs to nobody, and a
 card with no marker cites the agenda page (the source's `url`). The same marker
 can appear more than once (a card shown twice); that is one page. Markers are
-never text of the event, only addresses. On some sites (Torres Novas,
-Entroncamento, Vila Nova da Barquinha) the link is a day of the mini calendar:
-the line after the marker is the link's title, which names the event, and the
-event's day is the number on the line AFTER that title, not the one before the
-marker (in "27 / <marker> / Banda da Armada / 28" the concert is on the 28th).
+never text of the event, only addresses. On some sites (Torres Novas, Alcanena,
+Entroncamento, Vila Nova da Barquinha) the link is a day of the mini calendar,
+and the script reads that calendar from the page itself: the event's day is the
+`start` of its `items` entry (a date alone). The numbers in the text around
+such a marker are the calendar grid, not dates of the event. A day with several
+events is a bare day number with no marker, and gives no item. An item gives
+the event's first date only (the calendar marks the first day, no end): when
+the same source's card or the event's own page gives more dates, sessions or an
+end, those win for those facts. If the source's `note` says "mini calendar not
+found", there are no such items: the day is then the number after the title
+(in "27 / <marker> / Banda da Armada / 28" the concert is on the 28th).
 
 ### Event pages
 

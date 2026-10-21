@@ -37,7 +37,7 @@ export interface Source {
   cap?: number;
   /** How many event pages to fetch at most (default 0: none). */
   follow?: number;
-  /** Per-adapter options: riomaior_calendar {categories}, events_calendar {window_params},
+  /** Per-adapter options: text {mini_calendar}, riomaior_calendar {categories}, events_calendar {window_params},
    *  cadaval_api {site}, municipal_rss {page}. */
   options?: Record<string, any>;
 }

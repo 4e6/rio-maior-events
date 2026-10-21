@@ -30,9 +30,14 @@ export type StatusInput = {
 // --- small helpers ---------------------------------------------------------------------------
 
 /** A short one-line piece of text that is safe to show: no control characters, no absolute paths. */
+export function scrubPaths(text: unknown): string {
+  const s = String(text ?? "").replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim();
+  return s.replace(/(^|[\s("'=,;])(?:[A-Za-z]:)?[\\/][^\s"')]*[\\/][^\s"')]*/g, "$1…");
+}
+
+/** scrubPaths, cut to `max` characters. */
 export function scrub(text: unknown, max = 90): string {
-  let s = String(text ?? "").replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim();
-  s = s.replace(/(^|[\s("'=,;])(?:[A-Za-z]:)?[\\/][^\s"')]*[\\/][^\s"')]*/g, "$1…");
+  const s = scrubPaths(text);
   return s.length > max ? s.slice(0, max - 1).trimEnd() + "…" : s;
 }
 
@@ -48,12 +53,14 @@ export function outcomeWord(reason: unknown): string {
 
 export function fmtDuration(seconds: number | null | undefined): string {
   if (seconds === null || seconds === undefined || !Number.isFinite(seconds)) return "-";
+  if (seconds < 0.5) return "<1 s";
   const s = Math.round(seconds);
   return s < 60 ? `${s} s` : `${Math.floor(s / 60)} min ${String(s % 60).padStart(2, "0")} s`;
 }
 
 const fmtNum = (n: number): string => n.toLocaleString("en-GB");
 const fmtChars = (n: number): string => (n >= 10_000 ? `${Math.round(n / 1000)}k` : n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n));
+const cents = (n: number): number => Math.round(n * 100) / 100;
 const usd = (n: number): string => `$${n.toFixed(2)}`;
 const plural = (n: number, one: string, many = one + "s"): string => `${fmtNum(n)} ${n === 1 ? one : many}`;
 
@@ -84,6 +91,16 @@ function links(env: StatusInput["env"]): { sha: string | null; commit_url: strin
 }
 
 const isDate = (s: unknown): s is string => typeof s === "string" && /^\d{4}-\d{2}(-\d{2})?$/.test(s);
+
+/** The furthest day an event shows: its start, or for an ongoing or multi-day one its end or the window's end, whichever is earlier. */
+function lastDay(e: Json, windowEnd: unknown): string | null {
+  const start = isDate(e.start_date) ? e.start_date : null;
+  if ((e.kind === "ongoing" || e.kind === "multi_day") && isDate(e.end_date) && e.end_date.length === 10) {
+    const cap = isDate(windowEnd) && windowEnd < e.end_date ? windowEnd : e.end_date;
+    return start && start > cap ? start : cap;
+  }
+  return start;
+}
 
 // --- the data ---------------------------------------------------------------------------------
 
@@ -133,7 +150,7 @@ export function buildStatus(input: StatusInput): Json {
     const events: Json[] = Array.isArray(file.events) ? file.events : [];
     candidateEvents += events.length;
     hints += Array.isArray(file.hints) ? file.hints.length : 0;
-    if (typeof file.coverage === "string" && file.coverage.trim()) coverage.push({ id, text: file.coverage.trim() });
+    if (typeof file.coverage === "string" && file.coverage.trim()) coverage.push({ id, text: scrubPaths(file.coverage) });
     for (const e of events) {
       const seen = new Set<string>();
       for (const src of Array.isArray(e?.sources) ? e.sources : []) {
@@ -143,7 +160,8 @@ export function buildStatus(input: StatusInput): Json {
           if (seen.has(id2)) continue;
           seen.add(id2);
           counts.set(id2, (counts.get(id2) ?? 0) + 1);
-          if (isDate(e.start_date) && (reach.get(id2) ?? "") < e.start_date) reach.set(id2, e.start_date);
+          const last = lastDay(e, index.window?.end);
+          if (last && (reach.get(id2) ?? "") < last) reach.set(id2, last);
         } else {
           const shown = scrub(name || "(no name)", 60);
           if (!seen.has("?" + shown)) { seen.add("?" + shown); unattributed.set(shown, (unattributed.get(shown) ?? 0) + 1); }
@@ -206,14 +224,14 @@ export function buildStatus(input: StatusInput): Json {
     commit: l.sha ? { sha: l.sha, short: l.sha.slice(0, 7), url: l.commit_url } : null,
     run_url: l.run_url || null,
     claude_code: env.CLAUDE_CODE_VERSION && /^[\w.+-]{1,32}$/.test(env.CLAUDE_CODE_VERSION) ? env.CLAUDE_CODE_VERSION : null,
-    models: { reader: summary.models?.reader ?? null, editor: summary.models?.editor ?? null },
+    models: { reader: summary.models?.reader == null ? null : scrub(summary.models.reader, 40), editor: summary.models?.editor == null ? null : scrub(summary.models.editor, 40) },
     split_chars: Number(summary.split_chars) || 0,
     timings: {
       total_s: timings.total_s ?? null, collect_s: timings.collect_s ?? null,
       reading: { wall_s: timings.read_s ?? null, slowest_s: Math.round(slowest * 10) / 10, sum_s: Math.round(readSum * 10) / 10 },
       editing: editorRounds, merge_s: timings.merge_s ?? null, finalize_s: timings.finalize_s ?? null, render_s: timings.render_s ?? null,
     },
-    usage_usd: { readers: readerCost, editor: editorCost, total: readerCost + editorCost },
+    usage_usd: { readers: cents(readerCost), editor: cents(editorCost), total: cents(readerCost + editorCost) },
     groups, sources,
     unattributed: [...unattributed].map(([name, events]) => ({ name, events })),
     readers: { rows: readerRows, units: readerRows.length, read: readerRows.filter((r) => r.outcome === "ok").length },
@@ -223,7 +241,7 @@ export function buildStatus(input: StatusInput): Json {
       after_finalize: f?.events ?? null, on_page: input.page.events, hints,
     },
     coverage,
-    note: input.page.note,
+    note: input.page.note === null ? null : scrubPaths(input.page.note),
   };
 }
 
@@ -277,10 +295,10 @@ function sourcesTable(d: Json): string {
     if (!mine.length) continue;
     const ok = mine.filter((s) => s.state === "ok").length;
     const events = mine.reduce((n, s) => n + (s.events ?? 0), 0);
-    rows.push(`<tr class="grp"><th colspan="7" scope="colgroup">${x(g.title)} <span class="sub">${ok} of ${mine.length} read, ${plural(events, "event")}</span></th></tr>`);
+    rows.push(`<tr class="grp"><th colspan="7" scope="colgroup">${x(g.title)} <span class="sub">${ok} of ${mine.length} read, ${fmtNum(events)} events read</span></th></tr>`);
     for (const s of mine) {
-      const chars = s.chars ? fmtChars(s.chars) + (s.truncated ? " cut" : "") : "-";
-      const detail = [s.town, s.list_items ? `${s.list_items} items` : "", s.event_pages ? `${s.event_pages} pages` : "", s.chars ? `${chars} chars` : ""].filter(Boolean).join(" · ");
+      const chars = s.chars ? fmtChars(s.chars) + (s.truncated ? ", cut" : "") : "-";
+      const detail = [s.town, s.list_items ? `${s.list_items} items` : "", s.event_pages ? `${s.event_pages} pages` : "", s.chars ? (s.truncated ? `${fmtChars(s.chars)} chars, cut` : `${chars} chars`) : ""].filter(Boolean).join(" · ");
       const events = s.state === "ok"
         ? `<td class="num">${fmtNum(s.events ?? 0)}</td>`
         : `<td class="bad">${x(s.state === "not read" ? "not read" : s.error ?? "failed")}${s.refused ? ' <span class="pill">refused</span>' : ""}</td>`;
@@ -315,7 +333,7 @@ function readersSection(d: Json): string {
   const rows = r.rows as Json[];
   const slowest = (d.timings as Json).reading.slowest_s;
   const trouble = rows.filter((u) => u.outcome !== "ok" || u.attempts > 1);
-  const summary = `${r.read} of ${plural(r.units, "piece")} read${rows.length ? `, slowest ${fmtDuration(slowest)}` : ""}.`;
+  const summary = `${r.read} of ${plural(r.units, d.split_chars ? "piece" : "group")} read${rows.length ? `, slowest ${fmtDuration(slowest)}` : ""}.`;
   const list = trouble.length
     ? `<ul class="plainlist">${trouble.map((u) => `<li><b>${x(u.id)}</b>: ${x(u.outcome === "ok" ? "read on the second attempt" : u.outcome)}${u.attempts > 1 && u.outcome !== "ok" ? ` after ${u.attempts} attempts` : ""}</li>`).join("")}</ul>` : "";
   const table = `<div class="tablebox"><table><thead><tr><th scope="col">Reader</th><th scope="col" class="num">Sources</th><th scope="col" class="num">Attempts</th><th scope="col">Outcome</th><th scope="col" class="num">Time</th></tr></thead><tbody>` +
@@ -406,6 +424,7 @@ export function renderStatusUnavailable(css: string, statusCss: string): string 
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <title>Build status - what's on around Rio Maior</title>
+<script>try{var t=JSON.parse(localStorage.getItem("rmagenda:theme"));if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
 <style>
 ${css}${statusCss}</style>
 </head>

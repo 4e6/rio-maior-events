@@ -116,6 +116,16 @@ describe("daily build", () => {
     expect(r.html).toContain('href="status.html"');
   });
 
+  test("a status page that cannot be built leaves a fallback page and does not stop the deploy", async () => {
+    const r = await build({}, { env: { STATUS_TEST_FAIL: "1" } });
+    expect(r.code).toBe(0);
+    expect(r.html).toContain("Concerto rio-maior");
+    expect(r.summary).not.toBeNull();
+    expect(existsSync(join(r.work, "_site", "status.json"))).toBe(false);
+    expect(readFileSync(join(r.work, "_site", "status.html"), "utf8")).toContain("could not be worked out");
+    expect(r.stderr).toContain("status page:");
+  });
+
   test("the status page says which finalize input was used", async () => {
     const r = await build({ editor: "corrupt" });
     expect(r.code).toBe(0);

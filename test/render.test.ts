@@ -347,3 +347,46 @@ describe("Status link", () => {
     expect(html).toContain("sources_checked");
   });
 });
+
+describe("Status link, as the page draws it", () => {
+  /** Runs page.js against a stand-in document that records what is written to each element's innerHTML. */
+  function drawn(data: Doc): Record<string, string> {
+    const html: Record<string, string> = {};
+    const make = (id: string): any => {
+      const target: any = function () { return proxy; };
+      const proxy: any = new Proxy(target, {
+        get(_t, key) {
+          if (key === "innerHTML") return html[id] ?? "";
+          if (key === "textContent") return id === "events-data" ? JSON.stringify(render.pageData(data)) : "";
+          if (key === Symbol.toPrimitive) return () => "";
+          if (key === "dataset" || key === "style" || key === "classList") return make(id + "." + String(key));
+          return proxy;
+        },
+        set(_t, key, value) { if (key === "innerHTML") html[id] = String(value); return true; },
+        apply() { return proxy; },
+      });
+      return proxy;
+    };
+    const els = new Map<string, any>();
+    const document: any = new Proxy({}, {
+      get(_t, key) {
+        if (key === "getElementById") return (id: string) => els.get(id) ?? (els.set(id, make(id)), els.get(id));
+        if (key === "documentElement" || key === "body") return make(String(key));
+        return () => make(String(key));
+      },
+    });
+    const window: any = { addEventListener() {}, matchMedia: () => ({ matches: false, addEventListener() {} }), location: { hash: "" }, innerWidth: 390, scrollTo() {} };
+    new Function("document", "window", "localStorage", "navigator", "location", "history", "requestAnimationFrame", "setTimeout", "IntersectionObserver", "getComputedStyle", assetText("page.js"))(
+      document, window, { getItem: () => null, setItem() {} }, {}, window.location, {}, () => 0, () => 0, function () { return { observe() {} }; }, () => make("computed"));
+    return html;
+  }
+
+  test("the header line links to status.html with the counts, and the footer line is drawn", () => {
+    const data = sample();
+    data.sources_checked = [{ name: "a", url: "https://a.example", ok: true }, { name: "b", url: "https://b.example", ok: false, error: "x" }];
+    const html = drawn(data);
+    expect(html.meta).toContain('<a href="status.html">2 sources, 1 unreachable · build status</a>');
+    expect(html.foot).toContain("Times are local, Portugal. Drive times are estimates from");
+    expect(html.sources).toBeUndefined();
+  });
+});

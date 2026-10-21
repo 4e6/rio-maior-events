@@ -483,6 +483,15 @@ export function finalizeDocument(doc: unknown): [Doc, Stats] | [null, string[]] 
   return [out, { events: kept.length, dropped: dropped.length, collapsed }];
 }
 
+/** The counts file is only for the status page: a failed write is a warning, never a failed merge. */
+function writeStats(path: string, stats: object): void {
+  try {
+    writeFileSync(path, JSON.stringify(stats) + "\n", "utf8");
+  } catch (err) {
+    console.error(`warning: cannot write ${path}: ${(err as Error).message}`);
+  }
+}
+
 /** merge.finalize: in place on a file; exit code. */
 export function finalize(path: string, statsPath?: string): number {
   let doc: unknown;
@@ -502,11 +511,11 @@ export function finalize(path: string, statsPath?: string): number {
   try {
     writeFileSync(tmp, JSON.stringify(out, null, 1) + "\n", "utf8");
     renameSync(tmp, path);
-    if (statsPath) writeFileSync(statsPath, JSON.stringify(result) + "\n", "utf8");
   } catch (err) {
     console.log(`cannot write ${path}: ${(err as Error).message}`);
     return 2;
   }
+  if (statsPath) writeStats(statsPath, result);
   console.log(`finalized ${path}: ${result.events} events, ${result.dropped} dropped, ${result.collapsed} duplicates collapsed`);
   return 0;
 }
@@ -545,14 +554,7 @@ export function main(argv: string[], now?: Date): number {
     return 2;
   }
   const statsPath = args.values.get("--stats");
-  if (statsPath && stats) {
-    try {
-      writeFileSync(statsPath, JSON.stringify(stats) + "\n", "utf8");
-    } catch (err) {
-      console.log(`cannot write ${statsPath}: ${(err as Error).message}`);
-      return 2;
-    }
-  }
+  if (statsPath && stats) writeStats(statsPath, stats);
   console.log(`wrote ${out}: ${doc.events.length} events`);
   for (const line of lines) console.log(line);
   return 0;

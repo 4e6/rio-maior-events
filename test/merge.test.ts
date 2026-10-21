@@ -93,6 +93,14 @@ describe("HappyPath", () => {
     expect(readJson(stats)).toEqual({ candidates: 3, collapsed: 1, events: 2 });
   });
 
+  test("a stats file that cannot be written is a warning, not a failed merge", () => {
+    const stats = join(tmp, "no-such-folder", "stats.json");
+    const r = capture(() => merge.main([col, cand, out, "--stats", stats], NOW));
+    expect(r.result).toBe(0);
+    expect(r.stderr).toContain("warning: cannot write");
+    expect(output().events).toHaveLength(2);
+  });
+
   test("test_deterministic", () => {
     runMerge();
     const first = readFileSync(out, "utf8");
@@ -424,6 +432,14 @@ describe("Finalize", () => {
   }
 
   const src = (name: string, url = "https://example.org/x") => [{ name, url }];
+
+  test("a stats file that cannot be written does not fail finalize", () => {
+    write(path, doc([event("Concerto", "2026-10-25")]));
+    const r = capture(() => merge.main(["--finalize", path, "--stats", join(tmp, "nope", "s.json")]));
+    expect(r.result).toBe(0);
+    expect(r.stderr).toContain("warning: cannot write");
+    expect(readJson(path).events).toHaveLength(1);
+  });
 
   test("--stats writes the events kept, dropped and collapsed", () => {
     const stats = join(tmp, "stats.json");

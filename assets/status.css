@@ -30,3 +30,7 @@
   .status .wide { display: table-cell; }
   .status .sub.phone { display: none; }
 }
+@media (max-width: 479px) {
+  .facts { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .facts dd { margin-bottom: var(--s2); }
+}

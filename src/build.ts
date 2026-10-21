@@ -1,5 +1,6 @@
 // The unattended daily build: collect, read (six `claude -p` readers), merge,
 // edit (one more `claude -p`), finalize, render. Writes <work>/_site/index.html, status.html and status.json.
+// STATUS_TEST_FAIL (tests) makes the status page fail, to check the deploy goes on.
 // Reads GITHUB_SHA, GITHUB_SERVER_URL, GITHUB_REPOSITORY, GITHUB_RUN_ID and CLAUDE_CODE_VERSION for the status page.
 //
 //   bun src/build.ts [--work DIR] [--collected DIR]
@@ -327,9 +328,11 @@ async function finalize(work: string): Promise<boolean> {
 /** _site/status.json and status.html from the run's files and the summary so far. Never fails the build: the agenda matters more. */
 function writeStatus(work: string): void {
   const site = join(work, "_site");
-  const css = readFileSync(join(ROOT, "assets", "page.css"), "utf8");
-  const statusCss = readFileSync(join(ROOT, "assets", "status.css"), "utf8");
+  let css = "", statusCss = "";
   try {
+    css = readFileSync(join(ROOT, "assets", "page.css"), "utf8");
+    statusCss = readFileSync(join(ROOT, "assets", "status.css"), "utf8");
+    if (env.STATUS_TEST_FAIL) throw new Error("forced by STATUS_TEST_FAIL (tests)");
     summary.timings.total_s = seconds(STARTED);
     const doc = JSON.parse(readFileSync(join(work, "rio-maior-events.json"), "utf8"));
     const data = buildStatus({
@@ -341,7 +344,11 @@ function writeStatus(work: string): void {
     writeFileSync(join(site, "status.html"), renderStatus(data, css, statusCss));
   } catch (error) {
     console.error(`status page: ${(error as Error).message}`);
-    writeFileSync(join(site, "status.html"), renderStatusUnavailable(css, statusCss));
+    try {
+      writeFileSync(join(site, "status.html"), renderStatusUnavailable(css, statusCss));
+    } catch (again) {
+      console.error(`status page fallback: ${(again as Error).message}`);
+    }
   }
 }
 

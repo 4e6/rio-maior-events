@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { buildStatus, fmtDuration, outcomeWord, publicJson, renderStatus, renderStatusUnavailable, scrub, type StatusInput } from "../src/status.ts";
+import { buildStatus, scrubPaths, fmtDuration, outcomeWord, publicJson, renderStatus, renderStatusUnavailable, scrub, type StatusInput } from "../src/status.ts";
 
 type Json = Record<string, any>;
 
@@ -112,6 +112,44 @@ describe("status data", () => {
     expect(j).not.toContain("a <note>");
   });
 
+  test("paths in the coverage lines and the note never reach the data or the page", () => {
+    const base = input();
+    const d = buildStatus(input({
+      candidates: { "a-1": { events: [], coverage: "read /home/runner/work/rio/rio-maior-split/a-1.json fully, then /Users/dbushev/projects/x/y.json" } },
+      page: { events: 1, note: "see /home/runner/x/y and C:\\Users\\me\\f.txt; 23/24 Oct ok" },
+      summary: { ...base.summary, models: { reader: "/Users/me/models/haiku", editor: "sonnet" } },
+    }));
+    const h = renderStatus(d, "", "");
+    for (const bad of ["/home/runner", "/Users/", "C:\\Users"]) { expect(h).not.toContain(bad); expect(JSON.stringify(d)).not.toContain(bad); }
+    expect(h).toContain("read … fully, then …");
+    expect(h).toContain("23/24 Oct ok");
+    expect(scrubPaths("and/or 5/6 at https://a.example/b/c")).toBe("and/or 5/6 at https://a.example/b/c");
+  });
+
+  test("reaches: an ongoing or multi-day event counts to its end or the window's end, whichever is earlier", () => {
+    const ongoing = { ...ev(["Label One"], "2026-09-24"), kind: "ongoing", end_date: "2027-01-31" };
+    const short = { ...ev(["Label B1"], "2026-09-24"), kind: "multi_day", end_date: "2026-10-30" };
+    const single = ev(["Label B2"], "2026-10-26");
+    const d = buildStatus(input({
+      summary: { ...input().summary, readers: [{ group: "a-1", attempt: 1, reason: "ok" }, { group: "b-1", attempt: 1, reason: "ok" }, { group: "b-2", attempt: 1, reason: "ok" }] },
+      candidates: { "a-1": { events: [ongoing, short, single] } },
+    }));
+    expect(src(d, "a1").reaches).toBe("2026-11-15");
+    expect(src(d, "b1").reaches).toBe("2026-10-30");
+    expect(src(d, "b2").reaches).toBe("2026-10-26");
+  });
+
+  test("dollars are rounded to cents, groups are named when the split is off, tiny times read <1 s", () => {
+    const base = input();
+    const d = buildStatus(input({ summary: { ...base.summary, split_chars: 0, readers: [{ group: "a-1", attempt: 1, reason: "ok", duration_s: 1, total_cost_usd: 0.34884097999999997 }] } }));
+    expect(d.usage_usd.readers).toBe(0.35);
+    const h = renderStatus(d, "", "");
+    expect(h).toContain("of 3 groups read");
+    expect(h).toContain("one reader per group");
+    expect(h).toContain("&lt;1 s");
+    expect(fmtDuration(0.3)).toBe("<1 s");
+  });
+
   test("scrub and fmtDuration", () => {
     expect(scrub("failed at /home/runner/work/a/b.json now")).toBe("failed at … now");
     expect(scrub("see https://example.org/a/b ok")).toBe("see https://example.org/a/b ok");
@@ -133,7 +171,8 @@ describe("status page", () => {
     expect(h).toContain("HTTP 404 Not Found");
     expect(h).toContain('<span class="pill">refused</span>');
     expect(h).toContain("not read");
-    expect(h).toContain("1.2k cut");
+    expect(h).toContain("1.2k, cut");
+    expect(h).toContain("1.2k chars, cut");
     expect(h).toContain("adds up to more than the 4 candidate events");
     expect(h).toContain("Not matched to a source");
     expect(h).toContain("2 of 3 pieces read, slowest 1 min 00 s");
@@ -157,8 +196,9 @@ describe("status page", () => {
     expect(h).not.toContain("javascript:");
   });
 
-  test("the unavailable page still links back", () => {
+  test("the unavailable page still links back and follows the stored theme", () => {
     const h = renderStatusUnavailable("", "");
+    expect(h).toContain("rmagenda:theme");
     expect(h).toContain('href="index.html"');
     expect(h).toContain("could not be worked out");
   });

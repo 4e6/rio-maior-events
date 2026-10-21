@@ -11,7 +11,7 @@ sources:
   - resource: test/**
   - resource: .github/workflows/**
   - resource: certs/**
-sources_digest: 2a216496fee5fc3d
+sources_digest: 1d272771512002ec
 ---
 
 # What it is
@@ -45,7 +45,7 @@ and each has its own traps.
 - **`src/merge.ts` joins.** It checks that every group has a current candidates
   file, writes `rio-maior-events.json` and prints possible duplicates, coverage,
   yearly-event hints and what `src/render.ts`'s check finds wrong, each problem
-  with the group it came from. The editor (`claude -p` run by `src/build.ts`) settles those and writes the `note`; if it fails, `merge --finalize` writes one. Both take `--stats FILE` and write their counts there (candidates, collapsed, events, dropped), for the status page to report.
+  with the group it came from. The editor (`claude -p` run by `src/build.ts`) settles those and writes the `note`; if it fails, `merge --finalize` writes one. Both take `--stats FILE` and write their counts there (candidates, collapsed, events, dropped), for the status page to report; that write is best effort, a warning on stderr and never a failed merge.
 - **`src/render.ts` checks and draws.** It validates the file in plain code
   (exit 2 lists each problem with its event), makes each event's id, and inlines
   `assets/page.css`, `assets/page.js` and the events as JSON into one HTML file.
@@ -63,7 +63,7 @@ and each has its own traps.
   note are shown in the HTML only, escaped, and are left out of `status.json`).
   It is static HTML with the agenda's tokens (`assets/status.css` on top of
   `page.css`) and reads only the stored colour theme; a failure to build it
-  leaves a short "could not be worked out" page and never fails the deploy.
+  leaves a short "could not be worked out" page and never fails the deploy or the run summary. A source's "reaches" date is its latest event's start, or for an ongoing or multi-day event its end or the window's end, whichever is earlier. Paths are scrubbed from every free-text field, the readers' coverage lines and the note included.
   Build facts come from `GITHUB_SHA`, `GITHUB_SERVER_URL`, `GITHUB_REPOSITORY`,
   `GITHUB_RUN_ID` and `CLAUDE_CODE_VERSION`, which `build.ts` reads itself (the
   step CLIs only get the environment allowlist). Not done: a trend over past
