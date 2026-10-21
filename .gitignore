@@ -1,0 +1,8 @@
+__pycache__/
+/rio-maior-collected/
+/rio-maior-candidates/
+/rio-maior-events.json
+/rio-maior-events.html
+/_site/
+/work/
+node_modules/

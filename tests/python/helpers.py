@@ -4,7 +4,7 @@ import os
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-SKILL = os.path.join(HERE, "..", "..", "skills", "rio-maior-events")
+SKILL = os.path.join(HERE, "..", "..")
 SCRIPTS = os.path.join(SKILL, "scripts")
 sys.path.insert(0, SCRIPTS)
 
