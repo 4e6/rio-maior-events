@@ -676,14 +676,14 @@ describe("Hints for the editor", () => {
   });
 
   test("a town's day at a festival is paired with the festival, in any town", () => {
-    const festival = event("Festival Nacional de Gastronomia da Serra", "2026-11-06", "Serra Alta",
+    const festival = event("Festival do Queijo da Serra Alta", "2026-11-06", "Serra Alta",
       { kind: "ongoing", end_date: "2026-11-15" });
     const [t] = report([
       festival,
-      event("Dia de Vale Fundo - Festival Nacional de Gastronomia", "2026-11-10", "Vale Fundo"), // shares the festival's words
-      event("Dia do Casal Novo - Gastronomia", "2026-11-09", "Casal Novo"), // a town day sharing one word
+      event("Dia de Vale Fundo no Festival do Queijo", "2026-11-10", "Vale Fundo"), // shares the festival's words
+      event("Dia do Casal Novo - Queijo", "2026-11-09", "Casal Novo"), // a town day sharing one word
       event("Concerto de Gala", "2026-11-09", "Casal Novo"), // unrelated
-      event("Dia do Casal Novo - Gastronomia", "2026-11-20", "Casal Novo"), // outside the range
+      event("Dia do Casal Novo - Queijo", "2026-11-20", "Casal Novo"), // outside the range
       event("Dia do Casal Velho", "2026-11-09", "Casal Velho"), // a town day, but no word of the festival
     ]);
     expect(t).toContain("events[0]");
@@ -720,6 +720,25 @@ describe("Hints for the editor", () => {
     ]);
     const lines = t.trim().split("\n");
     expect(lines.filter((l) => l.includes("very likely"))).toHaveLength(2);
+  });
+
+  test("two stated, different times on one day are flagged but not marked very likely", () => {
+    const [t, events] = report([
+      event("Conto da Lua", "2026-11-10", "Rio Maior", { start_time: "21:00" }),
+      event("Conto da Lua - Sessão Escolar", "2026-11-10", "Rio Maior", { start_time: "10:00" }),
+    ]);
+    expect(t.split("<->").length - 1).toBe(1);
+    expect(t).not.toContain("very likely");
+    expect(events).toHaveLength(2);
+  });
+
+  test("a school session without a stated time is marked, and the script still leaves both events", () => {
+    const [t, events] = report([
+      event("Conto da Lua", "2026-11-10", "Rio Maior", { start_time: "21:00" }),
+      event("Conto da Lua - Sessão Escolar", "2026-11-10", "Rio Maior"),
+    ]);
+    expect(t).toContain("very likely");
+    expect(events).toHaveLength(2); // the editor decides; the marker is a hint
   });
 
   test("distinct events stay in the file: flagged where the hints reach, never merged", () => {

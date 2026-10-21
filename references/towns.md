@@ -11,7 +11,7 @@ source gives the distance from Rio Maior, about one minute per kilometre will
 do. If you cannot tell which listed place is nearest, `drive_min` is null.
 
 The villages in the table were not looked up by road: each has the minutes of the
-nearest listed town, as above (the table's order is by minutes, not by place).
+nearest listed town, as above (the table is roughly in order of minutes).
 
 The area covered is everything up to about 45 minutes. At 50 minutes
 or more (Peniche, Leiria, Entroncamento, Chamusca, Golegã, Ourém, Vila Nova da
@@ -64,10 +64,14 @@ major concert) and say how far it is.
 | São Gregório | Caldas da Rainha | 25 |
 | Arelho | Óbidos | 25 |
 | Abrigada | Alenquer | 30 |
-| Cabanas do Chão | Alenquer | 45 |
-| Ota | Alenquer | 45 |
+| Cabanas do Chão | Alenquer | 30 |
+| Ota | Alenquer | 30 |
 | Pontével | Cartaxo | 35 |
 | Cambelas | Torres Vedras | 40 |
+| Casais de Larana | Torres Vedras | 40 |
+| Trás-do-Outeiro | Óbidos | 25 |
+| Usseira | Óbidos | 25 |
+| Atalaia | Lourinhã | 40 |
 | Caixaria | Torres Vedras | 40 |
 | Glória do Ribatejo | Salvaterra de Magos | 40 |
 | Pedrogão | Torres Novas | 40 |
@@ -78,5 +82,6 @@ major concert) and say how far it is.
 | Chamusca | Chamusca | 50 |
 | Golegã | Golegã | 50 |
 | Ourém | Ourém | 55 |
+| Freixianda | Ourém | 55 |
 | Vila Nova da Barquinha | Vila Nova da Barquinha | 55 |
 | Tomar | Tomar | 55 |

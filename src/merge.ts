@@ -86,14 +86,15 @@ function wordList(title: unknown): string[] {
 
 /**
  * merge.possible_duplicates, extended: [i, j, likely] with i < j for events that may be one event listed twice.
- * Rules (any one pairs; `likely` marks a same-day, same-town title that continues the other):
+ * Rules (any one pairs; `likely` marks a same-day, same-town title that continues the other, unless both
+ * events state different start times; the fourth element names the rules that fired):
  * - same town, day ranges overlapping or a day apart, half of the shorter title's words shared (the old rule);
  * - same town, starts at most 7 days apart, every distinctive word of the shorter title in the other;
  * - a festival (a multi-day range) and an event that starts inside it, in any town, when the event's title shares
  *   at least two of the festival's distinctive words, or names a "dia de/do <town>" or a stand and shares one of
  *   them with a festival-like title.
  */
-export function duplicatePairs(events: Doc[]): [number, number, boolean][] {
+export function duplicatePairs(events: Doc[]): [number, number, boolean, string[]][] {
   const keys = events.map((e) => {
     const ok = isDict(e);
     const title = ok ? e.title_pt : null;
@@ -105,6 +106,7 @@ export function duplicatePairs(events: Doc[]): [number, number, boolean][] {
       sig: distinctive(words),
       list: wordList(title),
       folded: typeof title === "string" ? normalise(title) : "",
+      time: ok && typeof e.start_time === "string" ? e.start_time : null,
     };
   });
   type Key = (typeof keys)[number];
@@ -129,7 +131,7 @@ export function duplicatePairs(events: Doc[]): [number, number, boolean][] {
     return small.length > 0 && small.every((w, n) => big[n] === w);
   };
 
-  const pairs: [number, number, boolean][] = [];
+  const pairs: [number, number, boolean, string[]][] = [];
   for (let i = 0; i < keys.length; i++) {
     const a = keys[i]!;
     if (a.days === null || !a.words.size) continue;
@@ -138,19 +140,23 @@ export function duplicatePairs(events: Doc[]): [number, number, boolean][] {
       const b = keys[j]!;
       if (b.days === null || !b.words.size) continue;
       const [bFirst, bLast] = num(b);
-      let found = false;
+      const rules: string[] = [];
       let likely = false;
       if (a.town.size && b.town.size && sameTown(a, b)) {
         if (!(bFirst > aLast + MAX_DAYS_APART || aFirst > bLast + MAX_DAYS_APART)) {
           let shared = 0;
           for (const w of a.words) if (b.words.has(w)) shared++;
-          if (shared / Math.min(a.words.size, b.words.size) >= MIN_OVERLAP) found = true;
+          if (shared / Math.min(a.words.size, b.words.size) >= MIN_OVERLAP) rules.push("overlap");
         }
-        if (!found && Math.abs(aFirst - bFirst) <= MAX_START_GAP && nearTitle(a, b)) found = true;
-        if (aFirst === bFirst && continues(a, b)) { found = true; likely = true; }
+        if (Math.abs(aFirst - bFirst) <= MAX_START_GAP && nearTitle(a, b)) rules.push("near-title");
+        if (aFirst === bFirst && continues(a, b)) {
+          rules.push("continues");
+          // two stated, different times on one day are two showings, not one event listed twice
+          likely = !(a.time !== null && b.time !== null && a.time !== b.time);
+        }
       }
-      if (!found && (festival(a, b) || festival(b, a))) found = true;
-      if (found) pairs.push([i, j, likely]);
+      if (festival(a, b) || festival(b, a)) rules.push("festival");
+      if (rules.length) pairs.push([i, j, likely, rules]);
     }
   }
   return pairs;
@@ -158,7 +164,7 @@ export function duplicatePairs(events: Doc[]): [number, number, boolean][] {
 
 /** merge.possible_duplicates: index pairs (i, j), i < j, that may be one event listed twice. */
 export function possibleDuplicates(events: Doc[]): [number, number][] {
-  return duplicatePairs(events).map(([i, j]) => [i, j]);
+  return duplicatePairs(events).map(([i, j]) => [i, j] as [number, number]);
 }
 
 const TOWNS_FILE = resolve(import.meta.dir, "..", "references", "towns.md");
