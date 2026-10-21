@@ -1,17 +1,17 @@
 ---
 type: Decision
 title: Haiku readers on 30,000-character pieces, a Sonnet editor
-description: "The daily run reads with Haiku on pieces of at most 30,000 characters and edits with Sonnet, by the user's decision of 2026-10-21 and against the evaluation's advice: about $1.15 a run against about $3, with more fact slips."
+description: "The scheduled run reads with Haiku on pieces of at most 30,000 characters and edits with Sonnet, by the user's decision of 2026-10-21 and against the evaluation's advice: about $1.15 a run against about $3, with more fact slips."
 tags: [model, cost]
 sources:
-  - resource: .github/workflows/daily.yml
+  - resource: .github/workflows/build.yml
   - resource: src/build.ts
   - resource: src/split.ts
 ---
 
 # Decision
 
-`daily.yml` sets `READ_MODEL=haiku`, `EDIT_MODEL=sonnet` and
+`build.yml` sets `READ_MODEL=haiku`, `EDIT_MODEL=sonnet` and
 `READ_SPLIT_CHARS=30000`. Without them the code reads whole groups with Sonnet
 and the editor uses the readers' model. Removing the three variables goes back
 to that.
@@ -34,7 +34,7 @@ The evaluation advised against Haiku; the user chose it for the cost.
 - **Haiku on whole groups.** Missed 3 to 7 events a run.
 - **Opus readers.** About $11 a run.
 - **Sonnet readers on whole groups** (the code's default). Kept as the way back,
-  not the daily setting: about $3 a run.
+  not the scheduled setting: about $3 a run.
 - **A Haiku editor.** On Haiku it merged a one-day race into a range, so the
   editor stays on Sonnet.
 

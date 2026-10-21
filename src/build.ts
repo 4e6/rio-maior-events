@@ -1,4 +1,4 @@
-// The unattended daily build: collect, read (six `claude -p` readers), merge,
+// The unattended scheduled build: collect, read (six `claude -p` readers), merge,
 // edit (one more `claude -p`), finalize, render. Writes <work>/_site/index.html, status.html and status.json.
 // STATUS_TEST_FAIL (tests) makes the status page fail, to check the deploy goes on.
 // Reads GITHUB_SHA, GITHUB_SERVER_URL, GITHUB_REPOSITORY, GITHUB_RUN_ID and CLAUDE_CODE_VERSION for the status page.

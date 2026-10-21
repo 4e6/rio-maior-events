@@ -1,10 +1,10 @@
 ---
 type: Decision
 title: A source must answer a GitHub runner, and a refusal is not routed around
-description: The daily build runs on GitHub-hosted runners, so a source that refuses them (Eventbrite, 405) is removed rather than reached another way, and a 403 is recorded as a failure, never worked around with curl.
+description: The scheduled build runs on GitHub-hosted runners, so a source that refuses them (Eventbrite, 405) is removed rather than reached another way, and a 403 is recorded as a failure, never worked around with curl.
 tags: [network, ci]
 sources:
-  - resource: .github/workflows/daily.yml
+  - resource: .github/workflows/build.yml
   - resource: src/net.ts
   - resource: .github/workflows/probe.yml
   - resource: tools/probe_*.ts
@@ -12,7 +12,7 @@ sources:
 
 # Decision
 
-The page is built every morning by a GitHub Actions workflow on
+The page is built on Mondays and Thursdays by a GitHub Actions workflow on
 `ubuntu-latest`. A source belongs on the list only if a plain request from that
 runner is answered. A site that refuses is recorded as failed for the run, and
 its requests are not retried another way. `.github/workflows/probe.yml`, run by

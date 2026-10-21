@@ -2,7 +2,7 @@
 
 ## What this is
 
-A Bun/TypeScript pipeline that builds a daily events page for Rio Maior, Portugal.
+A Bun/TypeScript pipeline that builds an events page twice a week for Rio Maior, Portugal.
 [README.md](README.md) describes it.
 
 ## Working here
