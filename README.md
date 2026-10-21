@@ -90,6 +90,10 @@ and `merge-report.txt` are kept as a workflow artifact for 7 days.
   `work/_site/index.html`). `--work DIR` picks another folder. `CLAUDE_BIN`,
   `READ_MODEL` (default `sonnet`), `EDIT_MODEL` (the editor's, default
   `READ_MODEL`), `MAX_TURNS` (40), `AGENT_TIMEOUT_MS` (20 min per agent),
+  `READ_SPLIT_CHARS` (0, off: a reader per group; with a number, say 30000, each group's
+  sources are cut into pieces of at most that many characters, a source never split and
+  sources of one town kept together, and a reader reads each piece; a group counts as read
+  when all its pieces were),
   `MIN_GROUPS` (4: fewer groups read means no deploy) and `BUILD_DEADLINE_MIN`
   (75: no agent starts or runs past it minus five minutes, which are kept for
   finalize and render) change the run. Only the `claude` processes get your environment;

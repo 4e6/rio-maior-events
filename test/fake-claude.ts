@@ -66,8 +66,9 @@ if (isEditor) {
 
 const mode = plan.readers?.[group] ?? "ok";
 if (mode.startsWith("hang")) await hang(mode);
-const collected = JSON.parse(readFileSync(`rio-maior-collected/${group}.json`, "utf8"));
-const good = { collected_at: collected.collected_at, group, events: [event("Concerto " + group, "2026-10-25")], hints: [], coverage: group + " ok; reaches 2026-11-10" };
+const input = prompt.match(/your group file (\S+\.json),/)?.[1] ?? `rio-maior-collected/${group}.json`;
+const collected = JSON.parse(readFileSync(input, "utf8"));
+const good = { collected_at: collected.collected_at, group: collected.group, events: [event("Concerto " + group, "2026-10-25")], hints: [], coverage: group + " ok; reaches 2026-11-10" };
 if (mode === "fail") { console.log(result({ is_error: true, subtype: "error_during_execution" })); process.exit(1); }
 if (mode === "garbage" || (mode === "once-garbage" && attempt === 1)) writeFileSync(output, "garbage");
 else writeFileSync(output, JSON.stringify(good));
