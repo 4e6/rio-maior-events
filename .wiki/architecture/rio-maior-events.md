@@ -109,16 +109,25 @@ and each has its own traps.
   with room to write; a larger sub-region would split. Each source carries a
   human `label` in `sources.json`, copied into the group file for the readers
   to use as the source's name on the page.
-- **Fan-out reading, on a mid-size model.** The sources were once
+- **Fan-out reading, on a small model in small pieces.** The sources were once
   read by one model in one pass, and the text of 32 pages does not read well in
   one context. The build runs a `claude -p` reader per group (`READ_MODEL`,
-  `sonnet` by default), which keeps each context small; one retry per group, and a group that fails twice is
-  named on the page as not read. A smaller model is used only after an eval on
-  one group shows it reads as well; there is none. `READ_SPLIT_CHARS` (off by default) cuts each group's
-  sources into pieces (`src/split.ts`, `rio-maior-split/`; a source is never cut, sources of one town stay
-  together, a source over the limit is its own piece) with a reader per piece, to try a smaller model on
-  smaller reads; a group counts as read when all its pieces were, and a failed piece marks only its own
-  sources as not read.
+  `sonnet` by default) and one retry each. `READ_SPLIT_CHARS` cuts each group's
+  sources into pieces (`src/split.ts`, `rio-maior-split/`; a source is never cut,
+  sources of one town stay together, a source over the limit is its own piece)
+  with a reader per piece; a group counts as read when all its pieces were, and
+  a failed piece marks only its own sources as not read. **The daily run reads
+  with Haiku on 30,000-character pieces and edits with Sonnet** (daily.yml sets
+  `READ_MODEL=haiku`, `EDIT_MODEL=sonnet`, `READ_SPLIT_CHARS=30000`), by the
+  user's decision of 2026-10-21 and against the evaluation's advice: on one
+  collected run, read three times each way, it cost about $1.15 a run against
+  about $3 for Sonnet readers on whole groups and missed 0–1 events against
+  2–3, but put 4–7 fact slips on the page each run (a performer as the venue,
+  an exhibitors' fee as the price, a civic meeting kept) where Sonnet had none;
+  dates, times, towns and duplicates were clean either way. Whole-group Haiku
+  missed 3–7 events a run; Opus cost about $11. Removing the three variables
+  goes back to Sonnet. The editor stays on Sonnet: on Haiku it merged a one-day
+  race into a range.
 - **`src/merge.ts` merges only exact doubles and lists the rest.** Listings with the same
   title, date and town (the page's id) are collapsed before the report, by the rule that finalize
   uses; it also fills `drive_min` from `references/towns.md` for a listed town. Whether any other two listings

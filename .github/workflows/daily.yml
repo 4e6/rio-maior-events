@@ -34,6 +34,13 @@ jobs:
       - name: Build the page
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Haiku readers on pieces of at most 30k characters, a Sonnet editor
+          # (user decision 2026-10-21; about $1.15 a run against about $3 for
+          # Sonnet readers, which the code defaults to). Remove these three to
+          # go back to Sonnet readers on whole groups.
+          READ_MODEL: haiku
+          EDIT_MODEL: sonnet
+          READ_SPLIT_CHARS: "30000"
         run: bun run build -- --work "$RUNNER_TEMP/work"
       - name: Keep the run summary
         if: always()
