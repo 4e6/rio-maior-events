@@ -45,8 +45,10 @@ separated from a card's title by another card's text belongs to nobody, and a
 card with no marker cites the agenda page (the source's `url`). The same marker
 can appear more than once (a card shown twice); that is one page. Markers are
 never text of the event, only addresses. On some sites (Torres Novas,
-Entroncamento) the link is a day of the mini calendar and the line after the
-marker is the link's title, which names the event.
+Entroncamento, Vila Nova da Barquinha) the link is a day of the mini calendar:
+the line after the marker is the link's title, which names the event, and the
+event's day is the number on the line AFTER that title, not the one before the
+marker (in "27 / <marker> / Banda da Armada / 28" the concert is on the 28th).
 
 ### Event pages
 

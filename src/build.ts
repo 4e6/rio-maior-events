@@ -4,7 +4,7 @@
 //   bun src/build.ts [--work DIR] [--collected DIR]
 //
 // --collected skips the collect step and uses that folder (tests, reruns).
-// Environment: CLAUDE_BIN (default claude), PYTHON (python3), READ_MODEL (opus),
+// Environment: CLAUDE_BIN (default claude), PYTHON (python3), READ_MODEL (sonnet),
 // EDIT_MODEL (READ_MODEL), MAX_TURNS (40), AGENT_TIMEOUT_MS (20 min), MIN_GROUPS (4),
 // BUILD_DEADLINE_MIN (75: no agent runs past it minus DEADLINE_MARGIN_MIN, default 5,
 // kept for finalize and render), KILL_GRACE_MS (10000), COLLECT_SCRIPT (scripts/collect.py).
@@ -15,7 +15,7 @@ const ROOT = resolve(import.meta.dir, "..");
 const env = process.env;
 const CLAUDE = env.CLAUDE_BIN || "claude";
 const PYTHON = env.PYTHON || "python3";
-const READ_MODEL = env.READ_MODEL || "opus";
+const READ_MODEL = env.READ_MODEL || "sonnet";
 const EDIT_MODEL = env.EDIT_MODEL || READ_MODEL;
 const MAX_TURNS = env.MAX_TURNS || "40";
 const TIMEOUT_MS = Number(env.AGENT_TIMEOUT_MS || 20 * 60 * 1000);
