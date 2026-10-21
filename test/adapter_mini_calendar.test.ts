@@ -110,8 +110,8 @@ describe("mini_calendar", () => {
   test("no calendar read although the page has markers: a note", () => {
     const noInputs = calendar([link("a", "X", 3)]).replace(/<input[^>]*>/g, "");
     expect(parse(noInputs).note).toBe("mini calendar not found; days in the text follow the titles");
-    const noCells = calendar([link("a", "X", 3)]).replaceAll("mod_eb_mincalendar_event", "x");
-    expect(parse(noCells.replace("<table", '<a href="/index.php/agenda/c/s">S</a><table')).note).toContain("not found");
+    const noTable = calendar([link("a", "X", 3)]).replaceAll("mod_eb_mincalendar_table", "x");
+    expect(parse(noTable).note).toContain("not found");
     expect(parse(calendar([link("a", "X", 3)])).note).toBeNull();
     expect(parse(calendar([empty(3)])).note).toBeNull();
   });
@@ -134,5 +134,32 @@ describe("mini_calendar", () => {
   test("without the option no item is made", () => {
     expect(parse(calendar([link("a", "X", 3)]), ["2026-10-01", "2026-12-31"], { ...source, options: undefined }).items)
       .toEqual([]);
+  });
+
+  test("a month with no event cells is read, even if another list on the page has markers", () => {
+    const page = calendar([empty(3), empty(4)]) + '<p><a href="/index.php/agenda/cat/proximo">Próximo</a></p>';
+    const parsed = parse(page);
+    expect(parsed.follow).toHaveLength(1);
+    expect(parsed.items).toEqual([]);
+    expect(parsed.note).toBeNull();
+  });
+
+  test("a #fragment is dropped from the url, as in the marker", () => {
+    const parsed = parse(calendar([link("a#info", "X", 3)]));
+    expect((parsed.items as any[])[0].url).toBe(parsed.follow![0]!.url);
+    expect((parsed.items as any[])[0].url).not.toContain("#");
+  });
+
+  test("month 13 or 0 gives no item and a note", () => {
+    for (const m of [13, 0]) {
+      const parsed = parse(calendar([link("a", "X", 3)], m));
+      expect(parsed.items).toEqual([]);
+      expect(parsed.note).toContain("not found");
+    }
+  });
+
+  test("a day 31 of February gives no item in a window that runs into March", () => {
+    expect(dates(calendar([link("a", "Fev", 31), link("b", "Ok", 28)], 2, 2026), ["2026-02-28", "2026-03-03"]))
+      .toEqual({ Ok: ["2026-02-28", null] });
   });
 });

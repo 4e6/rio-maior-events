@@ -14,7 +14,7 @@ export const text: Adapter = {
     if (!items.length && cpLen(body) < MIN_TEXT) throw new AdapterError("no events or text found (layout may have changed)");
     const parsed: ParseResult = { items, text: body, truncated, past: [], note: null };
     if (source.options?.mini_calendar) {
-      const calendar = miniCalendarItems(page, pages[0]!.url, window, urls.length > 0);
+      const calendar = miniCalendarItems(page, pages[0]!.url, window);
       items.push(...calendar.items);
       if (!calendar.read) parsed.note = "mini calendar not found; days in the text follow the titles";
     }
