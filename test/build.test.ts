@@ -69,7 +69,7 @@ async function build(plan: Plan = {}, opts: Opts = {}) {
 
 const forGroup = (calls: any[], g: string) => calls.filter((c) => c.role === g);
 
-describe("daily build", () => {
+describe("scheduled build", () => {
   test("only the claude processes see the token; the collect step does not", async () => {
     const r = await build({}, { collect: "collect-env.ts", env: { CLAUDE_CODE_OAUTH_TOKEN: "secret-token", GH_TOKEN: "other-secret" } });
     expect(r.code).toBe(0);

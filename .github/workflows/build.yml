@@ -1,8 +1,8 @@
-name: daily
-# Builds the agenda page every morning and deploys it to GitHub Pages.
+name: build
+# Builds the agenda page on Mondays and Thursdays and deploys it to GitHub Pages.
 on:
   schedule:
-    - cron: "17 5 * * *"
+    - cron: "17 5 * * 1,4"
       timezone: "Europe/Lisbon"
   workflow_dispatch:
 permissions:
@@ -83,4 +83,4 @@ jobs:
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/daily.yml/enable"
+        run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/build.yml/enable"

@@ -1,7 +1,7 @@
 ---
 type: Module
 title: Rio Maior events
-description: "A daily build that gathers leisure events within about 45 minutes of Rio Maior and renders an agenda list beside a month calendar. Why a script collects and the model reads, which sources, how the page works, where it bends the payload rules."
+description: "A twice-weekly build that gathers leisure events within about 45 minutes of Rio Maior and renders an agenda list beside a month calendar. Why a script collects and the model reads, which sources, how the page works, where it bends the payload rules."
 tags: [architecture, network, page]
 sources:
   - resource: src/**
@@ -11,7 +11,7 @@ sources:
   - resource: test/**
   - resource: .github/workflows/**
   - resource: certs/**
-sources_digest: 1d272771512002ec
+sources_digest: 565efc87e97ca3fa
 ---
 
 # What it is
@@ -137,8 +137,8 @@ and each has its own traps.
   sources into pieces (`src/split.ts`, `rio-maior-split/`; a source is never cut,
   sources of one town stay together, a source over the limit is its own piece)
   with a reader per piece; a group counts as read when all its pieces were, and
-  a failed piece marks only its own sources as not read. **The daily run reads
-  with Haiku on 30,000-character pieces and edits with Sonnet** (daily.yml sets
+  a failed piece marks only its own sources as not read. **The scheduled run reads
+  with Haiku on 30,000-character pieces and edits with Sonnet** (build.yml sets
   `READ_MODEL=haiku`, `EDIT_MODEL=sonnet`, `READ_SPLIT_CHARS=30000`), by the
   user's decision of 2026-10-21 ([why](/decisions/0003-haiku-readers-and-a-sonnet-editor.md)) and against the evaluation's advice: on one
   collected run, read three times each way, it cost about $1.15 a run against
@@ -185,7 +185,7 @@ later weeks rest on few sources; the page says which in its `note`.
 # What reaches the network, and where it is careful
 
 A run fetches about 32 list pages and up to about 180 event pages, one POST and the rest GETs, read-only, a few
-minutes. The project was a Claude skill driven by Python scripts and was ported to TypeScript on Bun, run daily by a
+minutes. The project was a Claude skill driven by Python scripts and was ported to TypeScript on Bun, run twice a week (Mondays and Thursdays; daily until 2026-10-21) by a
 GitHub Actions workflow; the `claude -p` readers and editor are confined to file tools on named files
 (`src/build.ts`).
 
@@ -198,7 +198,7 @@ GitHub Actions workflow; the `claude -p` readers and editor are confined to file
   connection error the rest of that site's pages are skipped, and requests to
   one site are spaced by that host's delay. GoTrail and Running.life refused the
   script with a 403 while a browser got the page; a fallback to `curl` was
-  built and removed, because getting round a refusal is not this script's call ([the rule](/decisions/0001-sources-must-answer-a-github-runner.md)),
+  built and removed, because getting round a refusal was not this script's call then,
   and both were later dropped for Portugal Running. Some sites throttle a
   visitor after repeated runs, so the README says never to fetch a source
   repeatedly.

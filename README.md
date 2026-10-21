@@ -1,6 +1,6 @@
 # rio-maior-events
 
-A daily build that gathers what is on in and around Rio Maior, Portugal — up to about 45 minutes away: Caldas da Rainha, Óbidos,
+A build twice a week that gathers what is on in and around Rio Maior, Portugal — up to about 45 minutes away: Caldas da Rainha, Óbidos,
 Santarém, Alcobaça, Porto de Mós and the villages of the Serra dos Candeeiros —
 and lays it out as one page you can plan your free time from.
 
@@ -66,10 +66,10 @@ TypeScript on [Bun](https://bun.sh) (version pinned in `package.json`), one runt
 - `src/build.ts`: the whole pipeline. `certs/`: intermediate certificates some servers fail to send.
 - `.wiki/`: why things are the way they are. `tools/`: the probe and the Python vector generators (`tools/README.md`).
 
-## Daily build
+## Scheduled build
 
-A workflow ([.github/workflows/daily.yml](.github/workflows/daily.yml)) runs
-every morning at 05:17 Lisbon time (and on demand from the Actions tab). It
+A workflow ([.github/workflows/build.yml](.github/workflows/build.yml)) runs
+on Mondays and Thursdays at 05:17 Lisbon time (and on demand from the Actions tab). It
 collects the listings, has `claude -p` readers write candidates (Haiku, one
 per piece of at most 30,000 characters cut from the six groups of sources; the
 workflow sets `READ_MODEL`, `EDIT_MODEL` and `READ_SPLIT_CHARS`, and without
@@ -88,7 +88,7 @@ and `merge-report.txt` are kept as a workflow artifact for 7 days.
   yearly. Runs use the subscription it belongs to.
 - **Schedule**: GitHub disables a scheduled workflow after 60 days without
   repository activity and emails the owner. Re-enable it in the Actions tab or
-  with `gh workflow enable daily.yml`. The workflow's last job also tries to
+  with `gh workflow enable build.yml`. The workflow's last job also tries to
   re-enable itself through the API, best effort.
 - **Locally**: `bun install`, then `bun run build` (uses the `claude` on your
   PATH and your own login; the work folder is `./work`, the page
