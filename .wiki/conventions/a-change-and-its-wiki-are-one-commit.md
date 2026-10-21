@@ -5,7 +5,7 @@ description: A change lands with every wiki page it touches in the same commit, 
 tags: [process, wiki]
 sources:
   - resource: AGENTS.md
-sources_digest: ec339a103b37c00b
+sources_digest: fee3c04836c1839d
 ---
 
 # The rule

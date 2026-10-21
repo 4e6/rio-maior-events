@@ -5,7 +5,9 @@
 //
 //   bun src/build.ts [--work DIR] [--collected DIR]
 //
-// --collected skips the collect step and uses that folder (tests, reruns).
+// --collected skips the collect step and uses that folder (the scheduled workflow collects in a step of its own, so
+// the fallback proxy's secret never exists in this process; tests and reruns also use it). The collect time is then
+// the folder's index.json collect_s.
 // Environment: CLAUDE_BIN (default claude), READ_MODEL (sonnet),
 // READ_SPLIT_CHARS (0: a reader per group; N: sources cut into pieces of at most N characters, a reader per piece),
 // EDIT_MODEL (READ_MODEL), MAX_TURNS (40), AGENT_TIMEOUT_MS (20 min), MIN_GROUPS (4),
@@ -69,6 +71,12 @@ export function stepEnv(source: Record<string, string | undefined> = env): Recor
     if (value !== undefined && (STEP_ENV_KEYS.includes(key) || key.startsWith("LC_"))) out[key] = value;
   }
   return out;
+}
+
+/** The claude processes need only the OAuth token and the settings: never the fallback proxy's URL. */
+const CLAUDE_HIDDEN_KEYS = ["FALLBACK_PROXY_URL", "FALLBACK_PROXY_MAX_MB"];
+export function claudeEnv(source: Record<string, string | undefined> = env): Record<string, string | undefined> {
+  return Object.fromEntries(Object.entries(source).filter(([key]) => !CLAUDE_HIDDEN_KEYS.includes(key)));
 }
 
 /** Run a command; stdout and stderr to the console unless `capture`. Returns exit code and stdout. */
@@ -138,7 +146,7 @@ async function runClaude(label: string, cwd: string, editable: string, model: st
   }
   try {
     const proc = Bun.spawn([CLAUDE, ...claudeArgs(editable, model)], {
-      cwd, stdin: new Blob([prompt]), stdout: "pipe", stderr: "pipe", env, detached: true,
+      cwd, stdin: new Blob([prompt]), stdout: "pipe", stderr: "pipe", env: claudeEnv(), detached: true,
     });
     running.add(proc.pid);
     let giveUp!: (v: string) => void;
@@ -196,6 +204,7 @@ function failure(code: number, result: Json | null): string {
 async function collect(work: string, given: string): Promise<boolean> {
   const dir = join(work, "rio-maior-collected");
   if (given) {
+    if (!existsSync(join(given, "index.json"))) return false;
     cpSync(given, dir, { recursive: true });
     return true;
   }
@@ -369,6 +378,13 @@ export async function main(argv: string[]): Promise<number> {
   const collectedOk = await collect(work, collected);
   summary.timings.collect_s = seconds(collectStart);
   if (!collectedOk) return finish(work, 1, "collect failed; nothing deployed");
+  if (collected) {
+    // collected in an earlier step: its own duration, not the copy's
+    try {
+      const took = JSON.parse(readFileSync(join(work, "rio-maior-collected", "index.json"), "utf8")).collect_s;
+      if (typeof took === "number" && Number.isFinite(took)) summary.timings.collect_s = took;
+    } catch { /* the index is read again below */ }
+  }
   cpSync(join(ROOT, "references"), join(work, "references"), { recursive: true });
   mkdirSync(join(work, "rio-maior-candidates"));
   const index: Json = JSON.parse(readFileSync(join(work, "rio-maior-collected", "index.json"), "utf8"));

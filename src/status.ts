@@ -107,9 +107,18 @@ function lastDay(e: Json, windowEnd: unknown): string | null {
 export type SourceRow = {
   id: string; label: string; url: string; town: string; group: string;
   state: "ok" | "failed" | "not read"; error: string | null; refused: boolean;
+  /** Read through the fallback proxy (the direct request was refused). */
+  via_proxy: boolean;
   events: number | null; reaches: string | null;
   list_items: number; event_pages: number; chars: number; truncated: boolean;
 };
+
+/** The run's fallback-proxy use from the collected index: numbers and a short reason only, null when it was off. */
+function proxyOf(p: unknown): { bytes: number; max_bytes: number; dead: string | null } | null {
+  if (typeof p !== "object" || p === null) return null;
+  const q = p as Json;
+  return { bytes: Number(q.bytes) || 0, max_bytes: Number(q.max_bytes) || 0, dead: typeof q.dead === "string" ? scrub(q.dead, 60) : null };
+}
 
 export function buildStatus(input: StatusInput): Json {
   const { index, config, summary, env } = input;
@@ -179,6 +188,7 @@ export function buildStatus(input: StatusInput): Json {
       state: failed ? "failed" : unread ? "not read" : "ok",
       error: failed ? scrub(s.error || (s.status ? `HTTP ${s.status}` : "failed")) : null,
       refused: failed && s.refused === true,
+      via_proxy: s.via === "proxy",
       events: failed || unread ? null : counts.get(s.name) ?? 0,
       reaches: failed || unread ? null : reach.get(s.name) ?? null,
       list_items: Number(s.items) || 0, event_pages: Number(s.details) || 0, chars: Number(s.chars) || 0,
@@ -233,6 +243,7 @@ export function buildStatus(input: StatusInput): Json {
     },
     usage_usd: { readers: cents(readerCost), editor: cents(editorCost), total: cents(readerCost + editorCost) },
     groups, sources,
+    proxy: proxyOf(index.proxy),
     unattributed: [...unattributed].map(([name, events]) => ({ name, events })),
     readers: { rows: readerRows, units: readerRows.length, read: readerRows.filter((r) => r.outcome === "ok").length },
     totals: {
@@ -300,8 +311,8 @@ function sourcesTable(d: Json): string {
       const chars = s.chars ? fmtChars(s.chars) + (s.truncated ? ", cut" : "") : "-";
       const detail = [s.town, s.list_items ? `${s.list_items} items` : "", s.event_pages ? `${s.event_pages} pages` : "", s.chars ? (s.truncated ? `${fmtChars(s.chars)} chars, cut` : `${chars} chars`) : ""].filter(Boolean).join(" · ");
       const events = s.state === "ok"
-        ? `<td class="num">${fmtNum(s.events ?? 0)}</td>`
-        : `<td class="bad">${x(s.state === "not read" ? "not read" : s.error ?? "failed")}${s.refused ? ' <span class="pill">refused</span>' : ""}</td>`;
+        ? `<td class="num">${fmtNum(s.events ?? 0)}${s.via_proxy ? ' <span class="pill">proxy</span>' : ""}</td>`
+        : `<td class="bad">${x(s.state === "not read" ? "not read" : s.error ?? "failed")}${s.refused ? ' <span class="pill">refused</span>' : ""}${s.via_proxy ? ' <span class="pill">proxy</span>' : ""}</td>`;
       rows.push(
         `<tr><th scope="row">${link(s.url, s.label)}<span class="sub phone">${x(detail)}</span></th>${events}` +
         `<td class="when">${x(s.reaches ?? "")}</td><td class="wide">${x(s.town)}</td><td class="num wide">${s.list_items}</td>` +
@@ -316,11 +327,18 @@ function sourcesTable(d: Json): string {
     `<th scope="col" class="wide">Town</th><th scope="col" class="num wide">List items</th><th scope="col" class="num wide">Event pages</th><th scope="col" class="num wide">Text</th></tr></thead><tbody>\n${rows.join("\n")}\n</tbody></table></div>`;
 }
 
+function proxyLine(p: Json, sources: SourceRow[]): string {
+  const mb = (n: number) => (n / 1048576).toFixed(1);
+  const n = sources.filter((s) => s.via_proxy).length;
+  return `${plural(n, "source")} read that way, about ${mb(p.bytes)} MB of ${mb(p.max_bytes)} MB${p.dead ? `; ${p.dead}` : ""}`;
+}
+
 function timingsList(d: Json): string {
   const t = d.timings as Json;
   const items: [string, string][] = [
     ["Total", fmtDuration(t.total_s)],
     ["Collecting", fmtDuration(t.collect_s)],
+    ...(d.proxy ? [["Fallback proxy", proxyLine(d.proxy as Json, d.sources as SourceRow[])] as [string, string]] : []),
     ["Reading", `${fmtDuration(t.reading.wall_s)} (slowest reader ${fmtDuration(t.reading.slowest_s)}, all readers together ${fmtDuration(t.reading.sum_s)})`],
   ];
   for (const r of t.editing as Json[]) items.push([`Editing, round ${r.round}`, `${fmtDuration(r.duration_s)}${r.outcome === "ok" ? "" : ` (${r.outcome})`}`]);
