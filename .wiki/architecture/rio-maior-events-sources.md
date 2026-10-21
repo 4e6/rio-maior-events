@@ -7,7 +7,9 @@ sources:
   - resource: sources.json
   - resource: src/adapters/**
   - resource: references/sources.md
-sources_digest: 06ddfeb5d6671f39
+  - resource: tools/probe_*.ts
+  - resource: .github/workflows/probe.yml
+sources_digest: c5a2350e8d1185b7
 ---
 
 # What this page is for
@@ -34,6 +36,13 @@ Every page was fetched once, with no retry. None of the robots files disallows
 the paths read (several hold only the commented-out example text). The one
 request-rate rule is the Entroncamento site's `Crawl-delay: 3`; one page per
 run, and the collector's 1.5 s spacing per host, are within the spirit of it.
+
+From a GitHub runner the picture differs: the `probe` workflow
+(`.github/workflows/probe.yml`, run by hand) collects once there and prints one
+line per source (`tools/probe_summary.ts`), plus one plain GET per source with
+Bun (`tools/probe_bun.ts`). On 2026-10-21 it gave 27 of 32 ok; Santarém (timeout),
+Torres Novas (503), Alcanena, Entroncamento and Vila Nova da Barquinha
+(connection reset) refuse the runner's address while answering a home one.
 
 # Per source or group
 
@@ -178,7 +187,7 @@ need a browser.
 - **Own site before an aggregator.** A municipality's own listing is the
   primary, even when thin. Viral Agenda, the one community aggregator tried,
   refuses scripts ([Not reachable](#not-reachable)) and is left out rather than
-  reached another way ([the rule](/decisions/0001-sources-must-answer-a-github-runner.md)).
+  reached another way.
   It would have added about 22 events over two to three weeks. Rejected: a
   browser-like client or a `curl` fallback (getting round a refusal is not this
   script's call), and honouring its 15 s crawl delay (the site answers 403

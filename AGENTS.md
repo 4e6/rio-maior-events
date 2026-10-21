@@ -9,9 +9,8 @@ A Bun/TypeScript pipeline that builds an events page twice a week for Rio Maior,
 
 - `bun install`, then `bun test` (offline; the pipeline's tests run against a fake
   `claude`) and `bunx tsc --noEmit`. Both must pass before a change lands.
-- Never run the collector in a loop, and never route around a site's refusal (a
-  403, a robots.txt, a throttle). A site that refuses is recorded as failed; see
-  [the decision](.wiki/decisions/0001-sources-must-answer-a-github-runner.md).
+- Never run the collector in a loop, and keep to each site's robots.txt and
+  per-host delay. A site that refuses is recorded as failed.
 - The corpus of saved pages (collected sources, `work/`, any run output) is
   private. It is never committed; keep it under the ignored folders.
 

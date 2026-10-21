@@ -198,7 +198,7 @@ GitHub Actions workflow; the `claude -p` readers and editor are confined to file
   connection error the rest of that site's pages are skipped, and requests to
   one site are spaced by that host's delay. GoTrail and Running.life refused the
   script with a 403 while a browser got the page; a fallback to `curl` was
-  built and removed, because getting round a refusal is not this script's call ([the rule](/decisions/0001-sources-must-answer-a-github-runner.md)),
+  built and removed, because getting round a refusal was not this script's call then,
   and both were later dropped for Portugal Running. Some sites throttle a
   visitor after repeated runs, so the README says never to fetch a source
   repeatedly.
