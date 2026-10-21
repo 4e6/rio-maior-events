@@ -35,7 +35,7 @@ own), counted from the end of the previous response. After a refusal (403, 429,
 a 5xx), a timeout or a connection error the rest of that host's sources are
 skipped; any other failed request, a 404 say, fails only its own source. A
 source that fails is recorded with ok false and an error and the rest carry on.
-A run makes about 33 list requests and, with the event pages, up to about 180
+A run makes about 32 list requests and, with the event pages, up to about 180
 more, and takes a few minutes, the sites being worked in parallel. Ctrl-C stops
 the workers between requests, writes nothing and exits 130.
 
@@ -130,6 +130,9 @@ def ssl_context(path=CERTS):
     """The system's trusted roots plus the intermediates some servers fail to send
     (certs/README.md). Verification stays on; a missing file raises."""
     context = ssl.create_default_context()
+    # Python 3.13+ sets VERIFY_X509_PARTIAL_CHAIN, which would let the intermediates
+    # act as trust anchors; clear it so the chain must still reach a system root.
+    context.verify_flags &= ~getattr(ssl, "VERIFY_X509_PARTIAL_CHAIN", 0)
     context.load_verify_locations(cafile=path)
     return context
 

@@ -898,6 +898,8 @@ class SslContextTests(unittest.TestCase):
                          "Root YR"} <= names, names)
         self.assertEqual(context.verify_mode, ssl.CERT_REQUIRED)
         self.assertTrue(context.check_hostname)
+        # The shipped certificates must not become trust anchors (Python 3.13+ default).
+        self.assertFalse(context.verify_flags & getattr(ssl, "VERIFY_X509_PARTIAL_CHAIN", 0))
 
     def test_both_fetches_use_that_context(self):
         response = mock.MagicMock()
@@ -912,7 +914,8 @@ class SslContextTests(unittest.TestCase):
             build.return_value.open.return_value = response
             collect.fetch_follow("https://h.example/")
         handlers = build.call_args.args
-        self.assertTrue(any(isinstance(h, urllib.request.HTTPSHandler) for h in handlers))
+        self.assertTrue(any(isinstance(h, urllib.request.HTTPSHandler)
+                            and h._context is collect.SSL_CONTEXT for h in handlers))
 
     def test_a_missing_file_fails_loudly(self):
         # A missing bundle must stop the run, not fall back to fewer certificates.
