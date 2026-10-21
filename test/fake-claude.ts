@@ -1,7 +1,8 @@
 #!/usr/bin/env bun
 // A stand-in for `claude -p` in tests. The prompt arrives on stdin, argv is
 // recorded, and FAKE_PLAN (a JSON file) says how each role behaves:
-//   { "log": "<file>", "readers": { "<group>": "ok|fail|garbage|denied|once-garbage" }, "editor": "ok|fail|corrupt|badthenfix" }
+//   { "log": "<file>", "readers": { "<group>": "ok|fail|garbage|denied|once-garbage|hang|hang-child|hang-term" },
+//     "editor": "ok|fail|corrupt|unfixable|badthenfix|hang" }
 // Anything not named behaves "ok". The log gets one JSON line per call.
 import { appendFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 
@@ -17,6 +18,14 @@ appendFileSync(plan.log, JSON.stringify({
   role: isEditor ? "editor" : group, attempt, argv: process.argv.slice(2), cwd: process.cwd(),
   existed: existsSync(output), prompt,
 }) + "\n");
+
+async function hang(mode: string): Promise<never> {
+  if (mode === "hang-child") Bun.spawn(["sleep", "30"], { stdout: "inherit", stderr: "inherit" });
+  if (mode === "hang-term") process.on("SIGTERM", () => {});
+  setInterval(() => {}, 1000);
+  await new Promise(() => {});
+  process.exit(0);
+}
 
 const result = (extra = {}) => JSON.stringify({
   type: "result", subtype: "success", is_error: false, num_turns: 3, total_cost_usd: 0.01,
@@ -34,9 +43,11 @@ function event(title: string, start: string) {
 
 if (isEditor) {
   const mode = plan.editor ?? "ok";
+  if (mode.startsWith("hang")) await hang(mode);
   const doc = JSON.parse(readFileSync(output, "utf8").trim() || "{}");
   if (mode === "fail") { console.log(result({ is_error: true, subtype: "error_max_turns" })); process.exit(1); }
   if (mode === "corrupt") writeFileSync(output, "{ not json");
+  else if (mode === "unfixable") writeFileSync(output, JSON.stringify({ events: "x" }));
   else if (mode === "badthenfix") {
     if (prompt.includes("Building the page failed")) {
       doc.events = doc.events.filter((e: any) => e.category !== "bogus");
@@ -54,6 +65,7 @@ if (isEditor) {
 }
 
 const mode = plan.readers?.[group] ?? "ok";
+if (mode.startsWith("hang")) await hang(mode);
 const collected = JSON.parse(readFileSync(`rio-maior-collected/${group}.json`, "utf8"));
 const good = { collected_at: collected.collected_at, group, events: [event("Concerto " + group, "2026-10-25")], hints: [], coverage: group + " ok; reaches 2026-11-10" };
 if (mode === "fail") { console.log(result({ is_error: true, subtype: "error_during_execution" })); process.exit(1); }

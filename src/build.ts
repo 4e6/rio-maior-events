@@ -5,7 +5,9 @@
 //
 // --collected skips the collect step and uses that folder (tests, reruns).
 // Environment: CLAUDE_BIN (default claude), PYTHON (python3), READ_MODEL (opus),
-// EDIT_MODEL (READ_MODEL), MAX_TURNS (40), AGENT_TIMEOUT_MS (20 min), MIN_GROUPS (4).
+// EDIT_MODEL (READ_MODEL), MAX_TURNS (40), AGENT_TIMEOUT_MS (20 min), MIN_GROUPS (4),
+// BUILD_DEADLINE_MIN (75: no agent runs past it minus DEADLINE_MARGIN_MIN, default 5,
+// kept for finalize and render), KILL_GRACE_MS (10000), COLLECT_SCRIPT (scripts/collect.py).
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync, copyFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
@@ -18,6 +20,11 @@ const EDIT_MODEL = env.EDIT_MODEL || READ_MODEL;
 const MAX_TURNS = env.MAX_TURNS || "40";
 const TIMEOUT_MS = Number(env.AGENT_TIMEOUT_MS || 20 * 60 * 1000);
 const MIN_GROUPS = Number(env.MIN_GROUPS || 4);
+const STARTED = Date.now();
+const DEADLINE = STARTED + Number(env.BUILD_DEADLINE_MIN || 75) * 60_000;
+const MARGIN_MS = Number(env.DEADLINE_MARGIN_MIN || 5) * 60_000;
+const GRACE_MS = Number(env.KILL_GRACE_MS || 10_000);
+const COLLECT_SCRIPT = env.COLLECT_SCRIPT || join(ROOT, "scripts", "collect.py");
 const ATTEMPTS = 2;
 const EDIT_ROUNDS = 2;
 
@@ -60,26 +67,66 @@ export function claudeArgs(editable: string, model: string): string[] {
     "--permission-prompts", "none",
     "--disallowedTools", "mcp__*",
     "--strict-mcp-config",
+    "--setting-sources", "",
     "--max-turns", MAX_TURNS,
     "--model", model,
     "--output-format", "json",
   ];
 }
 
-/** Run claude in `cwd` with the prompt on stdin. ok means exit 0, a successful result and no permission denials. */
+/** Time an agent may still take: its own limit, or what is left before the deadline minus the margin. */
+function budgetMs(): number {
+  return Math.min(TIMEOUT_MS, DEADLINE - Date.now() - MARGIN_MS);
+}
+
+const running = new Set<number>();
+/** Signal a whole process group (claude and anything it started). */
+function killGroup(pid: number, signal: NodeJS.Signals) {
+  try { process.kill(-pid, signal); } catch { /* already gone */ }
+}
+for (const sig of ["SIGINT", "SIGTERM"] as const) {
+  process.on(sig, () => { for (const pid of running) killGroup(pid, "SIGKILL"); process.exit(1); });
+}
+
+/** Read a stream to the end, or give up with what is missing when `giveUp` settles. */
+async function drain(stream: ReadableStream, giveUp: Promise<string>): Promise<string> {
+  return Promise.race([new Response(stream).text().catch(() => ""), giveUp]);
+}
+
+/**
+ * Run claude in `cwd` with the prompt on stdin, in its own process group so a timeout can kill
+ * everything it started (SIGTERM, then SIGKILL after a grace period; reads are abandoned then too).
+ * ok means exit 0, a successful result and no permission denials.
+ */
 async function runClaude(label: string, cwd: string, editable: string, model: string, prompt: string): Promise<Run> {
   const started = Date.now();
   const log: Json = { label };
+  const budget = budgetMs();
   let reason = "";
+  if (budget <= 0) {
+    log.reason = reason = "no time left";
+    console.log(JSON.stringify(log));
+    return { ok: false, reason, log };
+  }
   try {
     const proc = Bun.spawn([CLAUDE, ...claudeArgs(editable, model)], {
-      cwd, stdin: new Blob([prompt]), stdout: "pipe", stderr: "pipe", env,
+      cwd, stdin: new Blob([prompt]), stdout: "pipe", stderr: "pipe", env, detached: true,
     });
-    const timer = setTimeout(() => { reason = "timeout"; proc.kill(); }, TIMEOUT_MS);
+    running.add(proc.pid);
+    let giveUp!: (v: string) => void;
+    const abandoned = new Promise<string>((resolve) => { giveUp = resolve; });
+    const timer = setTimeout(() => {
+      reason = "timeout";
+      killGroup(proc.pid, "SIGTERM");
+      setTimeout(() => { killGroup(proc.pid, "SIGKILL"); giveUp(""); }, GRACE_MS);
+    }, budget);
+    const exited = Promise.race([proc.exited, abandoned.then(() => -1)]);
     const [out, err, code] = await Promise.all([
-      new Response(proc.stdout as ReadableStream).text(), new Response(proc.stderr as ReadableStream).text(), proc.exited,
+      drain(proc.stdout as ReadableStream, abandoned), drain(proc.stderr as ReadableStream, abandoned), exited,
     ]);
     clearTimeout(timer);
+    killGroup(proc.pid, "SIGKILL"); // stragglers that outlived claude
+    running.delete(proc.pid);
     const result = parseResult(out);
     Object.assign(log, {
       exit_code: code, is_error: result?.is_error, subtype: result?.subtype, num_turns: result?.num_turns,
@@ -124,7 +171,7 @@ async function collect(work: string, given: string): Promise<boolean> {
     cpSync(given, dir, { recursive: true });
     return true;
   }
-  const { code } = await run([PYTHON, join(ROOT, "scripts", "collect.py"), dir]);
+  const { code } = await run([PYTHON, COLLECT_SCRIPT, dir]);
   if (code !== 0) console.error(`collect.py exited ${code}`);
   return code === 0 || existsSync(join(dir, "index.json"));
 }
@@ -148,7 +195,12 @@ async function checkCandidates(work: string, group: string): Promise<string> {
 }
 
 /** One reader, with one retry; the stale file is deleted before each attempt. */
-async function readGroup(work: string, window: Json, group: string): Promise<boolean> {
+async function readGroup(work: string, window: Json, group: string, sources: Json[]): Promise<boolean> {
+  if (!sources.some((s) => s.group === group && s.ok)) {
+    console.error(`group ${group}: no source was read, no reader started`);
+    summary.readers.push({ group, attempt: 0, reason: "no source read" });
+    return false;
+  }
   const file = join(work, "rio-maior-candidates", `${group}.json`);
   for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
     rmSync(file, { force: true });
@@ -196,6 +248,10 @@ async function edit(work: string, window: Json): Promise<void> {
   const probe = join(work, "probe.html");
   let problems = "";
   for (let round = 1; round <= EDIT_ROUNDS; round++) {
+    if (budgetMs() <= 0) {
+      console.error(`no time left for editor round ${round}`);
+      return;
+    }
     try {
       await editorRound(work, window, problems);
       problems = parses(events) ? await renderProblems(events, probe) : "the file is not valid JSON";
@@ -238,7 +294,7 @@ export async function main(argv: string[]): Promise<number> {
   const index: Json = JSON.parse(readFileSync(join(work, "rio-maior-collected", "index.json"), "utf8"));
 
   const groups = Object.keys(index.groups);
-  const done = await Promise.all(groups.map((g) => readGroup(work, index.window, g)));
+  const done = await Promise.all(groups.map((g) => readGroup(work, index.window, g, index.sources)));
   summary.groups_read = groups.filter((_, i) => done[i]);
   summary.groups_failed = groups.filter((_, i) => !done[i]);
   const need = Math.min(MIN_GROUPS, groups.length);
