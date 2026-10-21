@@ -1,0 +1,82 @@
+name: daily
+# Builds the agenda page every morning and deploys it to GitHub Pages.
+on:
+  schedule:
+    - cron: "17 5 * * *"
+      timezone: "Europe/Lisbon"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: pages
+  cancel-in-progress: false
+env:
+  TZ: Europe/Lisbon
+  CLAUDE_CODE_VERSION: "2.1.306"
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.3
+      - name: Install Claude Code (pinned, no auto-update)
+        run: |
+          curl -fsSL https://claude.ai/install.sh | bash -s "$CLAUDE_CODE_VERSION"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          echo "DISABLE_AUTOUPDATER=1" >> "$GITHUB_ENV"
+          "$HOME/.local/bin/claude" --version | grep -F "$CLAUDE_CODE_VERSION"
+      - run: bun install --frozen-lockfile
+      - name: Build the page
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: bun run build -- --work "$RUNNER_TEMP/work"
+      - name: Keep the run summary
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: run-summary
+          path: |
+            ${{ runner.temp }}/work/run-summary.json
+            ${{ runner.temp }}/work/merge-report.txt
+          if-no-files-found: ignore
+          retention-days: 7
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: ${{ runner.temp }}/work/_site
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
+  keepalive:
+    # Best effort: GitHub disables a schedule after 60 days without repository
+    # activity; enabling the workflow again may reset that counter.
+    needs: build
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    continue-on-error: true
+    permissions:
+      actions: write
+    steps:
+      - name: Enable this workflow again
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/daily.yml/enable"

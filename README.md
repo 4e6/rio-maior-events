@@ -63,3 +63,34 @@ Ask, for example:
 
 Ask again any time to refresh it; your starred events stay where you opened the
 page before.
+
+## Daily build
+
+A workflow ([.github/workflows/daily.yml](.github/workflows/daily.yml)) runs
+every morning at 05:17 Lisbon time (and on demand from the Actions tab). It
+collects the listings, has six `claude -p` readers (one per group of sources)
+write candidates, merges them, has one more `claude -p` editor settle
+duplicates, the note and the hints, and renders the page to GitHub Pages. A
+group that cannot be read twice is left out and named on the page; with fewer
+than four groups read, or if collecting fails, nothing is deployed and
+yesterday's page stays. `run-summary.json` (turns, usage and cost per reader)
+and `merge-report.txt` are kept as a workflow artifact for 7 days.
+
+- **Secret `CLAUDE_CODE_OAUTH_TOKEN`**: run `claude setup-token` and
+  `gh secret set CLAUDE_CODE_OAUTH_TOKEN`. The token lasts a year: renew it
+  yearly. Runs use the subscription it belongs to.
+- **Schedule**: GitHub disables a scheduled workflow after 60 days without
+  repository activity and emails the owner. Re-enable it in the Actions tab or
+  with `gh workflow enable daily.yml`. The workflow's last job also tries to
+  re-enable itself through the API, best effort.
+- **Locally**: `bun install`, then `bun run build` (uses the `claude` on your
+  PATH and your own login; the work folder is `./work`, the page
+  `work/_site/index.html`). `--work DIR` picks another folder. `CLAUDE_BIN`,
+  `READ_MODEL` (default `opus`), `EDIT_MODEL` (the editor's, default
+  `READ_MODEL`), `MAX_TURNS` (40), `AGENT_TIMEOUT_MS` (20 min per agent),
+  `MIN_GROUPS` (4: fewer groups read means no deploy) and `BUILD_DEADLINE_MIN`
+  (75: no agent starts or runs past it minus five minutes, which are kept for
+  finalize and render) change the run. Agents run in their own process group
+  and are killed with it on a timeout. They get `--setting-sources ""`, so
+  your own `~/.claude` settings, hooks and allow rules are not loaded. `bun test` runs the pipeline's tests against a fake
+  `claude`.

@@ -10,8 +10,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@v6
         with:
           python-version: "3.14"
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.3
       - run: python -m unittest discover -s tests/python
+      - run: bun install --frozen-lockfile
+      - run: bun test

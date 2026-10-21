@@ -1,0 +1,18 @@
+{
+ "collected_at": "2026-10-20T08:00:00+01:00",
+ "window": {
+  "start": "2026-10-20",
+  "end": "2026-11-15"
+ },
+ "group": "oeste-norte",
+ "sources": [
+  {
+   "name": "src-oeste-norte",
+   "label": "src-oeste-norte",
+   "url": "https://example.org/oeste-norte",
+   "ok": true,
+   "items": [],
+   "text": "Concerto 25 Oct 21:00"
+  }
+ ]
+}
