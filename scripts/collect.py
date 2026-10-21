@@ -3,8 +3,12 @@
 
     python3 scripts/collect.py rio-maior-collected [--from DATE] [--to DATE] [--only NAME ...]
 
-The window is --from (default today) to --to (default 42 days later); events
-outside it are dropped where their dates can be read. scripts/sources.json is
+The window is --from to --to; events outside it are dropped where their dates
+can be read. --from defaults to today in Europe/Lisbon (the clock of the place,
+not of the machine running this). --to defaults to the first Sunday that is at
+least 28 days after --from: the day 28 days on if that is a Sunday (so a --from
+that is a Sunday ends exactly four weeks later), else the Sunday after it. The
+same rule is in SKILL.md step 1. scripts/sources.json is
 the list of sources: each names the adapter (a module in scripts/adapters/)
 that knows its kind of site, its town, its reading group and its URL. An
 adapter plans the requests a source needs and turns the pages that come back
@@ -76,7 +80,9 @@ from adapters.common import (AdapterError, Page, Request, clean_url, decode,  # 
 
 SOURCES_PATH = os.path.join(HERE, "sources.json")
 TIMEOUT = 20
-DEFAULT_DAYS = 42
+MIN_WEEKS_DAYS = 28
+SUNDAY = 6  # datetime.date.weekday()
+LISBON = "Europe/Lisbon"
 MAX_WORKERS = 8
 USER_AGENT = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
@@ -475,12 +481,28 @@ def write_output(out_dir, collected_at, window, groups, sources, results):
     return index
 
 
+def lisbon_today(now=None):
+    """Today's date in Europe/Lisbon. now is an aware datetime, for tests."""
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    try:
+        import zoneinfo
+        return now.astimezone(zoneinfo.ZoneInfo(LISBON)).date()
+    except Exception:  # no zoneinfo or no tz database: the machine's own clock
+        return now.astimezone().date()
+
+
+def default_end(start):
+    """The first Sunday at least 28 days after start (28 days on, if that is a Sunday)."""
+    day = start + datetime.timedelta(days=MIN_WEEKS_DAYS)
+    return day + datetime.timedelta(days=(SUNDAY - day.weekday()) % 7)
+
+
 def main(argv=None, fetch=fetch, sleep=None, clock=time.monotonic, max_workers=MAX_WORKERS,
-         follow_fetch=None):
+         follow_fetch=None, today=None):
     parser = argparse.ArgumentParser(description="Collect event listings around Rio Maior.")
     parser.add_argument("out", help="folder to write: index.json and one file per group")
-    parser.add_argument("--from", dest="start", metavar="YYYY-MM-DD", help="first day (default today)")
-    parser.add_argument("--to", dest="end", metavar="YYYY-MM-DD", help="last day (default 42 days after --from)")
+    parser.add_argument("--from", dest="start", metavar="YYYY-MM-DD", help="first day (default today in Europe/Lisbon)")
+    parser.add_argument("--to", dest="end", metavar="YYYY-MM-DD", help="last day (default the first Sunday at least 28 days after --from)")
     parser.add_argument("--only", nargs="+", metavar="NAME", help="fetch only these sources")
     args = parser.parse_args(argv)
 
@@ -498,8 +520,8 @@ def main(argv=None, fetch=fetch, sleep=None, clock=time.monotonic, max_workers=M
 
     now = datetime.datetime.now().astimezone()
     try:
-        start = datetime.date.fromisoformat(args.start) if args.start else now.date()
-        end = datetime.date.fromisoformat(args.end) if args.end else start + datetime.timedelta(days=DEFAULT_DAYS)
+        start = datetime.date.fromisoformat(args.start) if args.start else (today or lisbon_today())
+        end = datetime.date.fromisoformat(args.end) if args.end else default_end(start)
     except ValueError as err:
         print("bad date: %s" % err, file=sys.stderr)
         return 2

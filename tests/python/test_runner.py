@@ -8,6 +8,7 @@ ships with it.
 """
 
 import contextlib
+import datetime
 import io
 import json
 import os
@@ -652,14 +653,15 @@ class Interrupt(unittest.TestCase):
 
 
 class Main(unittest.TestCase):
-    def run_main(self, args, fetch=None, workers=2):
+    def run_main(self, args, fetch=None, workers=2, today=None):
         fetch = fetch or (lambda url, data=None: (200, PAGE, None))
         self.out = tempfile.TemporaryDirectory()
         self.addCleanup(self.out.cleanup)
         self.dir = os.path.join(self.out.name, "collected")
         buffer = io.StringIO()
         with contextlib.redirect_stdout(buffer):
-            code = collect.main([self.dir] + args, fetch, lambda s: None, lambda: 0.0, workers)
+            code = collect.main([self.dir] + args, fetch, lambda s: None, lambda: 0.0, workers,
+                                today=today)
         self.stdout = buffer.getvalue()
         return code
 
@@ -683,7 +685,7 @@ class Main(unittest.TestCase):
         code = self.run_main(["--only", "cineteatro", "mcr-caldas", "cm-peniche", "--from", "2026-10-20"])
         self.assertEqual(code, 0)
         index = self.read("index.json")
-        self.assertEqual(index["window"], {"start": "2026-10-20", "end": "2026-12-01"})
+        self.assertEqual(index["window"], {"start": "2026-10-20", "end": "2026-11-22"})
         self.assertEqual(index["groups"], {
             "rio-maior": {"file": "rio-maior.json", "sources": ["cineteatro"]},
             "oeste-norte": {"file": "oeste-norte.json", "sources": ["mcr-caldas", "cm-peniche"]}})
@@ -726,6 +728,48 @@ class Main(unittest.TestCase):
         lines = self.stdout.splitlines()
         self.assertTrue(lines[-1].endswith("collected: 2 sources ok, 0 failed in 2 groups"), lines[-1])
         self.assertTrue(lines[-1].startswith("wrote "))
+
+    def window(self, args, today=None):
+        self.assertEqual(self.run_main(["--only", "cineteatro"] + args, today=today), 0)
+        return self.read("index.json")["window"]
+
+    def test_default_end_is_the_first_sunday_at_least_28_days_on(self):
+        for start, end in (
+            ("2026-10-19", "2026-11-22"),  # Monday: +28 is a Monday, Sunday is 6 days later
+            ("2026-10-20", "2026-11-22"),  # Tuesday
+            ("2026-10-24", "2026-11-22"),  # Saturday: +28 is a Saturday
+            ("2026-10-25", "2026-11-22"),  # Sunday: +28 is itself a Sunday and counts
+            ("2026-10-26", "2026-11-29"),  # Monday
+            ("2026-12-28", "2027-01-31"),  # across a year end
+        ):
+            d = datetime.date.fromisoformat(start)
+            e = collect.default_end(d)
+            self.assertEqual(e.isoformat(), end, start)
+            self.assertEqual(e.weekday(), 6)
+            self.assertGreaterEqual((e - d).days, 28)
+            self.assertLess((e - d).days, 35)
+
+    def test_from_defaults_to_today_and_to_to_the_rule(self):
+        self.assertEqual(self.window([], today=datetime.date(2026, 10, 21)),
+                         {"start": "2026-10-21", "end": "2026-11-22"})
+
+    def test_an_explicit_to_is_kept(self):
+        self.assertEqual(self.window(["--to", "2026-11-03"], today=datetime.date(2026, 10, 21)),
+                         {"start": "2026-10-21", "end": "2026-11-03"})
+
+    def test_an_explicit_from_gets_the_rule_not_today(self):
+        self.assertEqual(self.window(["--from", "2026-10-25"], today=datetime.date(2026, 1, 1)),
+                         {"start": "2026-10-25", "end": "2026-11-22"})
+
+    def test_today_is_lisbon_today(self):
+        utc = datetime.timezone.utc
+        # 23:30 UTC on 28 March 2026 is already 00:30 on the 29th in Lisbon (summer time)
+        self.assertEqual(collect.lisbon_today(datetime.datetime(2026, 3, 29, 0, 30, tzinfo=utc)),
+                         datetime.date(2026, 3, 29))
+        self.assertEqual(collect.lisbon_today(datetime.datetime(2026, 7, 1, 23, 30, tzinfo=utc)),
+                         datetime.date(2026, 7, 2))
+        self.assertEqual(collect.lisbon_today(datetime.datetime(2026, 12, 1, 23, 30, tzinfo=utc)),
+                         datetime.date(2026, 12, 1))
 
 
 class Config(unittest.TestCase):
