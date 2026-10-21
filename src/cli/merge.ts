@@ -1,4 +1,4 @@
-// CLI entry for scripts/merge.py. Owned by the task that owns src/merge.ts.
+// CLI entry for scripts/merge.py.
 import { main } from "../merge.ts";
 
-process.exit(await main(process.argv.slice(2)));
+process.exitCode = await main(process.argv.slice(2));

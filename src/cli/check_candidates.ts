@@ -1,4 +1,4 @@
-// CLI entry for scripts/check_candidates.py. Owned by the task that owns src/check_candidates.ts.
+// CLI entry for scripts/check_candidates.py.
 import { main } from "../check_candidates.ts";
 
-process.exit(await main(process.argv.slice(2)));
+process.exitCode = await main(process.argv.slice(2));

@@ -1,4 +1,4 @@
-// CLI entry for scripts/render.py. Owned by the task that owns src/render.ts.
+// CLI entry for scripts/render.py.
 import { main } from "../render.ts";
 
-process.exit(await main(process.argv.slice(2)));
+process.exitCode = await main(process.argv.slice(2));
