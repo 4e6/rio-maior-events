@@ -11,7 +11,7 @@ sources:
   - resource: test/**
   - resource: .github/workflows/**
   - resource: certs/**
-sources_digest: 526448421c546365
+sources_digest: 6cd6bf4a92e039d8
 ---
 
 # What it is
@@ -28,7 +28,7 @@ and each has its own traps.
 - **`src/collect.ts` fetches.** The municipal calendar is a JSON endpoint that
   takes a POST, which a page-reading tool cannot send, and a script makes a run
   repeatable and testable. It runs the sources and writes a folder:
-  `index.json` and one file per reading group, each source with the events its
+  `index.json` (each source with its counts and whether its site refused it) and one file per reading group, each source with the events its
   adapter found and the page's visible text, capped at 30,000 characters (or
   the source's own cap). It parses no HTML layout: layouts change, and a model
   reads changed text better than a regex does. Only data a site publishes as
@@ -45,7 +45,7 @@ and each has its own traps.
 - **`src/merge.ts` joins.** It checks that every group has a current candidates
   file, writes `rio-maior-events.json` and prints possible duplicates, coverage,
   yearly-event hints and what `src/render.ts`'s check finds wrong, each problem
-  with the group it came from. The editor (`claude -p` run by `src/build.ts`) settles those and writes the `note`; if it fails, `merge --finalize` writes one.
+  with the group it came from. The editor (`claude -p` run by `src/build.ts`) settles those and writes the `note`; if it fails, `merge --finalize` writes one. Both take `--stats FILE` and write their counts there (candidates, collapsed, events, dropped), for the build to report.
 - **`src/render.ts` checks and draws.** It validates the file in plain code
   (exit 2 lists each problem with its event), makes each event's id, and inlines
   `assets/page.css`, `assets/page.js` and the events as JSON into one HTML file.

@@ -224,7 +224,11 @@ export type MergeOptions = {
   split?: string;
   /** Minutes by town, to fill `drive_min` when it is null (default: references/towns.md). */
   towns?: Map<string, number>;
+  /** Called with the counts of the merge: candidates read, collapsed before the report, events written. */
+  onStats?: (stats: MergeStats) => void;
 };
+
+export type MergeStats = { candidates: number; collapsed: number; events: number };
 
 /** merge.merge: (document, report lines) or (null, problems). `now` is injectable for tests. */
 export function merge(
@@ -323,8 +327,10 @@ export function merge(
   const townMinutes = opts.towns ?? loadTowns();
   for (const e of events) if (isDict(e) && e.drive_min === null) fillDrive(e, townMinutes);
   const wStart = render.realDate(window.start), wEnd = render.realDate(window.end);
+  const candidateCount = events.length;
   const collapsed = collapseDuplicates(events, origins, wStart && wEnd && wStart <= wEnd ? [wStart, wEnd] : null, true);
   events = collapsed.events;
+  opts.onStats?.({ candidates: candidateCount, collapsed: collapsed.collapsed, events: events.length });
   origins = collapsed.origins;
 
   const doc: Doc = {
@@ -478,7 +484,7 @@ export function finalizeDocument(doc: unknown): [Doc, Stats] | [null, string[]] 
 }
 
 /** merge.finalize: in place on a file; exit code. */
-export function finalize(path: string): number {
+export function finalize(path: string, statsPath?: string): number {
   let doc: unknown;
   try {
     doc = JSON.parse(readText(path));
@@ -496,6 +502,7 @@ export function finalize(path: string): number {
   try {
     writeFileSync(tmp, JSON.stringify(out, null, 1) + "\n", "utf8");
     renameSync(tmp, path);
+    if (statsPath) writeFileSync(statsPath, JSON.stringify(result) + "\n", "utf8");
   } catch (err) {
     console.log(`cannot write ${path}: ${(err as Error).message}`);
     return 2;
@@ -504,7 +511,7 @@ export function finalize(path: string): number {
   return 0;
 }
 
-const USAGE = "usage: bun src/cli/merge.ts [-h] [--missing-ok] [--split DIR] [--finalize EVENTS_JSON] [collected] [candidates] [out]";
+const USAGE = "usage: bun src/cli/merge.ts [-h] [--missing-ok] [--split DIR] [--finalize EVENTS_JSON] [--stats FILE] [collected] [candidates] [out]";
 
 /** merge.main(argv, now): exit code. */
 export function main(argv: string[], now?: Date): number {
@@ -512,7 +519,7 @@ export function main(argv: string[], now?: Date): number {
     prog: "bun src/cli/merge.ts", usage: USAGE,
     positionals: [{ name: "collected", optional: true }, { name: "candidates", optional: true }, { name: "out", optional: true }],
     flags: ["--missing-ok"],
-    values: [{ name: "--finalize" }, { name: "--split" }],
+    values: [{ name: "--finalize" }, { name: "--split" }, { name: "--stats" }],
   }, argv);
   if (args === null) return 2;
   if (args.help) return 0;
@@ -521,11 +528,12 @@ export function main(argv: string[], now?: Date): number {
   const fail = (msg: string): number => { console.error(USAGE); console.error(`bun src/cli/merge.ts: error: ${msg}`); return 2; };
   if (fin) {
     if (collected || args.flags.has("--missing-ok") || args.values.get("--split")) return fail("--finalize takes no folders, no --missing-ok and no --split");
-    return finalize(fin);
+    return finalize(fin, args.values.get("--stats"));
   }
   if (!(collected && candidates && out)) return fail("collected, candidates and out are required");
   const split = args.values.get("--split");
-  const [doc, lines] = merge(collected, candidates, now, args.flags.has("--missing-ok"), split ? { split } : {});
+  let stats: MergeStats | null = null;
+  const [doc, lines] = merge(collected, candidates, now, args.flags.has("--missing-ok"), { ...(split ? { split } : {}), onStats: (s) => { stats = s; } });
   if (doc === null) {
     for (const line of lines) console.log(line);
     return 2;
@@ -535,6 +543,15 @@ export function main(argv: string[], now?: Date): number {
   } catch (err) {
     console.log(`cannot write ${out}: ${(err as Error).message}`);
     return 2;
+  }
+  const statsPath = args.values.get("--stats");
+  if (statsPath && stats) {
+    try {
+      writeFileSync(statsPath, JSON.stringify(stats) + "\n", "utf8");
+    } catch (err) {
+      console.log(`cannot write ${statsPath}: ${(err as Error).message}`);
+      return 2;
+    }
   }
   console.log(`wrote ${out}: ${doc.events.length} events`);
   for (const line of lines) console.log(line);
