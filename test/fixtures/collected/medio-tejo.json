@@ -1,0 +1,18 @@
+{
+ "collected_at": "2026-10-20T08:00:00+01:00",
+ "window": {
+  "start": "2026-10-20",
+  "end": "2026-11-15"
+ },
+ "group": "medio-tejo",
+ "sources": [
+  {
+   "name": "src-medio-tejo",
+   "label": "src-medio-tejo",
+   "url": "https://example.org/medio-tejo",
+   "ok": true,
+   "items": [],
+   "text": "Concerto 25 Oct 21:00"
+  }
+ ]
+}

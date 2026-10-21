@@ -1,0 +1,18 @@
+{
+ "collected_at": "2026-10-20T08:00:00+01:00",
+ "window": {
+  "start": "2026-10-20",
+  "end": "2026-11-15"
+ },
+ "group": "rio-maior",
+ "sources": [
+  {
+   "name": "src-rio-maior",
+   "label": "src-rio-maior",
+   "url": "https://example.org/rio-maior",
+   "ok": true,
+   "items": [],
+   "text": "Concerto 25 Oct 21:00"
+  }
+ ]
+}
