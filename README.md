@@ -86,7 +86,7 @@ and `merge-report.txt` are kept as a workflow artifact for 7 days.
 - **Locally**: `bun install`, then `bun run build` (uses the `claude` on your
   PATH and your own login; the work folder is `./work`, the page
   `work/_site/index.html`). `--work DIR` picks another folder. `CLAUDE_BIN`,
-  `READ_MODEL` (default `opus`), `EDIT_MODEL` (the editor's, default
+  `READ_MODEL` (default `sonnet`), `EDIT_MODEL` (the editor's, default
   `READ_MODEL`), `MAX_TURNS` (40), `AGENT_TIMEOUT_MS` (20 min per agent),
   `MIN_GROUPS` (4: fewer groups read means no deploy) and `BUILD_DEADLINE_MIN`
   (75: no agent starts or runs past it minus five minutes, which are kept for
