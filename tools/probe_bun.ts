@@ -1,6 +1,6 @@
 // One GET per source URL with Bun's fetch, one host at a time, to see whether
 // a site answers Bun's client from here. Prints status per source; no bodies kept.
-const config = await Bun.file(new URL("../scripts/sources.json", import.meta.url)).json();
+const config = await Bun.file(new URL("../sources.json", import.meta.url)).json();
 const UA = process.argv[2] ?? "rio-maior-events probe";
 for (const source of config.sources) {
   let line: string;

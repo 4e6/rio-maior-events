@@ -4,17 +4,16 @@
 //   bun src/build.ts [--work DIR] [--collected DIR]
 //
 // --collected skips the collect step and uses that folder (tests, reruns).
-// Environment: CLAUDE_BIN (default claude), PYTHON (python3), READ_MODEL (sonnet),
+// Environment: CLAUDE_BIN (default claude), READ_MODEL (sonnet),
 // EDIT_MODEL (READ_MODEL), MAX_TURNS (40), AGENT_TIMEOUT_MS (20 min), MIN_GROUPS (4),
 // BUILD_DEADLINE_MIN (75: no agent runs past it minus DEADLINE_MARGIN_MIN, default 5,
-// kept for finalize and render), KILL_GRACE_MS (10000), COLLECT_SCRIPT (scripts/collect.py).
+// kept for finalize and render), KILL_GRACE_MS (10000), COLLECT_SCRIPT (src/cli/collect.ts).
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync, copyFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 const ROOT = resolve(import.meta.dir, "..");
 const env = process.env;
 const CLAUDE = env.CLAUDE_BIN || "claude";
-const PYTHON = env.PYTHON || "python3";
 const READ_MODEL = env.READ_MODEL || "sonnet";
 const EDIT_MODEL = env.EDIT_MODEL || READ_MODEL;
 const MAX_TURNS = env.MAX_TURNS || "40";
@@ -24,7 +23,7 @@ const STARTED = Date.now();
 const DEADLINE = STARTED + Number(env.BUILD_DEADLINE_MIN || 75) * 60_000;
 const MARGIN_MS = Number(env.DEADLINE_MARGIN_MIN || 5) * 60_000;
 const GRACE_MS = Number(env.KILL_GRACE_MS || 10_000);
-const COLLECT_SCRIPT = env.COLLECT_SCRIPT || join(ROOT, "scripts", "collect.py");
+const COLLECT_SCRIPT = env.COLLECT_SCRIPT || join(ROOT, "src", "cli", "collect.ts");
 const ATTEMPTS = 2;
 const EDIT_ROUNDS = 2;
 
@@ -44,16 +43,32 @@ function parseArgs(argv: string[]) {
   return { work: resolve(out.work), collected: out.collected ? resolve(out.collected) : "" };
 }
 
+/** What the plain steps (collect, check, merge, render) get from the environment: no tokens or other secrets.
+ *  Only the claude processes see the whole environment. */
+const STEP_ENV_KEYS = [
+  "PATH", "HOME", "USER", "LOGNAME", "SHELL", "TZ", "LANG", "TMPDIR", "RUNNER_TEMP", "CI",
+  "NODE_EXTRA_CA_CERTS", "SSL_CERT_FILE", "SSL_CERT_DIR", "BUN_INSTALL",
+  "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "http_proxy", "https_proxy", "no_proxy",
+];
+export function stepEnv(source: Record<string, string | undefined> = env): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [key, value] of Object.entries(source)) {
+    if (value !== undefined && (STEP_ENV_KEYS.includes(key) || key.startsWith("LC_"))) out[key] = value;
+  }
+  return out;
+}
+
 /** Run a command; stdout and stderr to the console unless `capture`. Returns exit code and stdout. */
 async function run(cmd: string[], opts: { cwd?: string; capture?: boolean } = {}) {
-  const proc = Bun.spawn(cmd, { cwd: opts.cwd, stdout: opts.capture ? "pipe" : "inherit", stderr: opts.capture ? "pipe" : "inherit" });
+  const proc = Bun.spawn(cmd, { cwd: opts.cwd, env: stepEnv(), stdout: opts.capture ? "pipe" : "inherit", stderr: opts.capture ? "pipe" : "inherit" });
   const [stdout, stderr] = opts.capture
     ? await Promise.all([new Response(proc.stdout as ReadableStream).text(), new Response(proc.stderr as ReadableStream).text()])
     : ["", ""];
   return { code: await proc.exited, stdout, stderr };
 }
 
-const py = (script: string, ...args: string[]) => run([PYTHON, join(ROOT, "scripts", script), ...args], { capture: true });
+// The steps run as the same CLIs a person would run, so their output and exit codes are what is checked.
+const cli = (name: string, ...args: string[]) => run([process.execPath, join(ROOT, "src", "cli", `${name}.ts`), ...args], { capture: true });
 
 // --- the one place that runs claude -------------------------------------------------
 
@@ -171,8 +186,8 @@ async function collect(work: string, given: string): Promise<boolean> {
     cpSync(given, dir, { recursive: true });
     return true;
   }
-  const { code } = await run([PYTHON, COLLECT_SCRIPT, dir]);
-  if (code !== 0) console.error(`collect.py exited ${code}`);
+  const { code } = await run([process.execPath, COLLECT_SCRIPT, dir]);
+  if (code !== 0) console.error(`collect exited ${code}`);
   return code === 0 || existsSync(join(dir, "index.json"));
 }
 
@@ -190,7 +205,7 @@ function readerPrompt(work: string, window: Json, group: string): string {
 async function checkCandidates(work: string, group: string): Promise<string> {
   const file = join(work, "rio-maior-candidates", `${group}.json`);
   if (!existsSync(file)) return "no candidates file";
-  const { code, stdout } = await py("check_candidates.py", file, "--index", join(work, "rio-maior-collected", "index.json"), "--group", group);
+  const { code, stdout } = await cli("check_candidates", file, "--index", join(work, "rio-maior-collected", "index.json"), "--group", group);
   return code === 0 ? "" : `invalid candidates: ${stdout.trim().split("\n").slice(0, 3).join(" | ")}`;
 }
 
@@ -229,7 +244,7 @@ async function editorRound(work: string, window: Json, renderOutput: string): Pr
 
 /** Render to a throwaway file; "" when the page can be built, else the problems. */
 async function renderProblems(events: string, out: string): Promise<string> {
-  const { code, stdout, stderr } = await py("render.py", events, out);
+  const { code, stdout, stderr } = await cli("render", events, out);
   return code === 0 ? "" : (stderr + stdout).trim();
 }
 
@@ -264,14 +279,14 @@ async function edit(work: string, window: Json): Promise<void> {
   }
 }
 
-/** merge.py --finalize on the editor's file if it parses, else on the saved raw merge output. */
+/** merge --finalize on the editor's file if it parses, else on the saved raw merge output. */
 async function finalize(work: string): Promise<boolean> {
   const events = join(work, "rio-maior-events.json");
   const raw = join(work, "rio-maior-events.raw.json");
-  if (parses(events) && (await py("merge.py", "--finalize", events)).code === 0) return true;
+  if (parses(events) && (await cli("merge", "--finalize", events)).code === 0) return true;
   console.error("finalizing the editor's file did not work; falling back to the merge output");
   copyFileSync(raw, events);
-  const { code, stdout } = await py("merge.py", "--finalize", events);
+  const { code, stdout } = await cli("merge", "--finalize", events);
   console.log(stdout.trim());
   return code === 0;
 }
@@ -303,7 +318,7 @@ export async function main(argv: string[]): Promise<number> {
   }
 
   const events = join(work, "rio-maior-events.json");
-  const merged = await py("merge.py", join(work, "rio-maior-collected"), join(work, "rio-maior-candidates"), events, "--missing-ok");
+  const merged = await cli("merge", join(work, "rio-maior-collected"), join(work, "rio-maior-candidates"), events, "--missing-ok");
   writeFileSync(join(work, "merge-report.txt"), merged.stdout + merged.stderr);
   if (merged.code !== 0) return finish(work, 1, "merge failed; nothing deployed");
   copyFileSync(events, join(work, "rio-maior-events.raw.json"));
@@ -312,7 +327,7 @@ export async function main(argv: string[]): Promise<number> {
   if (!(await finalize(work))) return finish(work, 1, "could not make a valid events file; nothing deployed");
 
   mkdirSync(join(work, "_site"));
-  const page = await py("render.py", events, join(work, "_site", "index.html"));
+  const page = await cli("render", events, join(work, "_site", "index.html"));
   if (page.code !== 0) return finish(work, 1, `render failed: ${page.stderr}${page.stdout}`);
   return finish(work, 0, page.stdout.trim());
 }

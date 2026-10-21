@@ -51,6 +51,17 @@ async function build(plan: Plan = {}, opts: Opts = {}) {
 const forGroup = (calls: any[], g: string) => calls.filter((c) => c.role === g);
 
 describe("daily build", () => {
+  test("only the claude processes see the token; the collect step does not", async () => {
+    const r = await build({}, { collect: "collect-env.ts", env: { CLAUDE_CODE_OAUTH_TOKEN: "secret-token", GH_TOKEN: "other-secret" } });
+    expect(r.code).toBe(0);
+    const keys: string[] = JSON.parse(readFileSync(join(r.work, "collect-env.json"), "utf8"));
+    expect(keys).toContain("PATH");
+    expect(keys).not.toContain("CLAUDE_CODE_OAUTH_TOKEN");
+    expect(keys).not.toContain("GH_TOKEN");
+    expect(r.calls.length).toBeGreaterThan(0);
+    expect(r.calls.every((c) => c.sawToken)).toBe(true);
+  });
+
   test("all good: six readers, an editor, a page", async () => {
     const r = await build();
     expect(r.code).toBe(0);
@@ -174,14 +185,14 @@ describe("daily build", () => {
   });
 
   test("collect failing without an index stops the build", async () => {
-    const r = await build({}, { collect: "collect-fail.py" });
+    const r = await build({}, { collect: "collect-fail.ts" });
     expect(r.code).toBe(1);
     expect(r.html).toBeNull();
     expect(r.calls).toHaveLength(0);
   });
 
   test("collect failing after writing an index carries on", async () => {
-    const r = await build({}, { collect: "collect-partial.py" });
+    const r = await build({}, { collect: "collect-partial.ts" });
     expect(r.code).toBe(0);
     expect(r.html).toContain("Concerto rio-maior");
   });

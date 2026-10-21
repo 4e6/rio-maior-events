@@ -1,7 +1,7 @@
 # certs
 
 `intermediates.pem` holds three intermediate CA certificates that the collector
-loads next to the system's trusted roots (see `scripts/collect.py`).
+loads next to the system's trusted roots (see `src/net.ts`).
 
 ## Why
 
@@ -15,7 +15,7 @@ Some sources' servers do not send their whole certificate chain:
 
 Browsers and macOS fetch a missing intermediate from the "Authority
 Information Access" (AIA) URL in the server's certificate. OpenSSL on Linux
-(Python in GitHub Actions on Ubuntu) does not, so verification fails there
+(the collector in GitHub Actions on Ubuntu) does not, so verification fails there
 with "unable to get local issuer certificate". Giving OpenSSL the intermediate
 fixes it.
 

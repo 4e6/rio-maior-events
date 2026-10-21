@@ -12,20 +12,18 @@ jobs:
       TZ: Europe/Lisbon
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.14"
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.3
-      - name: Collect with the Python collector
-        run: python scripts/collect.py "$RUNNER_TEMP/collected" || echo "collect exited $?"
+      - run: bun install --frozen-lockfile
+      - name: Collect
+        run: bun src/cli/collect.ts "$RUNNER_TEMP/collected" || echo "collect exited $?"
       - name: Summarize
         run: |
-          python tools/probe_summary.py "$RUNNER_TEMP/collected/index.json" | tee summary.txt
+          bun tools/probe_summary.ts "$RUNNER_TEMP/collected/index.json" | tee summary.txt
       - name: Fetch each list page with Bun
         run: |
-          UA=$(python -c 'import sys; sys.path.insert(0, "scripts"); import collect; print(collect.USER_AGENT)')
+          UA=$(bun -e 'import { USER_AGENT } from "./src/net.ts"; console.log(USER_AGENT)')
           NODE_EXTRA_CA_CERTS=certs/intermediates.pem bun tools/probe_bun.ts "$UA" | tee bun.txt
       - uses: actions/upload-artifact@v4
         with:

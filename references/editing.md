@@ -75,7 +75,7 @@ Decide which to add as events:
 
 ## 5. When the page's check fails
 
-After your edit the page is built by `render.py`. If it reports problems, you
+After your edit the page is built by `render`. If it reports problems, you
 are given its output (a list of at most 20 lines, each with an event's index
 and title). Fix each in the file the same way as in section 2: the message says
 the rule. Common ones:
