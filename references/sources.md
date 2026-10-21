@@ -155,7 +155,7 @@ Programme pages of one venue each. Events are the venue's own; the town is the v
 - `cm-vnbarquinha` `https://www.cm-vnbarquinha.pt/index.php/viver/agenda` (Vila Nova da Barquinha, about 55 minutes: include only a notable event)
 - `cm-torresnovas` (listed under "Supplementary municipal agendas")
 
-On `cm-torresnovas`, `cm-entroncamento` and `cm-vnbarquinha` the mini calendar's links are read by the script (option `mini_calendar`): each event page linked from a day cell comes as an item with its day (month and year from the calendar's own fields). A day with several events is a link to the day's list and gives no items; those events are dated by their event pages or the list below.
+On `cm-alcanena`, `cm-torresnovas`, `cm-entroncamento` and `cm-vnbarquinha` the mini calendar's links are read by the script (option `mini_calendar`): each event page linked from a day cell comes as an item with its first day (month and year from the calendar's own fields; the calendar gives no end). A day with several events is one link to a day view ("N Eventos") and gives no items; those events are dated by their cards or event pages. If the calendar cannot be read, the source's `note` says so.
 
 One template. A mini calendar and a short "Próximos Eventos" list (month, title, category, no day) come first; the full list follows, each event as title, "dd/mm/yyyy hh:mm", a range with " - ", place, price, description.
 

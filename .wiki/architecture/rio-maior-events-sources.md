@@ -7,7 +7,7 @@ sources:
   - resource: sources.json
   - resource: src/adapters/**
   - resource: references/sources.md
-sources_digest: 1cac9af1d73d2601
+sources_digest: 3a44b55f39839f9a
 ---
 
 # What this page is for
@@ -116,16 +116,18 @@ pages of 2026-10-20 and live on 2026-10-21: 33 sources ok (Eventbrite, one of th
 - **Centro Cultural das Caldas (12):** time, hall and prices.
 - **Teatro Virgínia (10):** time and price. **Entroncamento (10):** the time
   only. **Torres Novas, Alcanena, Barquinha (10):** time. Torres Novas,
-  Entroncamento and Barquinha link their mini-calendar day cells, whose `title`
-  attribute names the event, so the marker is followed by that title. In the
-  text the day number comes after the title, and models misread it (a day early,
-  even with a rule saying so), so for these three (`options.mini_calendar`) the
-  text adapter reads the calendar's HTML itself (`miniCalendarItems` in
+  Alcanena, Entroncamento and Barquinha link their mini-calendar day cells, whose
+  `title` attribute names the event, so the marker is followed by that title. In
+  the text the day number comes after the title, and models misread it (a day
+  early, even with a rule saying so), so for these four (`options.mini_calendar`)
+  the text adapter reads the calendar's HTML itself (`miniCalendarItems` in
   `src/adapters/common.ts`: the day from the cell, month and year from the
   calendar's hidden `month_ajax`/`year_ajax`) and gives each event as an item with
-  its date. A day with two events is one "2 Eventos" link to a day view, so
-  those get no date from the calendar. All three refuse GitHub's runners today,
-  so this helps local runs until that changes.
+  its first date; the calendar marks only the first day, so there is no end. A
+  day with several events is one link to a day view ("N Eventos"), so those get
+  no date from the calendar. When no calendar can be read, the source's `note`
+  says so and reading.md falls back to the number after the title. All of them
+  refuse GitHub's runners today, so this helps local runs until that changes.
 - **Óbidos (10):** hours and venue. **Porto de Mós (10)**: calendar data
   (start, end, venue); Batalha's pages carry the same, but its feed is read
   with no event pages.

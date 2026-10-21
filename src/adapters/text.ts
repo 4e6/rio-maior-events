@@ -9,11 +9,15 @@ export const text: Adapter = {
     const page = decode(pages[0]!.body, pages[0]!.contentType);
     const items: Item[] = extractJsonldEvents(page, window);
     // A Joomla mini calendar: the day of each linked event is read from its cell, not from the text.
-    if (source.options?.mini_calendar) items.push(...miniCalendarItems(page, pages[0]!.url, window));
     const links = source.links ? new RegExp(source.links) : null;
     const { text: body, truncated, urls } = visibleTextLinks(page, source.cap ?? TEXT_CAP, pages[0]!.url, links);
     if (!items.length && cpLen(body) < MIN_TEXT) throw new AdapterError("no events or text found (layout may have changed)");
     const parsed: ParseResult = { items, text: body, truncated, past: [], note: null };
+    if (source.options?.mini_calendar) {
+      const calendar = miniCalendarItems(page, pages[0]!.url, window, urls.length > 0);
+      items.push(...calendar.items);
+      if (!calendar.read) parsed.note = "mini calendar not found; days in the text follow the titles";
+    }
     if (links) parsed.follow = urls.map((url): Request => ({ url, data: null }));
     return parsed;
   },

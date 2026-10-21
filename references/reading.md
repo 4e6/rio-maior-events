@@ -45,15 +45,17 @@ the marker line at or just before the line of the card's title. A marker
 separated from a card's title by another card's text belongs to nobody, and a
 card with no marker cites the agenda page (the source's `url`). The same marker
 can appear more than once (a card shown twice); that is one page. Markers are
-never text of the event, only addresses. On some sites (Torres Novas,
+never text of the event, only addresses. On some sites (Torres Novas, Alcanena,
 Entroncamento, Vila Nova da Barquinha) the link is a day of the mini calendar,
-and the script reads that calendar from the page itself: the event's day is in
-its `items` entry (`start`, a date alone; `end` when the calendar shows it on
-consecutive days). The numbers in the text around such a marker are the
-calendar grid, not dates of the event ("27 / <marker> / Banda da Armada / 28"
-is the event of the 28th, and the item says so). A day with several events
-shows as "2 Eventos" without markers: those events have no day from the
-calendar.
+and the script reads that calendar from the page itself: the event's day is the
+`start` of its `items` entry (a date alone). The numbers in the text around
+such a marker are the calendar grid, not dates of the event. A day with several
+events is a bare day number with no marker, and gives no item. An item gives
+the event's first date only (the calendar marks the first day, no end): when
+the same source's card or the event's own page gives more dates, sessions or an
+end, those win for those facts. If the source's `note` says "mini calendar not
+found", there are no such items: the day is then the number after the title
+(in "27 / <marker> / Banda da Armada / 28" the concert is on the 28th).
 
 ### Event pages
 

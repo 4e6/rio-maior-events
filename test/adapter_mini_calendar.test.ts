@@ -58,14 +58,62 @@ describe("mini_calendar", () => {
     expect(dates(page)).toEqual({ Sozinho: ["2026-10-11", null] });
   });
 
-  test("an event on consecutive days has the first as start and the last as end", () => {
-    const page = calendar([link("fest", "Festival", 3), link("fest", "Festival", 4), link("fest", "Festival", 5)]);
-    expect(dates(page)).toEqual({ Festival: ["2026-10-03", "2026-10-05"] });
+  test("an event shown on several cells gets the earliest day as start and no end", () => {
+    const page = calendar([link("fest", "Festival", 9), empty(4), link("fest", "Festival", 3), link("fest", "Festival", 4)]);
+    expect(dates(page)).toEqual({ Festival: ["2026-10-03", null] });
   });
 
-  test("an event on days that are not consecutive gets its first day and no end", () => {
-    const page = calendar([link("fest", "Festival", 3), empty(4), link("fest", "Festival", 9)]);
-    expect(dates(page)).toEqual({ Festival: ["2026-10-03", null] });
+  test("a non-ASCII href gives the same url as the marker in the text and the follow list", () => {
+    const slug = "«ela-a-liberdade-—-coração-revolucionário»-3";
+    const parsed = parse(calendar([link(slug, "«Ela. A liberdade. — Coração revolucionário»", 23)]));
+    const item = (parsed.items as any[])[0];
+    expect(item.url).toBe(parsed.follow![0]!.url);
+    expect(parsed.text).toContain(`<${item.url}>`);
+    expect(item.url).toContain("%C2%AB");
+  });
+
+  test("a title is unescaped once, trimmed, and keeps its text", () => {
+    const page = calendar([link("a", "Show &lt;novo&gt; &amp; &quot;Cia&quot; ", 5), link("b", "Amor &amp;lt;3", 6)]);
+    expect(Object.keys(dates(page))).toEqual(['Show <novo> & "Cia"', "Amor &lt;3"]);
+  });
+
+  test("the cell of today, and a day list of any size, are handled", () => {
+    const today = link("hoje", "Hoje", 21).replace("mod_eb_mincalendar_not_today", "mod_eb_mincalendar_today");
+    const five = many(22).replace("2 Eventos", "5 Eventos");
+    expect(dates(calendar([today, five]))).toEqual({ Hoje: ["2026-10-21", null] });
+  });
+
+  test("a day list routed without layout=daily is told by its title", () => {
+    const odd = link("calendario/dia/2026-10-05", "3 Eventos", 5);
+    expect(dates(calendar([odd, link("b", "Sozinho", 6)]))).toEqual({ Sozinho: ["2026-10-06", null] });
+  });
+
+  test("a link with no title gives no item", () => {
+    expect(parse(calendar([link("a", "", 5)])).items).toEqual([]);
+  });
+
+  test("a day past the end of the month gives no item", () => {
+    expect(dates(calendar([link("a", "Fev", 31), link("b", "Ok", 28)], 2, 2026), ["2026-02-01", "2026-02-28"]))
+      .toEqual({ Ok: ["2026-02-28", null] });
+  });
+
+  test("hidden inputs with value before name are read", () => {
+    const page = calendar([link("a", "X", 3)]).replace(/<input type="hidden" name="(\w+)" class="\w+" value="(\d+)" \/>/g,
+      '<input type="hidden" value="$2" name="$1" />');
+    expect(dates(page)).toEqual({ X: ["2026-10-03", null] });
+  });
+
+  test("days come out right whatever the order of the cells", () => {
+    expect(dates(calendar([link("a", "B", 12), link("a", "B", 9)]))).toEqual({ B: ["2026-10-09", null] });
+  });
+
+  test("no calendar read although the page has markers: a note", () => {
+    const noInputs = calendar([link("a", "X", 3)]).replace(/<input[^>]*>/g, "");
+    expect(parse(noInputs).note).toBe("mini calendar not found; days in the text follow the titles");
+    const noCells = calendar([link("a", "X", 3)]).replaceAll("mod_eb_mincalendar_event", "x");
+    expect(parse(noCells.replace("<table", '<a href="/index.php/agenda/c/s">S</a><table')).note).toContain("not found");
+    expect(parse(calendar([link("a", "X", 3)])).note).toBeNull();
+    expect(parse(calendar([empty(3)])).note).toBeNull();
   });
 
   test("the text keeps the calendar grid and the markers", () => {

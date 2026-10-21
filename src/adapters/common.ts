@@ -592,35 +592,40 @@ function attrOf(tag: string, name: string): string | null {
 
 /** Events of a Joomla "Event Booking" mini calendar (a table whose cells with an event hold a link around the day
  *  number). The month and year come from the calendar's hidden month_ajax and year_ajax fields; the day from the
- *  cell. A link to a day's list (several events, "layout=daily") is not an event page and gives nothing. An event
- *  shown on several days gets the first as `start` and, when the days are consecutive, the last as `end`. */
-export function miniCalendarItems(page: string, base: string | null | undefined, window: Window): MadeItem[] {
+ *  cell. A link to a day's list (several events, "N Eventos", "layout=daily") is not an event page and gives
+ *  nothing. The calendar marks an event on its first day only, so an event shown on several cells gets the
+ *  earliest as `start` and no end. `read` is false when no calendar could be read: no month and year, or no linked
+ *  cell although the page has event markers (`hasMarkers`). */
+export function miniCalendarItems(page: string, base: string | null | undefined, window: Window,
+  hasMarkers = false): { items: MadeItem[]; read: boolean } {
   const y = CAL_YEAR_RE.exec(page);
   const mo = CAL_MONTH_RE.exec(page);
-  if (!y || !mo) return [];
+  if (!y || !mo) return { items: [], read: false };
   const year = Number(y[1] ?? y[2]);
   const month = Number(mo[1] ?? mo[2]);
-  if (month < 1 || month > 12) return [];
-  const found = new Map<string, { title: string | null; days: number[] }>();
+  if (month < 1 || month > 12) return { items: [], read: false };
+  const monthDays = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const found = new Map<string, { title: string; days: number[] }>();
+  let cells = 0;
   for (const cell of page.matchAll(CAL_CELL_RE)) {
     const link = CAL_LINK_RE.exec(cell[1]!);
     if (!link) continue;
+    cells++;
     const href = attrOf(link[1]!, "href");
-    if (!href || /[?&;]layout=daily\b/.test(href)) continue;
+    const title = pyStrip((attrOf(link[1]!, "title") ?? "").replace(WS_RUNS, " "));
+    if (!href || !title || /[?&;]layout=daily\b/.test(href) || /^\d+ eventos?$/i.test(title)) continue;
     const url = cleanUrl(base, href);
     const day = Number(link[2]);
-    if (!url || day < 1 || day > 31) continue;
-    const entry = found.get(url) ?? { title: plain(attrOf(link[1]!, "title")), days: [] };
+    if (!url || day < 1 || day > monthDays) continue;
+    const entry = found.get(url) ?? { title, days: [] };
     entry.days.push(day);
     found.set(url, entry);
   }
-  const date = (day: number): string => `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
   const items: MadeItem[] = [];
   for (const [url, { title, days }] of found) {
-    days.sort((a, b) => a - b);
-    const last = days[days.length - 1]!;
-    const consecutive = days.length > 1 && last - days[0]! === days.length - 1;
-    items.push(makeItem(title, date(days[0]!), consecutive ? date(last) : null, null, url));
+    const first = Math.min(...days);
+    // makeItem would unescape the title again and strip what looks like a tag.
+    items.push({ ...makeItem(null, `${year}-${String(month).padStart(2, "0")}-${String(first).padStart(2, "0")}`, null, null, url), title });
   }
-  return keepWindow(items, window);
+  return { items: keepWindow(items, window), read: cells > 0 || !hasMarkers };
 }
