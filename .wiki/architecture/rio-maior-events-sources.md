@@ -189,8 +189,8 @@ need a browser.
   refuses scripts ([Not reachable](#not-reachable)) and is left out rather than
   reached another way.
   It would have added about 22 events over two to three weeks. Rejected: a
-  browser-like client or a `curl` fallback (getting round a refusal is not this
-  script's call), and honouring its 15 s crawl delay (the site answers 403
+  browser-like client or a `curl` fallback (getting round a refusal was not this
+  script's call then), and honouring its 15 s crawl delay (the site answers 403
   whatever the delay, and no source needs a long delay today).
 - **A source per page, no pagination.** Following page 2 would double the
   requests for a few more events and a politeness cost; the model is told which

@@ -1,5 +1,5 @@
 name: build
-# Builds the agenda page every morning and deploys it to GitHub Pages.
+# Builds the agenda page on Mondays and Thursdays and deploys it to GitHub Pages.
 on:
   schedule:
     - cron: "17 5 * * 1,4"
