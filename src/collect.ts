@@ -190,7 +190,7 @@ export async function runHost(host: string, jobs: [name: string, requests: Reque
       for (const request of requests) {
         if (!(await pause())) return outcomes;
         try {
-          const result = await fetch(request.url, request.data);
+          const result = await fetch(request.url, request.data, signal);
           outcome.status = result.status;
           if (garbled(result.body, result.contentType)) outcome.error = "unreadable response (binary or garbled)";
           else pages.push({ url: request.url, status: result.status, body: result.body, contentType: result.contentType });
@@ -220,7 +220,7 @@ export async function runHost(host: string, jobs: [name: string, requests: Reque
       got.set(request.url, null);
       if (!(await pause())) return outcomes;
       try {
-        const result = await followFetch(request.url, null);
+        const result = await followFetch(request.url, null, signal);
         if (!garbled(result.body, result.contentType)) got.set(request.url, toPage(request, result));
       } catch (err) {
         if (classifyFollowFailure(err) === "stop") break outer; // a refusal ends the host's follows
@@ -467,7 +467,9 @@ export async function main(argv: string[], deps: MainDeps = {}): Promise<number>
   const stop = () => controller.abort();
   if (deps.signal?.aborted) controller.abort();
   deps.signal?.addEventListener("abort", stop, { once: true });
-  process.on("SIGINT", stop);
+  // A second Ctrl-C leaves at once, without waiting for what is still in flight.
+  const onSigint = () => { if (controller.signal.aborted) process.exit(130); stop(); };
+  process.on("SIGINT", onSigint);
   process.on("SIGTERM", stop);
   let results: SourceResult[];
   try {
@@ -480,7 +482,7 @@ export async function main(argv: string[], deps: MainDeps = {}): Promise<number>
     }
     throw e;
   } finally {
-    process.off("SIGINT", stop);
+    process.off("SIGINT", onSigint);
     process.off("SIGTERM", stop);
     deps.signal?.removeEventListener("abort", stop);
   }

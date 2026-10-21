@@ -1,4 +1,4 @@
-// Port of scripts/render.py. Owned by T11. Event ids are sha1 of the same key as Python's, built with the exact
+// Port of the former render.py. Owned by T11. Event ids are sha1 of the same key as Python's, built with the exact
 // casefold of T1 (foldKey), so they match Python's. Real dates are "YYYY-MM-DD" strings; they compare as strings.
 import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
@@ -331,11 +331,11 @@ const PAGE = `<!doctype html>
 </html>
 `;
 
-const USAGE = "usage: render.py [-h] path out";
+const USAGE = "usage: bun src/cli/render.ts [-h] path out";
 
 export function main(argv: string[]): number {
   const args = parseArgs({
-    prog: "render.py", usage: USAGE,
+    prog: "bun src/cli/render.ts", usage: USAGE,
     positionals: [{ name: "path" }, { name: "out" }],
   }, argv);
   if (args === null) return 2;
@@ -347,7 +347,7 @@ export function main(argv: string[]): number {
     css = readText(join(ASSETS, "page.css"));
     js = readText(join(ASSETS, "page.js"));
   } catch (error) {
-    console.error("could not render: the skill's own assets are missing (" + (error as Error).message + ")");
+    console.error("could not render: the page's own assets are missing (" + (error as Error).message + ")");
     return 2;
   }
   if (css.toLowerCase().includes("</style") || js.toLowerCase().includes("</script")) {

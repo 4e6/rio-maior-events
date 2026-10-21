@@ -1,12 +1,13 @@
 // HTTP. Port of scripts/collect.py fetch / fetch_follow / inflate / garbled / _SameHost. Owned by T9.
 // Notes (research-port.md §1.4): redirect "manual" and own loop (POST becomes GET on 301/302/303; 307/308 POST is an
 // HttpError; max 10 hops); fetch(url, {decompress: false}) then inflate(); Accept-Encoding "gzip, deflate";
-// 20 s timeout; non-2xx throws HttpError; TLS/DNS/refused throw NetworkError; abort throws TimeoutError.
+// 20 s timeout for the whole request (connect, headers, body); non-2xx throws HttpError; TLS/DNS/refused throw NetworkError; abort throws TimeoutError.
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import tls from "node:tls";
 import { inflateRawSync, inflateSync } from "node:zlib";
 import type { Page, Request } from "./adapters/types.ts";
+import { decode } from "./adapters/common.ts";
 import { HttpError, NetworkError, RedirectRefused, TimeoutError } from "./net-errors.ts";
 
 export { HttpError, NetworkError, RedirectRefused, TimeoutError } from "./net-errors.ts";
@@ -26,7 +27,7 @@ export interface FetchResult {
 }
 
 /** collect.fetch and collect.fetch_follow share this shape; tests inject fakes. Throws the net-errors classes. */
-export type Fetcher = (url: string, data: Uint8Array | null) => Promise<FetchResult>;
+export type Fetcher = (url: string, data: Uint8Array | null, signal?: AbortSignal) => Promise<FetchResult>;
 
 const MAX_REDIRECTIONS = 10; // urllib.request.HTTPRedirectHandler
 const MAX_REPEATS = 4;
@@ -50,23 +51,9 @@ export function inflate(body: Uint8Array, encoding: string | null | undefined): 
   return body;
 }
 
-/** collect.decode (adapters/common.py): the declared charset, else utf-8, else latin-1. Local to the garbled guard. */
-function decodeForGuard(body: Uint8Array, contentType: string | null | undefined): string {
-  const match = /charset=([\w-]+)/i.exec(contentType ?? "");
-  for (const charset of [match?.[1], "utf-8"]) {
-    if (!charset) continue;
-    try {
-      return new TextDecoder(charset, { fatal: true, ignoreBOM: true }).decode(body);
-    } catch { /* unknown label or undecodable */ }
-  }
-  let out = "";
-  for (let i = 0; i < body.length; i += 8192) out += String.fromCharCode(...body.subarray(i, i + 8192));
-  return out;
-}
-
 /** collect.garbled: mostly control or replacement characters in the first 2000 code points. */
 export function garbled(body: Uint8Array, contentType: string | null | undefined, limit = 0.05, sample = 2000): boolean {
-  const text = decodeForGuard(body, contentType);
+  const text = decode(body, contentType);
   let total = 0;
   let bad = 0;
   for (const c of text) {
@@ -97,6 +84,8 @@ export interface FetchOptions {
   follow?: boolean;
   timeoutMs?: number;
   ca?: string[];
+  /** The run's abort signal: ends a request in flight at once. */
+  signal?: AbortSignal;
 }
 
 const HEADERS = { "User-Agent": USER_AGENT, "Accept-Language": "pt-PT,pt;q=0.9,en;q=0.5", "Accept-Encoding": "gzip, deflate" };
@@ -118,7 +107,8 @@ async function once(url: string, method: string, data: Uint8Array | null, opts: 
   const ms = opts.timeoutMs ?? TIMEOUT_MS;
   const headers: Record<string, string> = { ...HEADERS };
   if (data !== null) headers["Content-Type"] = "application/x-www-form-urlencoded";
-  const signal = AbortSignal.timeout(ms);
+  const timeout = AbortSignal.timeout(ms);
+  const signal = opts.signal ? AbortSignal.any([timeout, opts.signal]) : timeout;
   let res: Response;
   try {
     res = await fetch(url, {
@@ -126,6 +116,7 @@ async function once(url: string, method: string, data: Uint8Array | null, opts: 
       tls: { ca: opts.ca ?? defaultCa() },
     });
   } catch (err) {
+    if (opts.signal?.aborted) throw err;
     throw isAbort(err) ? timeoutError(ms) : networkError(err);
   }
   if (res.status >= 300 && res.status < 400) {
@@ -135,11 +126,25 @@ async function once(url: string, method: string, data: Uint8Array | null, opts: 
   try {
     return { res, body: new Uint8Array(await res.arrayBuffer()) };
   } catch (err) {
+    if (opts.signal?.aborted) throw err;
     if (isAbort(err)) throw timeoutError(ms);
     const code = (err as { code?: string }).code;
     if (code === "ECONNRESET" || code === "ConnectionClosed") throw networkError(err);
     throw err; // like http.client.IncompleteRead: fails only its source
   }
+}
+
+/** urllib's quote(newurl, encoding="iso-8859-1", safe=string.punctuation): Bun hands the header's bytes over as
+ *  latin-1 characters, so each character at U+0080 or above becomes %XX of its byte value (not UTF-8 again). */
+export function quoteLocation(location: string): string {
+  let out = "";
+  for (const ch of location) {
+    const cp = ch.codePointAt(0)!;
+    if (cp < 0x80 && /[A-Za-z0-9!-\/:-@\[-`{-~]/.test(ch)) out += ch;
+    else if (cp < 0x100) out += "%" + cp.toString(16).toUpperCase().padStart(2, "0");
+    else out += encodeURIComponent(ch); // not a header byte; only reachable from tests
+  }
+  return out;
 }
 
 /** urllib's HTTPRedirectHandler loop, over a manual-redirect fetch. */
@@ -164,8 +169,12 @@ async function request(url: string, data: Uint8Array | null, opts: FetchOptions)
     // 301/302/303 may turn a POST into a GET; 307/308 on a POST is an error (urllib redirect_request).
     const followable = redirect && location && (method === "GET" || code <= 303);
     if (!followable) throw new HttpError(code, res.statusText);
-    const next = new URL(location, url);
+    const next = new URL(quoteLocation(location), url);
     const nextUrl = next.href;
+    // urllib refuses any scheme but http(s) (and ftp); fetch would read file: and data: URLs.
+    if (next.protocol !== "http:" && next.protocol !== "https:") {
+      throw new HttpError(code, `redirection to url '${nextUrl}' is not allowed`);
+    }
     if (opts.follow && (next.protocol !== "https:" || next.hostname !== host)) {
       throw new RedirectRefused(`redirected to ${nextUrl}`);
     }
@@ -185,11 +194,11 @@ export function fetchWith(url: string, data: Uint8Array | null, opts: FetchOptio
 }
 
 /** collect.fetch: a list request (follows redirects like urllib; POST handling as above). */
-export const fetchPage: Fetcher = (url, data) => request(url, data, {});
+export const fetchPage: Fetcher = (url, data, signal) => request(url, data, { signal });
 
 /** collect.fetch_follow: GET only; every hop must be https on the original host exactly, else RedirectRefused
  *  before the request is made. Returns the final URL. */
-export const fetchFollow: Fetcher = (url) => request(url, null, { follow: true });
+export const fetchFollow: Fetcher = (url, _data, signal) => request(url, null, { follow: true, signal });
 
 /** Helper for runHost: Page from a request and its result. */
 export function toPage(request: Request, result: FetchResult): Page {

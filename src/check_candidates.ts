@@ -1,4 +1,4 @@
-// Port of scripts/check_candidates.py. Owned by T11.
+// Port of the former check_candidates.py. Owned by T11.
 import { has, isDict, MAX_PROBLEMS, checkEvent, dumps, readText, realDate, textOk } from "./render.ts";
 import { parseArgs } from "./cli-args.ts";
 import { pyRepr } from "./py/str.ts";
@@ -30,12 +30,12 @@ export function problemsIn(data: unknown, group: string, stamp: string, window: 
   return bad;
 }
 
-const USAGE = "usage: check_candidates.py [-h] --index INDEX --group GROUP path";
+const USAGE = "usage: bun src/cli/check_candidates.ts [-h] --index INDEX --group GROUP path";
 
 /** check_candidates.main(argv): exit code. */
 export function main(argv: string[]): number {
   const args = parseArgs({
-    prog: "check_candidates.py", usage: USAGE,
+    prog: "bun src/cli/check_candidates.ts", usage: USAGE,
     positionals: [{ name: "path" }],
     values: [{ name: "--index", required: true }, { name: "--group", required: true }],
   }, argv);

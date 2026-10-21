@@ -8,7 +8,7 @@ import { deflateSync, gzipSync, deflateRawSync } from "node:zlib";
 import { classifyFailure, classifyFollowFailure } from "../src/net-errors.ts";
 import {
   CERTS, HttpError, NetworkError, RedirectRefused, TimeoutError, caList, fetchFollow, fetchPage, fetchWith, garbled,
-  inflate, toPage,
+  inflate, quoteLocation, toPage,
 } from "../src/net.ts";
 
 const enc = new TextEncoder();
@@ -83,6 +83,8 @@ beforeAll(() => {
           const n = Number(url.searchParams.get("n") ?? 0);
           return new Response(null, { status: 302, headers: { Location: `/chain?n=${n + 1}` } });
         }
+        case "/to-file": return new Response(null, { status: 302, headers: { Location: "file:///etc/hosts" } });
+        case "/to-data": return new Response(null, { status: 302, headers: { Location: "data:text/html,secret" } });
         case "/404": return new Response("no", { status: 404 });
         case "/503": return new Response("no", { status: 503 });
         case "/slow": await Bun.sleep(1500); return new Response("late");
@@ -138,6 +140,52 @@ describe("fetch", () => {
     expect(err).toBeInstanceOf(HttpError);
     expect(err.code).toBe(302);
   });
+  test("a redirect to a scheme other than http or https is refused, as urllib did", async () => {
+    for (const [path, target] of [["/to-file", "file:///etc/hosts"], ["/to-data", "data:text/html,secret"]] as const) {
+      const err = await fetchPage(`${base}${path}`, null).catch((e) => e);
+      expect(err, path).toBeInstanceOf(HttpError);
+      expect([err.code, err.reason]).toEqual([302, `redirection to url '${target}' is not allowed`]);
+    }
+  });
+  test("a raw UTF-8 Location is quoted by its bytes, like urllib (one encoding, not two)", async () => {
+    const lines: string[] = [];
+    const raw = Bun.listen({
+      hostname: "127.0.0.1", port: 0,
+      socket: {
+        data(sock, d) {
+          const line = d.toString("latin1").split("\r\n")[0]!;
+          lines.push(line.split(" ")[1]!);
+          const head = line.split(" ")[1] === "/start"
+            ? Buffer.concat([Buffer.from("HTTP/1.1 301 Moved\r\nContent-Length: 0\r\nLocation: /evento/"),
+                Buffer.from("concerto-ç-ã", "utf8"), Buffer.from("\r\n\r\n")])
+            : Buffer.from("HTTP/1.1 200 OK\r\nContent-Length: 2\r\nContent-Type: text/html\r\n\r\nok");
+          sock.write(head);
+          sock.end();
+        },
+      },
+    });
+    try {
+      const r = await fetchPage(`http://127.0.0.1:${raw.port}/start`, null);
+      expect(r.status).toBe(200);
+      expect(lines).toEqual(["/start", "/evento/concerto-%C3%A7-%C3%A3"]);
+    } finally {
+      raw.stop(true);
+    }
+  });
+  test("quoteLocation keeps ASCII punctuation, escapes spaces and high characters by byte", () => {
+    expect(quoteLocation("/a b/c?d=1&e=%41#f")).toBe("/a%20b/c?d=1&e=%41#f");
+    expect(quoteLocation("/\u00e7")).toBe("/%E7");
+  });
+  test("an abort signal ends a request in flight", async () => {
+    const c = new AbortController();
+    const p = fetchPage(`${base}/slow`, null, c.signal).catch((e) => e);
+    setTimeout(() => c.abort(), 50);
+    const t = Date.now();
+    const err = await p;
+    expect(Date.now() - t).toBeLessThan(1000);
+    expect(err).not.toBeInstanceOf(TimeoutError);
+    expect(err?.name).toBe("AbortError");
+  });
   test("a redirect loop and more than 10 hops are HttpErrors", async () => {
     expect(await fetchPage(`${base}/loop`, null).catch((e) => e)).toBeInstanceOf(HttpError);
     expect(await fetchPage(`${base}/chain`, null).catch((e) => e)).toBeInstanceOf(HttpError);
@@ -184,6 +232,9 @@ describe("FetchFollow", () => {
 const openssl = Bun.which("openssl");
 const pki = { dir: "", root: "", int: "" };
 let tlsServer: ReturnType<typeof Bun.serve>;
+let target: ReturnType<typeof Bun.serve>;
+const tlsHits: string[] = [];
+const targetHits: string[] = [];
 
 function sh(cmd: string[], cwd: string) {
   const r = Bun.spawnSync(cmd, { cwd, stderr: "pipe" });
@@ -205,21 +256,23 @@ describe.skipIf(!openssl)("SslContextTests", () => {
       "-days", "5", "-extfile", "leaf.ext"], d);
     pki.root = readFileSync(join(d, "root.pem"), "utf8");
     pki.int = readFileSync(join(d, "int.pem"), "utf8");
+    target = Bun.serve({ port: 0, hostname: "127.0.0.1", fetch(req) { targetHits.push(new URL(req.url).pathname); return new Response("hit"); } });
     tlsServer = Bun.serve({
       port: 0,
       hostname: "127.0.0.1",
       tls: { key: Bun.file(join(d, "leaf.key")), cert: Bun.file(join(d, "leaf.pem")) },
       fetch(req) {
         const u = new URL(req.url);
+        tlsHits.push(u.pathname);
         if (u.pathname === "/ok") return new Response("<p>seguro</p>", { headers: { "Content-Type": "text/html" } });
         if (u.pathname === "/same") return new Response(null, { status: 302, headers: { Location: "/ok" } });
         if (u.pathname === "/www") return new Response(null, { status: 302, headers: { Location: `https://localhost:${tlsServer.port}/ok` } });
-        if (u.pathname === "/http") return new Response(null, { status: 302, headers: { Location: `http://127.0.0.1:${tlsServer.port}/ok` } });
+        if (u.pathname === "/http") return new Response(null, { status: 302, headers: { Location: `http://127.0.0.1:${target.port}/ok` } });
         return new Response("?", { status: 404 });
       },
     });
   });
-  afterAll(() => { tlsServer.stop(true); });
+  afterAll(() => { tlsServer.stop(true); target.stop(true); });
 
   const url = (p: string) => `https://127.0.0.1:${tlsServer.port}${p}`;
 
@@ -246,10 +299,14 @@ describe.skipIf(!openssl)("SslContextTests", () => {
   });
 
   test("test_a_redirect_to_another_host_or_to_http_is_refused_before_it_is_requested", async () => {
+    tlsHits.length = 0;
+    targetHits.length = 0;
     for (const p of ["/www", "/http"]) { // localhost vs 127.0.0.1, and https vs http
       const err = await fetchWith(url(p), null, { ca: [pki.root, pki.int], follow: true }).catch((e) => e);
       expect(err, p).toBeInstanceOf(RedirectRefused);
     }
+    expect(tlsHits).toEqual(["/www", "/http"]); // the redirect targets (/ok) were never requested
+    expect(targetHits).toEqual([]);
   });
 });
 

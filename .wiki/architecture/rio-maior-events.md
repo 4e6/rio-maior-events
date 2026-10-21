@@ -7,6 +7,7 @@ sources:
   - resource: src/**
   - resource: sources.json
   - resource: assets/**
+  - resource: references/**
   - resource: test/**
   - resource: .github/workflows/**
 ---
@@ -42,7 +43,7 @@ and each has its own traps.
 - **`src/merge.ts` joins.** It checks that every group has a current candidates
   file, writes `rio-maior-events.json` and prints possible duplicates, coverage,
   yearly-event hints and what `src/render.ts`'s check finds wrong, each problem
-  with the group it came from. The main model settles those and writes the `note`.
+  with the group it came from. The editor (`claude -p` run by `src/build.ts`) settles those and writes the `note`; if it fails, `merge --finalize` writes one.
 - **`src/render.ts` checks and draws.** It validates the file in plain code
   (exit 2 lists each problem with its event), makes each event's id, and inlines
   `assets/page.css`, `assets/page.js` and the events as JSON into one HTML file.
@@ -51,7 +52,7 @@ and each has its own traps.
 
 - **A runner, one worker per site.** `src/collect.ts` gives each host (the host of
   a source's url) its own worker, so sites are fetched in parallel and a site
-  is asked politely: the delay between two requests comes from `sources.json`
+  is asked politely: a request has 20 seconds in all (connect, headers and the whole body, one timer for the lot, not per socket read), and the delay between two requests comes from `sources.json`
   per host (1.5 s by default, 3 s for Entroncamento; a site that asks for more is one line in the file) and
   is measured from the end of the previous response, so a slow answer is not
   followed at once by the next request. Any failed request fails the source;
@@ -71,7 +72,7 @@ and each has its own traps.
   adapter's `parse` may return `follow`, event pages worth fetching, and the
   runner fetches them after all of the host's list pages, in the same host
   worker with the same spacing, then calls the adapter's `details` (by default
-  `common.extract_detail`: title, start, end and venue from JSON-LD, an
+  `extractDetail` in `adapters/common.ts`: title, start, end and venue from JSON-LD, an
   `atc_*` calendar widget or an inline iCal link, plus an 800-character
   excerpt, which skips a title mention that leads into a mini calendar). Only
   https pages of the source's own host (a leading `www.` is ignored, as in a
@@ -91,7 +92,7 @@ and each has its own traps.
   (Nazaré, Batalha, Chamusca, where `pubDate` is the event start, unlike
   Santarém's) read XML with the standard library, which expands entities; the
   guards (ASCII-compatible bytes only, no DOCTYPE or ENTITY, valid XML) are in
-  `adapters/common.xml_root`, shared, so a fix to them is made once.
+  `xmlRoot` in `adapters/common.ts`, shared, so a fix to them is made once.
 - **Adapters per platform, not per source.** An adapter in
   `src/adapters/` is a pure parse over pages the runner fetched; it has no
   network. About 30 sources share the `text` adapter, so a module per source
@@ -108,22 +109,21 @@ and each has its own traps.
   with room to write; a larger sub-region would split. Each source carries a
   human `label` in `sources.json`, copied into the group file for the readers
   to use as the source's name on the page.
-- **Fan-out reading, on the same model by default.** The sources were once
+- **Fan-out reading, on a mid-size model.** The sources were once
   read by one model in one pass, and the text of 32 pages does not read well in
-  one context. A reader per group, run at the same time, keeps each context
-  small. A smaller model is used only after an eval on one group shows it
-  reads as well; there is none, so the readers use the model of the main
-  session. Where the host has no subagents the one reader goes group by group,
-  the same way.
+  one context. The build runs a `claude -p` reader per group (`READ_MODEL`,
+  `sonnet` by default), which keeps each context small; one retry per group, and a group that fails twice is
+  named on the page as not read. A smaller model is used only after an eval on
+  one group shows it reads as well; there is none.
 - **`src/merge.ts` lists duplicates and never merges them.** Whether two listings
   are one event is a judgement (a town's municipal date beats a community
   one, a show on two dates is two events), so the script only pairs candidates
   (same town or a town and its parenthetical, date ranges that overlap or lie a
-  day apart, shared title words) and the main model decides; the rule it
+  day apart, shared title words) and the editor decides; the rule it
   decides by is "which listing wins" in `reading.md`. It refuses a missing or
-  stale group file, and a stale `manual.json`, which it tells the model to
+  stale group file, and a stale `manual.json`, which it tells the editor to
   delete, rather than write a partial page. Running the check of `src/render.ts`
-  at merge time spares the main model a render just to learn the file's faults.
+  at merge time spares the editor a render just to learn the file's faults.
 - **No cache.** A same-day cache of fetched pages was built and dropped:
   `--only` re-fetches a few sources, the scope of a run is small, and a cache
   kept a refusal or a half page alive.

@@ -1,6 +1,6 @@
 // Port of scripts/adapters/santarem_rss.py. Owned by T7.
 import type { Adapter, MadeItem } from "./types.ts";
-import { AdapterError, keepWindow, makeItem, plain, xmlRoot } from "./common.ts";
+import { AdapterError, keepWindow, makeItem, plain, toInt, xmlRoot } from "./common.ts";
 import { parseIsoDate } from "../py/datetime.ts";
 import { PY_WS, pyStrip } from "../py/str.ts";
 import type { Element } from "../py/xml.ts";
@@ -27,20 +27,6 @@ function addDay(iso: string): string {
   const t = new Date(0);
   t.setUTCFullYear(y, m - 1, d + 1);
   return `${String(t.getUTCFullYear()).padStart(4, "0")}-${String(t.getUTCMonth() + 1).padStart(2, "0")}-${String(t.getUTCDate()).padStart(2, "0")}`;
-}
-
-function toInt(digits: string): number {
-  let n = 0;
-  for (const ch of digits) {
-    let cp = ch.codePointAt(0)!;
-    if (cp > 0x7f) {
-      let start = cp;
-      while (start > 0 && /^\p{Nd}$/u.test(String.fromCodePoint(start - 1))) start--;
-      cp = 0x30 + ((cp - start) % 10);
-    }
-    n = n * 10 + (cp - 0x30);
-  }
-  return n;
 }
 
 const CLOCK_RE = new RegExp(`^[${PY_WS}]*(\\p{Nd}{1,2}):(\\p{Nd}{2})`, "u");

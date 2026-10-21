@@ -10,7 +10,7 @@ minutes of the nearest listed place, not of its municipality's town (border vill
 source gives the distance from Rio Maior, about one minute per kilometre will
 do. If you cannot tell which listed place is nearest, `drive_min` is null.
 
-The area the skill covers is everything up to about 45 minutes. At 50 minutes
+The area covered is everything up to about 45 minutes. At 50 minutes
 or more (Peniche, Leiria, Entroncamento, Chamusca, Golegã, Ourém, Vila Nova da
 Barquinha, Tomar), include an event only when it is big (a national festival, a
 major concert) and say how far it is.

@@ -43,9 +43,24 @@ function parseArgs(argv: string[]) {
   return { work: resolve(out.work), collected: out.collected ? resolve(out.collected) : "" };
 }
 
+/** What the plain steps (collect, check, merge, render) get from the environment: no tokens or other secrets.
+ *  Only the claude processes see the whole environment. */
+const STEP_ENV_KEYS = [
+  "PATH", "HOME", "USER", "LOGNAME", "SHELL", "TZ", "LANG", "TMPDIR", "RUNNER_TEMP", "CI",
+  "NODE_EXTRA_CA_CERTS", "SSL_CERT_FILE", "SSL_CERT_DIR", "BUN_INSTALL",
+  "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "http_proxy", "https_proxy", "no_proxy",
+];
+export function stepEnv(source: Record<string, string | undefined> = env): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [key, value] of Object.entries(source)) {
+    if (value !== undefined && (STEP_ENV_KEYS.includes(key) || key.startsWith("LC_"))) out[key] = value;
+  }
+  return out;
+}
+
 /** Run a command; stdout and stderr to the console unless `capture`. Returns exit code and stdout. */
 async function run(cmd: string[], opts: { cwd?: string; capture?: boolean } = {}) {
-  const proc = Bun.spawn(cmd, { cwd: opts.cwd, stdout: opts.capture ? "pipe" : "inherit", stderr: opts.capture ? "pipe" : "inherit" });
+  const proc = Bun.spawn(cmd, { cwd: opts.cwd, env: stepEnv(), stdout: opts.capture ? "pipe" : "inherit", stderr: opts.capture ? "pipe" : "inherit" });
   const [stdout, stderr] = opts.capture
     ? await Promise.all([new Response(proc.stdout as ReadableStream).text(), new Response(proc.stderr as ReadableStream).text()])
     : ["", ""];
@@ -53,7 +68,7 @@ async function run(cmd: string[], opts: { cwd?: string; capture?: boolean } = {}
 }
 
 // The steps run as the same CLIs a person would run, so their output and exit codes are what is checked.
-const cli = (name: string, ...args: string[]) => run(["bun", join(ROOT, "src", "cli", `${name}.ts`), ...args], { capture: true });
+const cli = (name: string, ...args: string[]) => run([process.execPath, join(ROOT, "src", "cli", `${name}.ts`), ...args], { capture: true });
 
 // --- the one place that runs claude -------------------------------------------------
 
@@ -171,7 +186,7 @@ async function collect(work: string, given: string): Promise<boolean> {
     cpSync(given, dir, { recursive: true });
     return true;
   }
-  const { code } = await run(["bun", COLLECT_SCRIPT, dir]);
+  const { code } = await run([process.execPath, COLLECT_SCRIPT, dir]);
   if (code !== 0) console.error(`collect exited ${code}`);
   return code === 0 || existsSync(join(dir, "index.json"));
 }

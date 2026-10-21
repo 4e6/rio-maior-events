@@ -1,4 +1,4 @@
-// Port of scripts/merge.py. Owned by T11. Documents are JSON objects; they stay loosely typed.
+// Port of the former merge.py. Owned by T11. Documents are JSON objects; they stay loosely typed.
 // Output is JSON.stringify(doc, null, 1) + "\n"; `$`-before-newline is fixed in the date regexes.
 import { existsSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -341,12 +341,12 @@ export function finalize(path: string): number {
   return 0;
 }
 
-const USAGE = "usage: merge.py [-h] [--missing-ok] [--finalize EVENTS_JSON] [collected] [candidates] [out]";
+const USAGE = "usage: bun src/cli/merge.ts [-h] [--missing-ok] [--finalize EVENTS_JSON] [collected] [candidates] [out]";
 
 /** merge.main(argv, now): exit code. */
 export function main(argv: string[], now?: Date): number {
   const args = parseArgs({
-    prog: "merge.py", usage: USAGE,
+    prog: "bun src/cli/merge.ts", usage: USAGE,
     positionals: [{ name: "collected", optional: true }, { name: "candidates", optional: true }, { name: "out", optional: true }],
     flags: ["--missing-ok"],
     values: [{ name: "--finalize" }],
@@ -355,7 +355,7 @@ export function main(argv: string[], now?: Date): number {
   if (args.help) return 0;
   const [collected, candidates, out] = args.positionals;
   const fin = args.values.get("--finalize");
-  const fail = (msg: string): number => { console.error(USAGE); console.error(`merge.py: error: ${msg}`); return 2; };
+  const fail = (msg: string): number => { console.error(USAGE); console.error(`bun src/cli/merge.ts: error: ${msg}`); return 2; };
   if (fin) {
     if (collected || args.flags.has("--missing-ok")) return fail("--finalize takes no folders and no --missing-ok");
     return finalize(fin);

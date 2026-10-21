@@ -127,7 +127,7 @@ function unsplit(parts: [string, string, string, string | null, string | null], 
   return url;
 }
 
-/** urllib.parse.urljoin (common.py:57; cadaval_api.py:23; riomaior_calendar.py:57; redirects in net.ts). */
+/** urllib.parse.urljoin (common.py:57; cadaval_api.py:23; riomaior_calendar.py:57). */
 export function urljoin(base: string, ref: string): string {
   if (!base) return ref;
   if (!ref) return base;

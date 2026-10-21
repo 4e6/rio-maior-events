@@ -410,7 +410,7 @@ const LOCAL_RE = new RegExp(
   "^(\\p{Nd}{4})-?(\\p{Nd}{2})-?(\\p{Nd}{2})(?:[T ](\\p{Nd}{2}):?(\\p{Nd}{2})(?::?(\\p{Nd}{2}))?)?(Z)?", "u");
 
 /** int() of a string of decimal digits of any script. */
-function toInt(digits: string): number {
+export function toInt(digits: string): number {
   let n = 0;
   for (const ch of digits) {
     let cp = ch.codePointAt(0)!;

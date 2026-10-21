@@ -16,7 +16,7 @@ const calls = existsSync(plan.log) ? readFileSync(plan.log, "utf8").split("\n").
 const attempt = calls.filter((c) => c.role === (isEditor ? "editor" : group)).length + 1;
 appendFileSync(plan.log, JSON.stringify({
   role: isEditor ? "editor" : group, attempt, argv: process.argv.slice(2), cwd: process.cwd(),
-  existed: existsSync(output), prompt,
+  existed: existsSync(output), prompt, sawToken: Boolean(process.env.CLAUDE_CODE_OAUTH_TOKEN),
 }) + "\n");
 
 async function hang(mode: string): Promise<never> {

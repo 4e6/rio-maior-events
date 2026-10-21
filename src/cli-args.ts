@@ -1,4 +1,4 @@
-// A small stand-in for the argparse use of merge.py, render.py and check_candidates.py: positionals, boolean flags
+// A small stand-in for the argparse use of merge, render and check_candidates: positionals, boolean flags
 // and flags taking one value (`--name value` or `--name=value`, unique prefixes allowed). On a mistake it prints
 // argparse's usage and error lines to stderr and returns null (the caller exits 2); `-h` prints the usage, exit 0.
 
