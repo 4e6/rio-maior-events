@@ -11,7 +11,7 @@ sources:
   - resource: test/**
   - resource: .github/workflows/**
   - resource: certs/**
-sources_digest: 49c700d93889f951
+sources_digest: 987ac85bd29252c9
 ---
 
 # What it is
@@ -291,16 +291,17 @@ dark.
   non-pull-request runs on `main` only, a failed run, a failed keepalive "Enable"
   step, or no completed build for 192 hours; a dispatch from another branch is
   ignored), `rme-page` (the events page answers 200), `rme-status-json` (reads
-  the published `status.json` and warns on a build that went green but is bad: no
-  events on the page, `result.degraded`, failed or unread sources, a dead proxy or
-  its byte budget reached, or `built_at` older than the same 192 hours) and
+  the published `status.json` for a build that went green but is bad: it fails on
+  no events on the page and warns on `result.degraded`, failed or unread sources, a
+  dead proxy or its byte budget reached, or `built_at` older than the same 192
+  hours) and
   `rme-tls` (the `4e6.github.io` certificate, which GitHub renews, has time left).
   The 192-hour threshold is derived from the cron in `build.yml` (weekly, Mondays
   05:17 Europe/Lisbon): changing the cron means re-deriving it in ops-watch's
   `checks.yaml`. The `status.json` field names and `sources[].state` values that
   `rme-status-json` reads are a contract with ops-watch (a comment at
-  `buildStatus`'s return in `src/status.ts` lists them): renaming one makes that
-  check blind. Moving the page off GitHub Pages or to a custom domain means
+  `buildStatus`'s return in `src/status.ts` lists them): renaming a field it judges
+  makes that check blind, and renaming an id it names alerts by blurs them. Moving the page off GitHub Pages or to a custom domain means
   re-pointing `rme-page`, `rme-status-json` and `rme-tls`.
 - **The keepalive cannot save itself.** The `keepalive` job lives in `build.yml`,
   so once GitHub disables the workflow it cannot run; ops-watch's
