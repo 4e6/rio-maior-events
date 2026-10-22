@@ -226,6 +226,10 @@ export function buildStatus(input: StatusInput): Json {
 
   const l = links(env);
   const m = input.mergeStats, f = input.finalizeStats;
+  // ops-watch's rme-status-json judges built_at, result.{events,degraded}, sources[].state
+  // ("ok" | "failed" | "not read"), readers.{read,units} and proxy (null when off, else
+  // {bytes,max_bytes,dead}): renaming one of those makes that check blind. It names alerts by
+  // sources[].id and readers.rows[].{id,outcome}: renaming those blurs its alerts. Change it there too.
   return {
     built_at: input.now.toISOString(),
     built_at_lisbon: lisbonTime(input.now),
