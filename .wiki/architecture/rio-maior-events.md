@@ -287,12 +287,15 @@ dark.
   365 days, so rotating the secret is what clears it; copying an older token in
   would make that countdown overstate the token's life. ops-watch does not hold
   `FALLBACK_PROXY_URL`.
-- **What ops-watch checks.** `rme-build` (failed run of `build.yml`, a disabled
-  workflow, a failed keepalive "Enable" step, or no completed build for 192
-  hours), `rme-page` (the events page answers 200) and `rme-status-json`
-  (`status.json` present, with `built_at`). The 192-hour threshold is derived
-  from the cron in `build.yml` (weekly, Mondays 05:17 Europe/Lisbon): changing
-  the cron means re-deriving it in ops-watch's `checks.yaml`.
+- **What ops-watch checks.** `rme-build` (a disabled `build.yml`, and, reading
+  runs on `main` only, a failed run, a failed keepalive "Enable" step, or no
+  completed build for 192 hours), `rme-page` (the events page answers 200),
+  `rme-status-json` (`status.json` present, with `built_at`) and `rme-tls` (the
+  `4e6.github.io` certificate, which GitHub renews, has time left). The 192-hour
+  threshold is derived from the cron in `build.yml` (weekly, Mondays 05:17
+  Europe/Lisbon): changing the cron means re-deriving it in ops-watch's
+  `checks.yaml`. Moving the page off GitHub Pages or to a custom domain means
+  re-pointing `rme-page`, `rme-status-json` and `rme-tls`.
 - **The keepalive cannot save itself.** The `keepalive` job lives in `build.yml`,
   so once GitHub disables the workflow it cannot run; ops-watch's
   `workflow_disabled` alert is what reports that. Recovery: `gh workflow enable
