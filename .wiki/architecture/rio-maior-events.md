@@ -274,6 +274,29 @@ dark.
   is lost.
 - **No images.** They are often missing, heavy and hotlinked.
 
+# Credentials and monitoring
+
+- **The Claude token.** The build uses the `CLAUDE_CODE_OAUTH_TOKEN` Actions
+  secret; only the "Build the page" step of `build.yml` sees it. It is made with
+  `claude setup-token` and is valid one year (`README.md:86-88`). Rotate it with
+  `claude setup-token`, then `gh secret set CLAUDE_CODE_OAUTH_TOKEN -R
+  4e6/rio-maior-events`. ops-watch, a separate monitor (repo `4e6/ops-watch`),
+  counts down its `rme-claude-token` check from the secret's `updated_at` plus
+  365 days, so rotating the secret is what clears it; copying an older token in
+  would make that countdown overstate the token's life. ops-watch does not hold
+  `FALLBACK_PROXY_URL`.
+- **What ops-watch checks.** `rme-build` (failed run of `build.yml`, a disabled
+  workflow, a failed keepalive "Enable" step, or no completed build for 192
+  hours), `rme-page` (the events page answers 200) and `rme-status-json`
+  (`status.json` present, with `built_at`). The 192-hour threshold is derived
+  from the cron in `build.yml` (weekly, Mondays 05:17 Europe/Lisbon): changing
+  the cron means re-deriving it in ops-watch's `checks.yaml`.
+- **The keepalive cannot save itself.** The `keepalive` job lives in `build.yml`,
+  so once GitHub disables the workflow it cannot run; ops-watch's
+  `workflow_disabled` alert is what reports that. Recovery: `gh workflow enable
+  build.yml -R 4e6/rio-maior-events`, then `gh workflow run build.yml -R
+  4e6/rio-maior-events`.
+
 # Tests
 
 `test/` holds offline unit tests (`bun test`), run in CI: the runner (fake clock,
