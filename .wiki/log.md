@@ -1,6 +1,7 @@
 # Wiki Update Log
 
 ## 2026-10-22
+* **ops-watch reads `main` again**: the empty `?branch=main` listing was GitHub's index lagging on a new repo, which ops-watch reports as unknown rather than a fault; `rme-build` reads `main` runs only again, so a dispatch from another branch (which always fails at the Pages environment rule) does not raise a false failure ([architecture](/architecture/rio-maior-events.md)).
 * **ops-watch reads any branch**: `rme-build` no longer filters `build.yml` runs to `main`, because GitHub's `?branch=main` listing came back empty for this workflow and left the check blind ([architecture](/architecture/rio-maior-events.md)).
 * **ops-watch, round two**: ops-watch also counts down the `4e6.github.io` certificate (`rme-tls`) and reads `build.yml` runs on `main` only; moving the page off GitHub Pages means re-pointing its three page checks ([architecture](/architecture/rio-maior-events.md)).
 * **Credentials and monitoring**: the Claude token's rotation and what ops-watch checks on this project (token age, build, page, `status.json`), including the link between the 192-hour overdue threshold and the cron in `build.yml` ([architecture](/architecture/rio-maior-events.md)).
