@@ -11,7 +11,7 @@ sources:
   - resource: test/**
   - resource: .github/workflows/**
   - resource: certs/**
-sources_digest: ff8742052728958a
+sources_digest: 49c700d93889f951
 ---
 
 # What it is
@@ -287,15 +287,20 @@ dark.
   365 days, so rotating the secret is what clears it; copying an older token in
   would make that countdown overstate the token's life. ops-watch does not hold
   `FALLBACK_PROXY_URL`.
-- **What ops-watch checks.** `rme-build` (a disabled `build.yml`, a failed run,
-  a failed keepalive "Enable" step, or no completed build for 192 hours; it reads
-  runs from any branch, because GitHub's `?branch=main` listing came back empty
-  for this workflow), `rme-page` (the events page answers 200),
-  `rme-status-json` (`status.json` present, with `built_at`) and `rme-tls` (the
-  `4e6.github.io` certificate, which GitHub renews, has time left). The 192-hour
-  threshold is derived from the cron in `build.yml` (weekly, Mondays 05:17
-  Europe/Lisbon): changing the cron means re-deriving it in ops-watch's
-  `checks.yaml`. Moving the page off GitHub Pages or to a custom domain means
+- **What ops-watch checks.** `rme-build` (a disabled `build.yml`, and, reading
+  non-pull-request runs on `main` only, a failed run, a failed keepalive "Enable"
+  step, or no completed build for 192 hours; a dispatch from another branch is
+  ignored), `rme-page` (the events page answers 200), `rme-status-json` (reads
+  the published `status.json` and warns on a build that went green but is bad: no
+  events on the page, `result.degraded`, failed or unread sources, a dead proxy or
+  its byte budget reached, or `built_at` older than the same 192 hours) and
+  `rme-tls` (the `4e6.github.io` certificate, which GitHub renews, has time left).
+  The 192-hour threshold is derived from the cron in `build.yml` (weekly, Mondays
+  05:17 Europe/Lisbon): changing the cron means re-deriving it in ops-watch's
+  `checks.yaml`. The `status.json` field names and `sources[].state` values that
+  `rme-status-json` reads are a contract with ops-watch (a comment at
+  `buildStatus`'s return in `src/status.ts` lists them): renaming one makes that
+  check blind. Moving the page off GitHub Pages or to a custom domain means
   re-pointing `rme-page`, `rme-status-json` and `rme-tls`.
 - **The keepalive cannot save itself.** The `keepalive` job lives in `build.yml`,
   so once GitHub disables the workflow it cannot run; ops-watch's

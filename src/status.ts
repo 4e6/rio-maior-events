@@ -226,6 +226,9 @@ export function buildStatus(input: StatusInput): Json {
 
   const l = links(env);
   const m = input.mergeStats, f = input.finalizeStats;
+  // ops-watch's rme-status-json reads built_at, result.{events,degraded}, sources[].state
+  // ("ok" | "failed" | "not read"), readers.{read,units,rows} and proxy.{bytes,max_bytes,dead}:
+  // renaming one makes that check blind, so change it there too.
   return {
     built_at: input.now.toISOString(),
     built_at_lisbon: lisbonTime(input.now),
