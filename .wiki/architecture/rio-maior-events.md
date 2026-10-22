@@ -287,9 +287,10 @@ dark.
   365 days, so rotating the secret is what clears it; copying an older token in
   would make that countdown overstate the token's life. ops-watch does not hold
   `FALLBACK_PROXY_URL`.
-- **What ops-watch checks.** `rme-build` (a disabled `build.yml`, and, reading
-  runs on `main` only, a failed run, a failed keepalive "Enable" step, or no
-  completed build for 192 hours), `rme-page` (the events page answers 200),
+- **What ops-watch checks.** `rme-build` (a disabled `build.yml`, a failed run,
+  a failed keepalive "Enable" step, or no completed build for 192 hours; it reads
+  runs from any branch, because GitHub's `?branch=main` listing came back empty
+  for this workflow), `rme-page` (the events page answers 200),
   `rme-status-json` (`status.json` present, with `built_at`) and `rme-tls` (the
   `4e6.github.io` certificate, which GitHub renews, has time left). The 192-hour
   threshold is derived from the cron in `build.yml` (weekly, Mondays 05:17
