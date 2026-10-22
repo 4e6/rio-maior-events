@@ -1,7 +1,7 @@
 ---
 type: Module
 title: Rio Maior events
-description: "A weekly build that gathers leisure events within about 45 minutes of Rio Maior and renders an agenda list beside a month calendar. Why a script collects and the model reads, which sources, how the page works, where it bends the payload rules."
+description: "A weekly build that gathers leisure events within about 45 minutes of Rio Maior and renders an agenda beside a month calendar. Why a script collects and the model reads; the sources, the page, the payload rules; the Claude token and ops-watch."
 tags: [architecture, network, page]
 sources:
   - resource: src/**
@@ -278,9 +278,11 @@ dark.
 
 - **The Claude token.** The build uses the `CLAUDE_CODE_OAUTH_TOKEN` Actions
   secret; only the "Build the page" step of `build.yml` sees it. It is made with
-  `claude setup-token` and is valid one year (`README.md:86-88`). Rotate it with
-  `claude setup-token`, then `gh secret set CLAUDE_CODE_OAUTH_TOKEN -R
-  4e6/rio-maior-events`. ops-watch, a separate monitor (repo `4e6/ops-watch`),
+  `claude setup-token` and is valid one year (the README's "Secret
+  `CLAUDE_CODE_OAUTH_TOKEN`" bullet). Rotate it with `claude setup-token`, then
+  `gh secret set CLAUDE_CODE_OAUTH_TOKEN -R 4e6/rio-maior-events`; if it had
+  already expired, rebuild the page with `gh workflow run build.yml -R
+  4e6/rio-maior-events` rather than waiting for Monday. ops-watch, a separate monitor (repo `4e6/ops-watch`),
   counts down its `rme-claude-token` check from the secret's `updated_at` plus
   365 days, so rotating the secret is what clears it; copying an older token in
   would make that countdown overstate the token's life. ops-watch does not hold
