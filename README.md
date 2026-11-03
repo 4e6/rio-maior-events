@@ -1,6 +1,6 @@
 # rio-maior-events
 
-A weekly build that gathers what is on in and around Rio Maior, Portugal — up to about 45 minutes away, and the big events of a few towns up to about an hour: Caldas da Rainha, Óbidos,
+A weekly build that gathers what is on in and around Rio Maior, Portugal — up to about 45 minutes away, and the big events of a few towns up to about 55 minutes: Caldas da Rainha, Óbidos,
 Santarém, Alcobaça, Porto de Mós and the villages of the Serra dos Candeeiros —
 and lays it out as one page you can plan your free time from.
 
