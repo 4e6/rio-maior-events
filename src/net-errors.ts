@@ -79,3 +79,12 @@ export function triggersFallback(err: unknown): boolean {
   if (err instanceof NetworkError) return err.code === "ECONNRESET" || err.code === "ECONNREFUSED" || err.code === "ConnectionClosed";
   return false;
 }
+
+/** Whether a failed *proxied* request is worth another attempt through the proxy: a timeout, or a connection reset or
+ *  closed mid-request, the signature of a rotating gateway handing out a bad exit. Not a ProxyError (a 407/402, a gateway
+ *  5xx, an unreachable gateway or a spent budget have their own handling and mark the proxy dead), not an HTTP status
+ *  of the site, a redirect refusal, a TLS or DNS error, an abort, or anything unknown. */
+export function retriesThroughProxy(err: unknown): boolean {
+  if (err instanceof TimeoutError) return true;
+  return err instanceof NetworkError && (err.code === "ECONNRESET" || err.code === "ConnectionClosed");
+}

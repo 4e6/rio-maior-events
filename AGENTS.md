@@ -10,8 +10,9 @@ A Bun/TypeScript pipeline that builds an events page once a week for Rio Maior, 
 - `bun install`, then `bun test` (offline; the pipeline's tests run against a fake
   `claude`) and `bunx tsc --noEmit`. Both must pass before a change lands.
 - Never run the collector in a loop, and keep to each site's robots.txt and
-  per-host delay. A site that refuses is recorded as failed, after the one retry
-  through the fallback proxy where `FALLBACK_PROXY_URL` is set (CI only).
+  per-host delay. A site that refuses is recorded as failed, after the retry
+  through the fallback proxy (a timeout there gets up to three attempts) where
+  `FALLBACK_PROXY_URL` is set (CI only).
 - The residential proxy is a fallback only: never the first try, never for a path
   a site's robots.txt disallows, never a reason to add a source. Its URL is a
   secret that only the collect step may see: never write it, or the proxy's host,

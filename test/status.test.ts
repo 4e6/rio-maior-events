@@ -166,12 +166,15 @@ describe("status page", () => {
 
   test("a source read through the fallback proxy gets a pill, and the run shows the bytes used", () => {
     const base = input();
-    const index = { ...base.index, proxy: { bytes: 3 * 1048576, max_bytes: 30 * 1048576, dead: null, hosts: { "a1.example.org": 1 } },
+    const index = { ...base.index, proxy: { bytes: 3 * 1048576, max_bytes: 30 * 1048576, dead: null, hosts: { "a1.example.org": 1 }, retries: 3, host_retries: { "a1.example.org": 3, "b.example.org": 0 } },
       sources: base.index.sources.map((s: Json) => (s.name === "a1" ? { ...s, via: "proxy" } : { ...s, via: "direct" })) };
     const d = buildStatus(input({ index }));
     expect(src(d, "a1").via_proxy).toBe(true);
     expect(src(d, "b1").via_proxy).toBe(false);
-    expect(d.proxy).toEqual({ bytes: 3 * 1048576, max_bytes: 30 * 1048576, dead: null });
+    expect(d.proxy).toEqual({ bytes: 3 * 1048576, max_bytes: 30 * 1048576, dead: null, retries: 3, host_retries: { "a1.example.org": 3 } });
+    // an index from before the retries: additive, zero and none
+    expect(buildStatus(input({ index: { ...index, proxy: { bytes: 1, max_bytes: 2, dead: null, hosts: {} } } })).proxy)
+      .toEqual({ bytes: 1, max_bytes: 2, dead: null, retries: 0, host_retries: {} });
     const h = renderStatus(d, "", "");
     expect(h.match(/<span class="pill">proxy<\/span>/g)).toHaveLength(1);
     expect(h).toContain("Fallback proxy");

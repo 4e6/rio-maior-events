@@ -114,10 +114,15 @@ export type SourceRow = {
 };
 
 /** The run's fallback-proxy use from the collected index: numbers and a short reason only, null when it was off. */
-function proxyOf(p: unknown): { bytes: number; max_bytes: number; dead: string | null } | null {
+function proxyOf(p: unknown): { bytes: number; max_bytes: number; dead: string | null; retries: number; host_retries: Record<string, number> } | null {
   if (typeof p !== "object" || p === null) return null;
   const q = p as Json;
-  return { bytes: Number(q.bytes) || 0, max_bytes: Number(q.max_bytes) || 0, dead: typeof q.dead === "string" ? scrub(q.dead, 60) : null };
+  const hosts = typeof q.host_retries === "object" && q.host_retries !== null ? Object.entries(q.host_retries as Json) : [];
+  return {
+    bytes: Number(q.bytes) || 0, max_bytes: Number(q.max_bytes) || 0, dead: typeof q.dead === "string" ? scrub(q.dead, 60) : null,
+    retries: Number(q.retries) || 0,
+    host_retries: Object.fromEntries(hosts.map(([h, n]): [string, number] => [scrub(h, 80), Number(n) || 0]).filter(([, n]) => n > 0)),
+  };
 }
 
 export function buildStatus(input: StatusInput): Json {
@@ -228,7 +233,9 @@ export function buildStatus(input: StatusInput): Json {
   const m = input.mergeStats, f = input.finalizeStats;
   // ops-watch's rme-status-json judges built_at, result.{events,degraded}, sources[].state
   // ("ok" | "failed" | "not read"), readers.{read,units} and proxy (null when off, else
-  // {bytes,max_bytes,dead}): renaming one of those makes that check blind. It names alerts by
+  // {bytes,max_bytes,dead,retries,host_retries}): renaming one of those makes that check blind, except that only
+  // proxy.{dead,bytes,max_bytes} is read: retries and host_retries are informational (nothing reads them yet), so
+  // renaming those two is free. It names alerts by
   // sources[].id and readers.rows[].{id,outcome}: renaming those blurs its alerts. Change it there too.
   return {
     built_at: input.now.toISOString(),

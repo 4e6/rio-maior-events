@@ -21,8 +21,14 @@ around", was withdrawn the same day.
 
 The fallback is the secret `FALLBACK_PROXY_URL`. A host goes through the proxy
 only after its direct request was refused (a timeout, a connection reset or
-refusal, 403 or a 5xx), the refused request is retried once through it and the
-host's remaining requests follow. It is off without the secret, so local runs
+refusal, 403 or a 5xx), the refused request is retried through it and the
+host's remaining requests follow. A proxied timeout or connection reset is
+attempted up to three times (waits of 2 s and 5 s with jitter, at most three
+retries per host per run, counted as `proxy.retries` in `index.json`): the
+gateway rotates its exit, so a new tunnel often works where waiting does not.
+Added after the 2 November build, when cm-alcanena and cm-vnbarquinha failed on
+one proxied timeout each; that the retry cures it is a hypothesis one run cannot
+prove. It is off without the secret, so local runs
 behave as before. The rules and the budget are in
 [the architecture page](../architecture/rio-maior-events.md#how-the-collection-is-built).
 

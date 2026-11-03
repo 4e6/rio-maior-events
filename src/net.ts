@@ -94,11 +94,20 @@ const decodeSafe = (s: string): string => {
   try { return decodeURIComponent(s); } catch { return s; }
 };
 
+/** What the proxy reports into index.json: bytes and budget, and the retries spent (host_retries lists only hosts with any). */
+export interface ProxyStats {
+  bytes: number; max_bytes: number; dead: string | null; hosts: Record<string, number>;
+  retries: number; host_retries: Record<string, number>;
+}
+
 export class ProxyGateway {
   /** Why the proxy is unusable for the rest of the run ("proxy failed: 407"), else null. */
   dead: string | null = null;
   bytes = 0;
   readonly hostBytes = new Map<string, number>();
+  /** Retries collect.ts spent on timeouts and resets through the proxy, in all and per host. */
+  retries = 0;
+  readonly hostRetries = new Map<string, number>();
   readonly maxBytes: number;
   readonly ca?: string[];
   // Runtime-private (#): a dump of the gateway, or of an object holding it, shows no credential.
@@ -171,8 +180,15 @@ export class ProxyGateway {
     return null;
   }
 
-  stats(): { bytes: number; max_bytes: number; dead: string | null; hosts: Record<string, number> } {
-    return { bytes: this.bytes, max_bytes: this.maxBytes, dead: this.dead, hosts: Object.fromEntries(this.hostBytes) };
+  /** collect.ts retried a proxied request of this host (a timeout or reset). */
+  noteRetry(host: string): void {
+    this.retries++;
+    this.hostRetries.set(host, (this.hostRetries.get(host) ?? 0) + 1);
+  }
+
+  stats(): ProxyStats {
+    return { bytes: this.bytes, max_bytes: this.maxBytes, dead: this.dead, hosts: Object.fromEntries(this.hostBytes),
+      retries: this.retries, host_retries: Object.fromEntries(this.hostRetries) };
   }
 
   /** The Fetcher pair collect.ts takes as its fallback. */
