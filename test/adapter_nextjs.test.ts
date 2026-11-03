@@ -1,6 +1,6 @@
 // Port of tests/python/test_adapter_nextjs.py.
 import { describe, expect, test } from "bun:test";
-import { EXCERPT_CAP, type Page } from "../src/adapters/common.ts";
+import { EXCERPT_CAP, TITLE_NOT_FOUND, type Page } from "../src/adapters/common.ts";
 import { clocks, excerptOf, localStamp, nextjs, parseNextjs } from "../src/adapters/nextjs.ts";
 import type { Source } from "../src/adapters/types.ts";
 import { WINDOW, fixture, fixtureText } from "./helpers.ts";
@@ -164,7 +164,8 @@ describe("EventPages", () => {
     const html = "<html><head><title>Um Concerto Especial</title></head><body><p>Texto do evento.</p></body></html>";
     const found = details([mk("https://www.example.pt/x", html)]);
     expect(found[0]!.title).toBe("Um Concerto Especial");
-    expect(found[0]!.excerpt).toContain("Texto do evento.");
+    // The title is in the <title> line only, so the excerpt says it was not found before the page's text.
+    expect(found[0]!.excerpt).toBe(`${TITLE_NOT_FOUND}\nTexto do evento.`);
   });
 
   test("test_a_payload_without_a_description_module_falls_back", () => {
