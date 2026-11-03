@@ -26,9 +26,9 @@ The source list is `sources.json`; the sections below describe how to read each 
 - Batalha
 - Nazaré and Peniche
 - Chamusca
-- Feeds of one platform: cm-nazare, cm-batalha, cm-chamusca
+- Feeds of one platform: cm-nazare, cm-batalha, cm-chamusca, cm-arruda, cm-mgrande
 - JSON sources: ourem, cm-cadaval
-- Next.js municipal sites: cm-bombarral, cm-lourinha, cm-alenquer
+- Next.js municipal sites: cm-bombarral, cm-lourinha, cm-alenquer, cm-sobral
 - Known yearly events
 - Not used, and why
 
@@ -41,8 +41,8 @@ The source list is `sources.json`; the sections below describe how to read each 
 - `events_calendar` (`adapters/events_calendar.ts`): the WordPress Events Calendar API (ourem).
 - `cadaval_api` (`adapters/cadaval_api.ts`): the Cadaval portal's JSON (cm-cadaval).
 - `santarem_rss` (`adapters/santarem_rss.ts`): the Município de Santarém events feed, RSS with its own date fields (cm-santarem).
-- `municipal_rss` (`adapters/municipal_rss.ts`): the RSS feeds of the municipal sites on one platform (cm-nazare, cm-batalha, cm-chamusca).
-- `nextjs` (`adapters/nextjs.ts`): Next.js sites that embed their events in the page (cm-bombarral, cm-lourinha, cm-alenquer).
+- `municipal_rss` (`adapters/municipal_rss.ts`): the RSS feeds of the municipal sites on one platform (cm-nazare, cm-batalha, cm-chamusca, cm-arruda, cm-mgrande).
+- `nextjs` (`adapters/nextjs.ts`): Next.js sites that embed their events in the page (cm-bombarral, cm-lourinha, cm-alenquer, cm-sobral).
 - `src/adapters/common.ts` is not an adapter; it holds what they share: the request shape, a page's visible text, its JSON-LD events, window tests, Portugal time, the safe reading of an XML feed and the reading of an event page.
 
 The groups, each read as one unit: `rio-maior`, `oeste-norte`, `oeste-sul`, `ribatejo`, `medio-tejo`, `regional`. A town's pages are in the same group, which keeps most listings of one event together; the same event can still turn up in two groups (a race listed by Portugal Running and by the town), and the merge step flags those pairs.
@@ -52,7 +52,7 @@ The groups, each read as one unit: `rio-maior`, `oeste-norte`, `oeste-sul`, `rib
 Two things beyond the list pages, for the sources that set them in `sources.json`:
 
 - `links`: a pattern for the addresses of a site's event pages (given below in words for each source). The `text` of such a source then holds a line `<https://...>` at each link that matches, so an event can cite its own page; see "Link markers" in reading.md. Links to menus, page numbers and the like are not marked. A site that has no `links` has no markers, and an event there cites the agenda page.
-- `follow`: how many of those event pages the script fetches (default 0, none). It fetches them after all of the site's list pages, spaced like them, in page order (a feed: nearest dates first), and only on the site's own host. Each page that comes back is read into `{url, title, start, end, venue, excerpt}`, and these are the source's `details`. A failed event page leaves the source ok; a refusal ends that site's event pages only, and a redirect to another host or to plain http is refused. The caps keep a run to about 180 event pages in all.
+- `follow`: how many of those event pages the script fetches (default 0, none). It fetches them after all of the site's list pages, spaced like them, in page order (a feed: nearest dates first), and only on the site's own host. Each page that comes back is read into `{url, title, start, end, venue, excerpt}`, and these are the source's `details`. A failed event page leaves the source ok; a refusal ends that site's event pages only, and a redirect to another host or to plain http is refused. The caps keep a run to about 210 event pages in all.
 
 What a detail gives varies by site (below). `title`, `start`, `end` and `venue` are null when the page does not state them; the excerpt is the first 800 characters or so of the page's text from its title on, and is the only thing read for a site whose event pages hold no structured data. Where a source says "links only", it has markers and no event pages are fetched.
 
@@ -189,9 +189,18 @@ One template. A mini calendar and a short "Próximos Eventos" list (month, title
 
 - Trap: the list includes events elsewhere ("Festival Nacional de Gastronomia de Santarém"); take the town from the title or text.
 
-## Feeds of one platform: cm-nazare, cm-batalha, cm-chamusca
+## Feeds of one platform: cm-nazare, cm-batalha, cm-chamusca, cm-arruda, cm-mgrande
 
-The three municipal sites share a platform that publishes each agenda as an RSS feed, read by the `municipal_rss` adapter into `items`. Unlike Santarém's feed, the `pubDate` of an item IS the event's start (local time, "2026-10-24 21:30"; a start at 00:00 has no time). The link of an item is its event page; `description` is the item's text without markup. Only items inside the window are kept. An item's venue and end, where the feed gives none, come from its event page when one is fetched, or from the description.
+The five municipal sites share a platform that publishes each agenda as an RSS feed, read by the `municipal_rss` adapter into `items`. Unlike Santarém's feed, the `pubDate` of an item IS the event's start (local time, "2026-10-24 21:30"; a start at 00:00 has no time). The link of an item is its event page; `description` is the item's text without markup. Only items inside the window are kept. An item's venue and end, where the feed gives none, come from its event page when one is fetched, or from the description.
+
+- `cm-arruda` `https://www.cm-arruda.pt/comunicar/agenda-de-eventos`, Arruda dos Vinhos, read from its feed `https://www.cm-arruda.pt/pages/comunicar%2Fagenda-de-eventos.rss`; 8 event pages are fetched (start, end and venue, for example the Festa da Vinha e do Vinho at the Pavilhão Multiusos). About 50 minutes: include only a notable event.
+  - The feed starts on the collection day: a run that began before it (a multi-day festival that began before Monday, an exhibition from October) is not in the feed, though the page lists it. At 50 minutes that is the accepted cost, a festival missed in its first days.
+  - Trap: the town is always Arruda dos Vinhos, never Arruda dos Pisões, a Rio Maior village.
+  - Trap: the agenda lists events outside the municipality (a guided visit at MAAT in Lisbon), and the same training appears here and in Sobral de Monte Agraço.
+- `cm-mgrande` `https://www.cm-mgrande.pt/comunicar/eventos`, Marinha Grande, read from its feed `https://www.cm-mgrande.pt/pages/comunicar%2Feventos.rss`; 5 event pages are fetched, nearest dates first. The pages have no structured start or venue; the excerpt names them in prose ("O Teatro Stephens ... dia 14 de novembro de 2026, pelas 21h30"). About 55 minutes: include only a notable event.
+  - The feed covers only the current month: events from the 1st until the first Monday run are on no page, and the run before sees only the previous month. At 55 minutes that is the accepted cost.
+  - Items that started earlier and still run (two long runs, from August and October) are dropped by the window.
+  - Trap: titles are press headlines ("... ATUA NO TEATRO STEPHENS A 14 DE NOVEMBRO"); take the real title from the text.
 
 ## JSON sources: ourem, cm-cadaval
 
@@ -200,16 +209,18 @@ Not pages: the `events_calendar` and `cadaval_api` adapters read the JSON and ke
 - `ourem` `https://www.ourem.pt/wp-json/tribe/events/v1/events?per_page=50`, Ourém and Fátima (about 45–55 minutes). Start and end are local ("2026-10-22 18:00:00"); venue, price and a short description come when the site gives them. Titles are unescaped by the script. Few events at a time; a list of one to a few is normal.
 - `cm-cadaval` `https://api.cm-cadaval.pt.stage.vf-portal.com/website/Events/1?page=1&lang=pt`, Cadaval. Dates only, no time, and a link on the town's site. The host name says "stage": it is the site's own data host and may move. One page.
 
-## Next.js municipal sites: cm-bombarral, cm-lourinha, cm-alenquer
+## Next.js municipal sites: cm-bombarral, cm-lourinha, cm-alenquer, cm-sobral
 
 - `cm-bombarral` `https://www.cm-bombarral.pt/agenda`
 - `cm-lourinha` `https://www.cm-lourinha.pt/agenda`
 - `cm-alenquer` `https://www.alenquer.pt/agenda`
+- `cm-sobral` `https://www.cm-sobral.pt/agenda`, Sobral de Monte Agraço: one page, 8 events at the time of checking. About 55 minutes: include only a notable event.
 
 The pages have no readable text; the script takes the events from the page's embedded data and gives them as `items`: title, start and end date, and a link (joined to the site). The list has dates only, no times. Each in-window event's own page is followed (follow 10, in date order) and read from its embedded data into `details`: the description (an excerpt) says the time, the venue and the price when the town gives them ("a partir das 15 horas", "entrada gratuita"), and the start is a date with a time when the event's `schedule` field says one clock time ("15 horas", "10h30"; a range "10h às 18h" gives start and end). The excerpt begins "Horário: <schedule>" whenever the field is filled, so read vaguer ones ("Todo o dia") there. Take time, venue and price from the excerpt; without a detail, do not state a time. Lourinhã and Alenquer also give a venue in the list.
 
 - Trap: only page 1 is read, nine events. Lourinhã and Alenquer have more (17 at the time of checking) on page 2, and Bombarral had three. The source's `note` says "page 1 of N, M events in all" when there are more pages.
 - Many are long runs (an exhibition for months, a project to December): ongoing.
+- Trap (Sobral): an item at the Auditório de Arruda dos Vinhos is also listed by `cm-arruda`; both are in `oeste-sul`, so it is one event. Council notices (editais) are not events.
 
 ## Known yearly events
 
@@ -244,7 +255,8 @@ From past listings, not from this collection. Use one only as "date to be confir
 - O Mirante agenda: HTTP 500.
 - Visit Alentejo: built by JavaScript, nothing to read without a browser.
 - Golegã (visitgolega.com/agenda) and the Médio Tejo agenda (agenda.mediotejo.pt): built by JavaScript, empty to a plain request.
-- Alpiarça and Salvaterra de Magos: the home page links an agenda news post (Salvaterra's is "Agenda Viver Salvaterra" for the month), whose address changes, so no fixed address can be given.
+- Alpiarça: its events category (`/documentos/eventos`) is stale, nine posts from April to September, and current items are in `/noticias`, mixed with news, so a plain reader would need a news filter.
+- Salvaterra de Magos: the home page links an agenda news post ("Agenda Viver Salvaterra" for the month), whose address changes, so no fixed address can be given.
 - Azambuja: the agenda page answers 404 and its agendas are PDFs.
 - Facebook and Instagram: need a login. The Cineteatro now announces mainly on Facebook, so expect gaps.
 - Ticketline and riomaiortv.pt: unreachable.

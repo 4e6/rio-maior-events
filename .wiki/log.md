@@ -1,6 +1,7 @@
 # Wiki Update Log
 
 ## 2026-11-03
+* **More municipalities**: Arruda dos Vinhos, Sobral de Monte Agraço and Marinha Grande join as sources, read for their big events only (the 50-minute rule of `towns.md`), the range widened by the owner from about 45 to about 55 minutes for such towns; Alpiarça stays out because its events category is stale ([sources](/architecture/rio-maior-events-sources.md), [architecture](/architecture/rio-maior-events.md)).
 * **Proxy retries**: a proxied request that times out or is reset is attempted up to three times, at most three retries a host, counted in `index.json`'s `proxy` and `status.json` ([architecture](/architecture/rio-maior-events.md), [decision](/decisions/0004-a-residential-proxy-for-the-sites-that-refuse-github-runners.md)).
 
 ## 2026-10-22
