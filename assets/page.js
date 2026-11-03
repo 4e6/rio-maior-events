@@ -99,6 +99,9 @@
     e._ahead = e.date_tbc ? null : aheadStart(e);   // an undated event is never placed: it has no day to put on the calendar
     /* an exhibition or run that opens after NEAR sits on its opening day; one already open stays in Ongoing */
     if (e._ahead && e.kind === "ongoing") e._days = [e.start_date];
+    /* a regular whose next date is by NEAR keeps its card in Regulars, and a far day has no row for it to jump to, so its
+       dots stop at NEAR (merge cuts its dates there when recurrence has text; without, a far date would be a dead dot) */
+    if (e.kind === "recurring" && !e._ahead) e._days = e._days.filter(function (d) { return d <= NEAR; });
   });
   /* The month grids run through the last month with a day to mark, and at least through NEAR's month: an empty April
      would read as "nothing on", a missing one as "not covered", and the grid note says which. Worked out once, with no
@@ -320,8 +323,9 @@
     s.dated = base.filter(function (e) { return !e.date_tbc && (e.kind === "single" || e.kind === "multi_day" || e._ahead); });
     s.ongoing = near.filter(function (e) { return e.kind === "ongoing" && e.end_date >= TODAY; });
     s.regulars = near.filter(function (e) { return e.kind === "recurring" && !e.date_tbc && (!e.dates || !e.dates.length || e.dates.some(function (d) { return d >= TODAY; })) && (!f.weekend || !e.dates || e.dates.some(isWeekend) || /sat|sun|weekend/i.test(e.recurrence || "")); });
-    /* the one list left: what has no day to sit on */
-    s.tbc = base.filter(function (e) { return e.date_tbc; });
+    /* the one list left: what has no day to sit on, until its month, or the day the source gave, is behind us (the page
+       is built weekly and read all week, so a "November, day tbc" would otherwise outlive November) */
+    s.tbc = base.filter(function (e) { return e.date_tbc && !tbcPast(e); });
     var onDays = s.dated.filter(function (e) { return visibleDays(e, f).length; });
     s.nFar = onDays.filter(function (e) { return e._ahead; }).length;
     s.nDated = onDays.length + s.ongoing.length + s.regulars.length;
@@ -331,6 +335,10 @@
      (NOFILTER has picks off, so not the stars; TODAY and NEAR are fixed), so it is worked out once, not per keystroke. */
   var ALL = null;
   function unfiltered() { return ALL || (ALL = sections(NOFILTER)); }
+  function tbcPast(e) {
+    var s = e.start_date || "";
+    return s.length === 7 ? s < TODAY.slice(0, 7) : !!s && (e.end_date || s) < TODAY;
+  }
   function hiddenLine(n, where) {
     return n > 0 ? '<p class="hidden-line">' + n + (n === 1 ? " more event " : " more events ") + where + ' hidden by your filters. <button type="button" class="linkish" data-clear>Show all</button></p>' : "";
   }
@@ -372,7 +380,7 @@
       var range = fmtShort(b.from) + (b.from !== b.to ? "–" + fmtShort(b.to) : "");
       html += '<section class="band' + (b.weekend ? " weekend" : "") + '" aria-labelledby="band-' + b.key + '"><h2 id="band-' + b.key + '">' + b.title + (range ? " <small>" + range + "</small>" : "") + "</h2>";
       if (!ds.length) html += '<p class="past-note" style="padding:0 4px 8px">Nothing dated matches your filters this weekend' + (regulars.length ? " — see Regulars above." : ".") + "</p>";
-      ds.forEach(function (d) { html += daySection(d, b.weekend); });
+      ds.forEach(function (d) { html += daySection(d, byDay[d], b.weekend); });
       html += "</section>";
     });
     /* after NEAR: one band a month, the same day sections, so a far day in the grid jumps like a near one */
@@ -380,42 +388,29 @@
     var emptyState = !nShown;
     var far = days.filter(function (d) { return d > NEAR; }), farMonths = [];
     far.forEach(function (d) { var m = d.slice(0, 7); if (farMonths.indexOf(m) < 0) farMonths.push(m); });
-    /* the chip's count is the cards in that month: a run that began before NEAR keeps its card there, not here */
+    /* the chip's count is the events on that month's days, as a day button counts them: a market whose January holds only
+       "again" rows, or a run that began before NEAR, is still in January, so a chip never reads 0 for a band it opens */
     farShown = emptyState ? [] : farMonths.map(function (m) {
-      var n = 0; far.forEach(function (d) { if (d.slice(0, 7) === m) byDay[d].forEach(function (r) { if (r.first) n++; }); });
-      return { m: m, n: n };
+      var ids = {};
+      far.forEach(function (d) { if (d.slice(0, 7) === m) byDay[d].forEach(function (r) { ids[r.e.id] = true; }); });
+      return { m: m, n: Object.keys(ids).length };
     });
     farMonths.forEach(function (m, i) {
       var sub = [m === NEAR.slice(0, 7) ? "from " + fmtShort(add(NEAR, 1)) : "", m === WIN.end.slice(0, 7) ? "to " + fmtShort(WIN.end) : ""].filter(Boolean).join(", ");
       html += '<section class="band far"' + (i === 0 ? ' id="ahead" tabindex="-1"' : "") + ' aria-labelledby="band-' + m + '"><h2 id="band-' + m + '">' + MONTHS[+m.slice(5, 7) - 1] + " " + m.slice(0, 4) + (sub ? " <small>" + sub + "</small>" : "") + "</h2>" +
         (i === 0 ? '<p class="ahead-intro">From ' + fmtShort(add(NEAR, 1)) + ", what the sources already list. Few list this far ahead, so this is not all that will be on.</p>" : "");
-      far.filter(function (d) { return d.slice(0, 7) === m; }).forEach(function (d) { html += daySection(d, false); });
+      far.filter(function (d) { return d.slice(0, 7) === m; }).forEach(function (d) { html += daySection(d, byDay[d], false); });
       html += "</section>";
     });
     if (!far.length && all.nFar && !emptyState) html += '<section class="band far" id="ahead" tabindex="-1"><p class="past-note">Nothing after ' + fmtShort(NEAR) + " matches your filters.</p></section>";
-    function daySection(d, inWeekendBand) {
-        var html = "";
-        html += '<section class="day" id="d-' + d + '" data-day="' + d + '"><h3 class="day-h">' + (d === realToday && inWindow ? '<span class="today-tag">Today</span>' : "") + fmtDay(d) +
-          (isWeekend(d) && !inWeekendBand ? '<span class="we-tag">weekend</span>' : "") + '</h3><div class="day-list">';
-        byDay[d].sort(function (x, y) {
-          if (x.first !== y.first) return x.first ? -1 : 1;
-          return (x.e.start_time || "99").localeCompare(y.e.start_time || "99");
-        }).forEach(function (r) {
-          if (r.first) html += card(r.e, r.e._ahead ? farOpts(r.e) : r.idx > 1 ? { lead: timeText(r.e), noSpan: false } : null);
-          else html += '<a class="continues" href="#c-' + esc(r.e.id) + '" style="--cat: var(--c-' + r.e.category + ')">' + icon("cont") +
-            "<span>" + (r.e.kind === "recurring" ? "again: <b>" + esc(r.e.title_en) + "</b>" + (r.e.recurrence ? " (" + esc(r.e.recurrence) + ")" : " (date " + r.idx + " of " + r.total + ")")
-              : "continues: <b>" + esc(r.e.title_en) + "</b> (day " + r.idx + " of " + r.total + ")") + "</span></a>";
-        });
-        html += "</div></section>";
-        return html;
-    }
     if (emptyState) html = '<div class="empty-state"><p>No events match these filters.</p><button class="btn" type="button" id="empty-clear">Clear filters</button></div>';
     document.getElementById("list").innerHTML = html;
     var emptyBtn = document.getElementById("empty-clear");
     if (emptyBtn) emptyBtn.addEventListener("click", resetFilters);
 
     /* what has no day: one list, by month, after every dated day; the dated part's hidden line comes first */
-    var tbcHtml = emptyState ? "" : hiddenLine(all.nDated - S.nDated, "on the calendar");   // the empty-state card already says nothing matches
+    /* the days, Ongoing and Regulars: what the result line counts as dated, so the two lines add up to what it hides */
+    var tbcHtml = emptyState ? "" : hiddenLine(all.nDated - S.nDated, "in the agenda above");   // the empty-state card already says nothing matches
     if (all.tbc.length) {
       tbcHtml += '<section class="band" aria-labelledby="band-tbc"><h2 id="band-tbc">Date to be confirmed <small>' + tbc.length + "</small></h2>" +
         '<p class="ahead-intro">Listed by a source, but with no day to put on the calendar yet.</p><div class="day-list">' +
@@ -440,6 +435,21 @@
     syncActive();
   }
 
+  /* one day's block in the list: the cards that start there first, then the rows of what continues or comes again */
+  function daySection(d, rows, inWeekendBand) {
+    var out = '<section class="day" id="d-' + d + '" data-day="' + d + '"><h3 class="day-h">' + (d === realToday && inWindow ? '<span class="today-tag">Today</span>' : "") + fmtDay(d) +
+      (isWeekend(d) && !inWeekendBand ? '<span class="we-tag">weekend</span>' : "") + '</h3><div class="day-list">';
+    rows.sort(function (x, y) {
+      if (x.first !== y.first) return x.first ? -1 : 1;
+      return (x.e.start_time || "99").localeCompare(y.e.start_time || "99");
+    }).forEach(function (r) {
+      if (r.first) out += card(r.e, r.e._ahead ? farOpts(r.e) : r.idx > 1 ? { lead: timeText(r.e), noSpan: false } : null);
+      else out += '<a class="continues" href="#c-' + esc(r.e.id) + '" style="--cat: var(--c-' + r.e.category + ')">' + icon("cont") +
+        "<span>" + (r.e.kind === "recurring" ? "again: <b>" + esc(r.e.title_en) + "</b>" + (r.e.recurrence ? " (" + esc(r.e.recurrence) + ")" : " (date " + r.idx + " of " + r.total + ")")
+          : "continues: <b>" + esc(r.e.title_en) + "</b> (day " + r.idx + " of " + r.total + ")") + "</span></a>";
+    });
+    return out + "</div></section>";
+  }
   /* "Big event" restates the readers' rule (50 minutes or more is kept only if big), so it is derived, not stored; every
      card carries it, near or far */
   function bigTag(e) { return e.drive_min != null && e.drive_min >= 50 ? '<span class="far-tag">Big event</span>' : ""; }
@@ -498,7 +508,8 @@
       }
       r += "</div>";
       /* after NEAR the grids show only what the sources already list; the last grid says where the marks stop, and the
-         agenda's end if that is later. Ongoing runs and regulars are not on the days, so the note leaves them out. */
+         agenda's end if that is later. Ongoing runs and near regulars are listed in their blocks (a regular's dots stop at
+         NEAR), so the note leaves them out. */
       var lastGrid = cur.slice(0, 7) === GRID_END;
       if (lastGrid && GRID_END < WIN.end.slice(0, 7)) r += '<p class="grid-note">No dated events after ' + MONTHS[mo] + ", other than long runs and regulars; the agenda runs to " + fmtShort(WIN.end) + ".</p>";
       else if (NEAR < WIN.end && NEAR.slice(0, 7) === cur.slice(0, 7)) r += '<p class="grid-note">After ' + fmtShort(NEAR) + ", only what the sources already list; few list this far ahead.</p>";
@@ -510,8 +521,8 @@
     document.getElementById("rail").innerHTML = r;
   }
   /* Keyboard: each month grid is one tab stop, so seven grids cost seven stops rather than ~200. The stop is the active
-     day if it is in that grid, else today, else the first day not past, else the first; it is in the markup (tabindex), so
-     it is right the moment the rail is drawn and does not wait for any class. */
+     day if it is in that grid, else today, else the first day not past; a grid whose days are all past (greyed) has none.
+     It is in the markup (tabindex), so it is right the moment the rail is drawn and does not wait for any class. */
   function gridStop(first, mo) {
     var live = [], today = null, firstOpen = null;
     for (var dd = first; parse(dd).getMonth() === mo; dd = add(dd, 1)) {
@@ -520,7 +531,7 @@
       if (dd === realToday && inWindow) today = dd;
       if (!firstOpen && dd >= TODAY) firstOpen = dd;
     }
-    return live.indexOf(activeDay) >= 0 ? activeDay : today || firstOpen || live[0];
+    return live.indexOf(activeDay) >= 0 ? activeDay : today || firstOpen;
   }
   /* make b the one tab stop of its grid */
   function setStop(b) {
@@ -528,19 +539,24 @@
     g.querySelectorAll("button.day-btn").forEach(function (x) { x.tabIndex = -1; });
     b.tabIndex = 0;
   }
-  /* arrows move a day or a week, Home and End the first and last day of the calendar, across grids too. Moving into
-     another grid hands that grid's stop to the new day and leaves the old grid its own, so each grid keeps exactly one. */
+  /* Arrows move a day or a week, across grids too (the calendar reads as one run of days, and a week can straddle two
+     months); Home and End go to the first and last day of this grid. Only days not past are stops: a greyed day is never
+     focused, and a key that would leave them (or the window) stays put. Moving into another grid hands that grid's stop
+     to the new day and leaves the old grid its own, so each grid keeps exactly one. */
   document.getElementById("rail").addEventListener("keydown", function (ev) {
     var b = ev.target.closest && ev.target.closest("button.day-btn"); if (!b) return;
-    var all = document.querySelectorAll("#rail button.day-btn"), n = null;
-    if (ev.key === "Home" || ev.key === "End") n = all[ev.key === "Home" ? 0 : all.length - 1];
-    else {
-      var step = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 }[ev.key]; if (!step) return;
-      n = document.querySelector('#rail button.day-btn[data-go="' + add(b.dataset.go, step) + '"]');
-    }
-    if (!n) return;
+    var step = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 }[ev.key], ends = ev.key === "Home" || ev.key === "End";
+    if (!step && !ends) return;
     ev.preventDefault();
-    setStop(n); n.focus();
+    var open = Array.prototype.filter.call(document.querySelectorAll("#rail button.day-btn"), function (x) { return x.dataset.go >= TODAY; }), n;
+    if (ends) {
+      var g = b.closest(".grid"), mine = open.filter(function (x) { return x.closest(".grid") === g; });
+      n = mine[ev.key === "Home" ? 0 : mine.length - 1];
+    } else {
+      var t = add(b.dataset.go, step);
+      n = open.filter(function (x) { return x.dataset.go === t; })[0] || (b.dataset.go < TODAY ? open[0] : null);   // off a clicked past day
+    }
+    if (n) { setStop(n); n.focus(); }
   });
 
   /* ----------------------------------------------- scroll sync & jumping */
@@ -553,8 +569,14 @@
   var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   /* activeDay is the day the rail, strip and chips mark. A jump sets jumpHold: while it is set the scroll does not move the
      mark, because a smooth scroll from November to March passes every day on the way, and the last days cannot reach the
-     line at the foot of the page, so the line would hand the mark to an earlier day. The user's own input lets go of it. */
-  var activeDay = null, jumpHold = false;
+     line at the foot of the page, so the line would hand the mark to an earlier day. The user's own input lets go of it,
+     and so does the end of the jump's scroll (or a jump with nothing to scroll), for a scroll that comes with no input
+     (find in page, back and forward, a screen reader): letting go leaves the mark where the jump put it, and the next
+     scroll moves it. */
+  var activeDay = null, jumpHold = false, holdTimer = 0;
+  /* a frame later, so a sync that the jump's last scroll event already queued still sees the hold */
+  function letGo() { requestAnimationFrame(function () { jumpHold = false; }); }
+  function letGoSoon() { clearTimeout(holdTimer); holdTimer = setTimeout(letGo, 200); }   // where scrollend is missing
   function setActive(d) {
     if (d === activeDay) return;
     activeDay = d;
@@ -562,14 +584,24 @@
     document.querySelectorAll(".ahead-chip").forEach(function (c) { c.classList.toggle("active", !!d && d > NEAR && c.dataset.month === d.slice(0, 7)); });
     if (!d) return;
     document.querySelectorAll('.day-btn[data-go="' + d + '"]').forEach(function (b) { b.classList.add("active"); b.setAttribute("aria-current", "date"); });
-    /* the rail holds up to seven grids and scrolls on its own: keep the active day in view there */
+    /* the rail holds up to seven grids and scrolls on its own: keep the active day in view there, and make it its grid's
+       tab stop, but not while the keyboard is in the rail: the stop is then where the user put it (a mouse click focuses
+       a button too, without :focus-visible, and the rail should go on following the list for that reader) */
     var rb = document.querySelector('#rail .day-btn[data-go="' + d + '"]'), rail = document.getElementById("rail");
+    if (keyboardIn(rail)) return stripTo(d);
     if (rb && rb.tagName === "BUTTON") setStop(rb);
     if (rb && rail.scrollHeight > rail.clientHeight) {
       var rr = rail.getBoundingClientRect(), br = rb.getBoundingClientRect();
       if (br.top < rr.top || br.bottom > rr.bottom) rail.scrollTop += br.top - rr.top - rr.height / 3;
     }
-    var sb = document.querySelector('#strip .day-btn[data-go="' + d + '"]') || (d > NEAR && document.querySelector('#strip [data-month="' + d.slice(0, 7) + '"]'));
+    stripTo(d);
+  }
+  function keyboardIn(el) {
+    try { return !!el.querySelector(":focus-visible"); } catch (e) { return el.contains(document.activeElement); }   // a browser without :focus-visible
+  }
+  /* the phone strip follows the active day, or its month's chip after NEAR */
+  function stripTo(d) {
+    var sb =document.querySelector('#strip .day-btn[data-go="' + d + '"]') || (d > NEAR && document.querySelector('#strip [data-month="' + d.slice(0, 7) + '"]'));
     if (sb && stickyTop) {
       var strip = document.getElementById("strip");
       var left = sb.offsetLeft - strip.clientWidth / 2 + sb.offsetWidth / 2;
@@ -593,6 +625,7 @@
   }
   var ticking = false;
   window.addEventListener("scroll", function () {
+    if (jumpHold) letGoSoon();
     if (ticking) return; ticking = true;
     requestAnimationFrame(function () { ticking = false; syncActive(); });
   }, { passive: true });
@@ -600,6 +633,12 @@
   /* the user taking over the scroll (wheel, touch, a key, the mouse on the scrollbar) ends a jump's hold on the mark */
   ["wheel", "touchstart", "mousedown", "keydown"].forEach(function (t) {
     window.addEventListener(t, function () { jumpHold = false; }, { passive: true, capture: true });
+  });
+  window.addEventListener("scrollend", function () { if (jumpHold) letGo(); });
+  /* a link followed with no input on the page (back, forward, a typed address) is the reader's scroll, not the jump's */
+  window.addEventListener("hashchange", function () {
+    jumpHold = false;
+    if (location.hash === "#ahead" && !document.getElementById("ahead")) toAhead();
   });
 
   document.addEventListener("click", function (ev) {
@@ -609,8 +648,11 @@
       for (var i = 0; i < secs.length; i++) if (secs[i].dataset.day >= d) { target = secs[i]; break; }
       if (!target) return;
       var y = target.getBoundingClientRect().top + window.scrollY - stickyTop + 1;
+      /* a click focuses the button: it is then its grid's stop, so Tab and the arrows go on from where the user is */
+      if (go.closest("#rail") && go.tagName === "BUTTON") setStop(go);
       jumpHold = true; setActive(target.dataset.day);
       window.scrollTo({ top: y, behavior: reduceMotion ? "auto" : "smooth" });
+      letGoSoon();   // a jump with nothing to scroll fires no scroll event to end it
       return;
     }
     var st = ev.target.closest("[data-star]");
@@ -712,6 +754,12 @@
   document.getElementById("foot").innerHTML = "<p>Times are local, Portugal. Drive times are estimates from " + esc(DATA.origin || "the town centre") + ".</p>";
 
   renderAll();
-  /* a link to #ahead followed while the section did not exist yet (the page draws it) */
-  if (location.hash === "#ahead") { var ahEl = document.getElementById("ahead"); if (ahEl) ahEl.scrollIntoView(); }
+  /* #ahead is the first far band, which the page draws, so a link to it was followed before it existed. With no far band
+     (nothing listed after NEAR, or an old file) it goes where "further ahead" now leads: the undated list, else the end
+     of the dated one. */
+  function toAhead() {
+    var t = document.getElementById("ahead") || document.getElementById("band-tbc") || document.getElementById("tbc");
+    if (t) t.scrollIntoView();
+  }
+  if (location.hash === "#ahead") toAhead();
 })();

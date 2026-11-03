@@ -53,9 +53,12 @@ events, month-only or with a full date, mark nothing.
 
 # Consequences, accepted
 
-- **The calendar shows absence where merge cut dates.** A near regular's dots stop where
-  its listed dates stop, and a far recurring event shows its first four dates (merge's
-  cap when `recurrence` has text), so a Saturday market can look absent in January. The
+- **The calendar shows absence where merge cut dates.** A near regular's dots stop at
+  `near_end`: its card is in Regulars, and a far day has no row for it to jump to (merge
+  cuts such dates when `recurrence` has text; `page.js` stops the dots when it has
+  none, as the grids ending at `near_end` used to). A far recurring event shows its
+  first four dates (merge's cap when `recurrence` has text), so a Saturday market can
+  look absent in January. The
   "again" row says the recurrence text and, with none, "date 2 of 4", never "of 4"
   meaning the series ends there. The grid note under the last grid says where the marks
   stop and that long runs and regulars are listed apart.
@@ -70,9 +73,19 @@ events, month-only or with a full date, mark nothing.
   modest-looking near shows carry it (13 qualified on 2026-11-03).
 - **The rail is longer** (five grids on live data, up to seven), so each grid is one
   tab stop with arrow keys and a skip link, and the active day is scrolled into view in
-  the rail. A jump holds its day until the user takes over the scroll, and the foot of
-  the page marks the last day in view.
-- **The page grows** by about 7 KB of script (live HTML 284 KB to 292 KB); the far cards
-  existed before, in a list, and the longer list is drawn in the browser.
-- Not done: clicking a day only a near regular marks beyond `near_end` jumps to the
-  next day block, not to the Regulars card (live data has none: merge cuts them).
+  the rail (not while the keyboard is in it). Greyed past days are not stops. A jump
+  holds its day until the user takes over the scroll or the jump's scroll ends, and the
+  foot of the page marks the last day in view.
+- **The page grows** by about 18 KB of script (`page.js` 36 KB to 54 KB, inlined in
+  every page); the far cards existed before, in a list, and the longer list is drawn in
+  the browser.
+- **A far month's chip counts the events on its days**, "again" and "continues" rows
+  included, as a day button's label does: a market whose January holds only "again"
+  rows still reads "Jan 1", and no chip reads 0 for a band it opens.
+- **An undated event leaves the list once its month**, or the day the source gave, is
+  behind the reader: the page is built weekly and read all week.
+- `#ahead` with no far band drawn (nothing listed after `near_end`, or an old file) goes
+  to Date to be confirmed, else to the end of the dated list. A phone has a month chip
+  for every far band drawn, so with no chip there is no far day to reach.
+- Not done: clicking a near day that only a regular marks jumps to the next day block,
+  not to the Regulars card, as it always has; far days no longer carry such dots.

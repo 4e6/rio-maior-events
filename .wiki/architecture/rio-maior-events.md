@@ -11,7 +11,7 @@ sources:
   - resource: test/**
   - resource: .github/workflows/**
   - resource: certs/**
-sources_digest: c229f69a2ec55310
+sources_digest: bcf477935cddcd9d
 ---
 
 # What it is
@@ -351,8 +351,8 @@ dark.
     marks every listed date (merge keeps four when `recurrence` has text), with one
     card and an "again" row on the rest. An ongoing event that opens after
     `near_end` sits on its opening day ("opens · until 6 Jan") and not in Ongoing; one
-    already open stays in Ongoing, and a near regular stays in Regulars (its dots
-    now run past `near_end` where it lists dates). A `date_tbc` event, month-only or
+    already open stays in Ongoing, and a near regular stays in Regulars, its dots
+    stopping at `near_end` (no far day has a row for it to jump to). A `date_tbc` event, month-only or
     with a full day, marks nothing: a dot would assert a day no source confirmed.
   - *Grids.* One per month, through the last month with a marked day and at least
     through `near_end`'s month, worked out once in `page.js` with no filters (the
@@ -365,31 +365,40 @@ dark.
     can reach past the last grid), so a missing month reads as "not covered". A month
     with only undated events gets no grid.
   - *List.* After the near bands, one band per month with a marked day (an `h2`, the
-    first carrying `id="ahead"`, which old links to `#ahead` still reach), then the
+    first carrying `id="ahead"`; with no far band, an old link to `#ahead` goes to
+    Date to be confirmed, else to the end of the dated list), then the
     same day sections and cards, so a far day jumps like a near one. The rail's month
     names are paragraphs, not headings, so heading navigation meets each month once.
     "Big event" is a tag on every card of a town 50 minutes or more away (derived
     from `drive_min`, the readers' rule restated).
   - *Date to be confirmed* is the one separate list, after every day: every `date_tbc`
     event, near or far, by the month or day the source gave ("December, day tbc"),
-    with a deterministic order. A rail link and a strip chip go to it.
+    with a deterministic order, until its month (or the day it gave) is behind the
+    reader. A rail link and a strip chip go to it.
   - *Phone.* The strip stays on the coming weeks (34 buttons, not 180); each far month
-    with a card is a chip after it ("Dec 12 · Jan 4 · Feb 3 · Mar 1 · Date tbc 2"),
-    counted as cards, so a run that began near is not counted again; it goes
-    `.active` while a day in that month is.
+    with a day block is a chip after it ("Dec 12 · Jan 4 · Feb 3 · Mar 1 · Date tbc
+    2"), counting the events on that month's days as a day button does, "again" and
+    "continues" rows included, so no chip reads 0; it goes `.active` while a day in
+    that month is.
   - *Filters.* Distance, free, search, category and stars apply everywhere. Weekend
     judges each day of a placed event, so a Tuesday-and-Saturday regular shows on its
     Saturday; this reverses the earlier rule that a far regular is judged by its next
     date. A far ongoing event is exempt (its run spans weekends; near ones are kept
-    too). The dated part says how many events its filters hide ("N more ... on the
-    calendar hidden by your filters. Show all"), the undated list says its own; the
+    too). The dated part says how many events its filters hide on the days and in
+    Ongoing and Regulars ("N more events in the agenda above hidden by your filters.
+    Show all"), the undated list says its own, and the two add up to what the result
+    line hides; the
     dated line is left out when the empty-state card is showing, and print drops only
     the "Show all" button.
   - *Keyboard and scroll.* The rail holds up to seven grids, so each grid is one tab
     stop (roving `tabindex`, written in the markup: the active day, else today, else the
-    first day not past), arrows move a day or a week across grids, Home and End jump to
-    the ends, and a "Skip the calendar" link comes first. A jump keeps its day marked
-    until the user takes over the scroll (wheel, touch, mouse, key), because a smooth
+    first day not past; a grid of past days has none), arrows move a day or a week
+    across grids, Home and End go to the first and last day of the grid, greyed past
+    days are never focused, and a "Skip the calendar" link comes first. While the
+    keyboard is in the rail, the scroll does not move its stop or scroll it. A jump
+    keeps its day marked until the user takes over the scroll (wheel, touch, mouse,
+    key) or the jump's scroll ends (`scrollend`, or 200 ms with no scroll event, or a
+    `hashchange`; letting go moves no mark, the next scroll does), because a smooth
     scroll from November to March passes every day and the last days cannot reach the
     scroll line at the foot of the page; at the foot, the last day in view is the
     active one. `renderAll` restores the mark on the rebuilt rail after any filter
