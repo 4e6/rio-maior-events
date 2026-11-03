@@ -67,8 +67,11 @@
   function fmtShort(s) { var d = parse(s); return d.getDate() + " " + MO[d.getMonth()]; }
   function isWeekend(s) { var w = dow(s); return w === 0 || w === 5 || w === 6; }   // Friday to Sunday, as in the bands
   var WIN = DATA.window;
+  /* The dated agenda ends at NEAR; what starts later is listed under "Further ahead". A near_end that is absent or
+     outside the window (render.ts rejects that, but the page must not break on it) means the whole window is dated. */
+  var NEAR = WIN.near_end && WIN.near_end >= WIN.start && WIN.near_end <= WIN.end ? WIN.near_end : WIN.end;
   var realToday = iso(new Date());
-  var stale = realToday > WIN.end;
+  var stale = realToday > NEAR;
   var TODAY = realToday < WIN.start || stale ? WIN.start : realToday;   // first day shown; the real date is realToday
   var BAND_FROM = stale ? WIN.start : realToday;                        // bands and the Today mark follow the real date
   var inWindow = realToday >= WIN.start && !stale;
@@ -83,6 +86,14 @@
     var end = e.end_date || e.start_date;
     for (var d = e.start_date; d <= end; d = add(d, 1)) e._days.push(d);
   });
+
+  /* an event whose first day is after NEAR goes to Further ahead, whatever its kind */
+  function aheadStart(e) {
+    if (e.date_tbc) return e.start_date && (e.start_date.length === 7 ? e.start_date > NEAR.slice(0, 7) : e.start_date > NEAR) ? e.start_date : null;
+    if (e.kind === "recurring") { var nx = (e.dates || []).filter(function (d) { return d >= TODAY; })[0]; return nx && nx > NEAR ? nx : null; }
+    return e.start_date && e.start_date > NEAR ? e.start_date : null;
+  }
+  EVENTS.forEach(function (e) { e._ahead = aheadStart(e); });
 
   /* -------------------------------------------------- stars & "new" state */
   function stored(k, ok, d) { var v = store.get(NS + k, d); return ok(v) ? v : d; }
@@ -105,17 +116,19 @@
   var F = { cats: new Set(), dist: "any", free: false, weekend: false, picks: false, q: "" };
   function norm(s) { return (s || "").toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""); }
   EVENTS.forEach(function (e) { e._hay = norm([e.title_en, e.title_pt, e.town, e.venue, e.description_en, CATS[e.category]].join(" ")); });
-  function matchBase(e) {
-    if (F.cats.size && !F.cats.has(e.category)) return false;
-    if (F.dist === "20" && !(e.drive_min != null && e.drive_min <= 20)) return false;
-    if (F.dist === "45" && !(e.drive_min != null && e.drive_min <= 45)) return false;
-    if (F.free && !(e.price && e.price.free)) return false;
-    if (F.picks && !stars.has(e.id)) return false;
-    if (F.q && e._hay.indexOf(norm(F.q)) < 0) return false;
+  var NOFILTER = { cats: new Set(), dist: "any", free: false, weekend: false, picks: false, q: "" };
+  /* every matcher takes the filters it applies, so the page can count what its own filters hide */
+  function matchBase(e, f) {
+    if (f.cats.size && !f.cats.has(e.category)) return false;
+    if (f.dist === "20" && !(e.drive_min != null && e.drive_min <= 20)) return false;
+    if (f.dist === "45" && !(e.drive_min != null && e.drive_min <= 45)) return false;
+    if (f.free && !(e.price && e.price.free)) return false;
+    if (f.picks && !stars.has(e.id)) return false;
+    if (f.q && e._hay.indexOf(norm(f.q)) < 0) return false;
     return true;
   }
-  function dayOk(d) { return d >= TODAY && (!F.weekend || isWeekend(d)); }
-  function visibleDays(e) { return e._days.filter(dayOk); }
+  function dayOk(d, f) { return d >= TODAY && d <= NEAR && (!f.weekend || isWeekend(d)); }
+  function visibleDays(e, f) { return e._days.filter(function (d) { return dayOk(d, f); }); }
 
   /* --------------------------------------------------------------- helpers */
   function esc(s) { return (s == null ? "" : String(s)).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
@@ -148,7 +161,7 @@
     }).join("");
     var price = e.price ? '<span class="price' + (e.price.free ? " free" : "") + '">' + esc(e.price.free ? "Free" : e.price.text) + "</span>" : "";
     var warn = e.confidence === "low" ? '<div class="warn">' + icon("warn") + "<span><b>Check source</b> — " + esc(e.caveat || "details may be out of date") + "</span></div>" : "";
-    var isNew = newIds.has(e.id) ? '<span class="new-tag">New</span>' : "";
+    var isNew = (opts.tag || "") + (newIds.has(e.id) ? '<span class="new-tag">New</span>' : "");
     var cal = e.date_tbc ? '<p class="past-note">No calendar file until the date is confirmed.</p>'
       : e.kind === "recurring" && !(e.dates && e.dates.length) ? '<p class="past-note">No calendar file: this regular event has no listed dates.</p>'
       : '<a class="btn" href="#" download="event.ics" data-ics="' + esc(e.id) + '">' + icon("cal") + "Add to calendar (.ics)</a>";
@@ -192,11 +205,11 @@
   var nSources = (DATA.sources_checked || []).length;
   var gen = (DATA.generated_at || "").slice(0, 10);
   document.getElementById("meta").innerHTML =
-    "Collected " + (gen ? fmtShort(gen) + " " + gen.slice(0, 4) : "?") + " · covers " + fmtShort(WIN.start) + "–" + fmtShort(WIN.end) +
+    "Collected " + (gen ? fmtShort(gen) + " " + gen.slice(0, 4) : "?") + " · covers " + fmtShort(WIN.start) + "–" + fmtShort(NEAR) + (NEAR < WIN.end ? ", further ahead to " + fmtShort(WIN.end) : "") +
     ' · <a href="status.html">' + nSources + " sources" + (okSources < nSources ? ", " + (nSources - okSources) + " unreachable" : "") + " · build status</a>";
   if (DATA.note) { var np = document.createElement("p"); np.className = "meta"; np.id = "note"; np.textContent = DATA.note; document.getElementById("meta").insertAdjacentElement("afterend", np); }
   if (DATA.origin) document.getElementById("title").textContent = "What's on around " + DATA.origin;
-  if (stale) document.getElementById("notice").innerHTML = '<p class="notice">This agenda covered ' + fmtShort(WIN.start) + "–" + fmtShort(WIN.end) + " and is out of date. Ask for a fresh one.</p>";
+  if (stale) document.getElementById("notice").innerHTML = '<p class="notice">This agenda covered ' + fmtShort(WIN.start) + "–" + fmtShort(NEAR) + " and is out of date. Ask for a fresh one.</p>";
 
   /* theme button: auto → light → dark */
   var themeBtn = document.getElementById("theme-btn");
@@ -262,6 +275,9 @@
   filtersEl.addEventListener("click", function (ev) {
     if (ev.target.id === "clear-filters") resetFilters();
   });
+  document.getElementById("main").addEventListener("click", function (ev) {
+    if (ev.target.closest("[data-clear]")) resetFilters();
+  });
 
   /* ------------------------------------------------------------ bands */
   function bandsFor(today) {
@@ -272,24 +288,45 @@
     if (today < fri) list.push({ key: "week", title: "This week", from: today, to: add(fri, -1) });
     list.push({ key: "weekend", title: "This weekend", from: today > fri ? today : fri, to: sun, weekend: true });
     list.push({ key: "next", title: "Next week", from: add(sun, 1), to: nextSun });
-    list.push({ key: "later", title: "Later", from: add(nextSun, 1), to: "9999-12-31" });
+    if (add(nextSun, 1) <= NEAR) list.push({ key: "later", title: "Later", from: add(nextSun, 1), to: NEAR });
     return list;
   }
 
   /* ------------------------------------------------------- main render */
   var dayCounts = {};   // date -> {n, star}
+  function aheadWeekend(e) {
+    if (e.date_tbc) return true;
+    if (e.kind === "recurring") return (e.dates || []).some(isWeekend) || /sat|sun|weekend/i.test(e.recurrence || "");
+    if (e.kind === "ongoing" && diff(e.start_date, e.end_date) >= 6) return true;
+    return e._days.some(isWeekend);
+  }
+  /* what each part of the page holds under the filters f (F, or NOFILTER to count everything) */
+  function sections(f) {
+    var base = EVENTS.filter(function (e) { return matchBase(e, f); });
+    var near = base.filter(function (e) { return !e._ahead; });
+    var s = {};
+    s.dated = near.filter(function (e) { return e.kind === "single" || e.kind === "multi_day"; });
+    s.ongoing = near.filter(function (e) { return e.kind === "ongoing" && e.end_date >= TODAY; });
+    s.regulars = near.filter(function (e) { return e.kind === "recurring" && !e.date_tbc && (!e.dates || !e.dates.length || e.dates.some(function (d) { return d >= TODAY; })) && (!f.weekend || !e.dates || e.dates.some(isWeekend) || /sat|sun|weekend/i.test(e.recurrence || "")); });
+    s.tbc = near.filter(function (e) { return e.date_tbc; });
+    s.ahead = base.filter(function (e) { return e._ahead && (!f.weekend || aheadWeekend(e)); });
+    s.nNear = s.dated.filter(function (e) { return visibleDays(e, f).length; }).length + s.ongoing.length + s.regulars.length + s.tbc.length;
+    return s;
+  }
+  function hiddenLine(n, where) {
+    return n > 0 ? '<p class="hidden-line">' + n + (n === 1 ? " more event " : " more events ") + where + ' hidden by your filters. <button type="button" class="linkish" data-clear>Show all</button></p>' : "";
+  }
+  var aheadAll = 0, aheadShown = 0;   // for the rail link and the strip chip
   function renderAll() {
-    var base = EVENTS.filter(matchBase);
-    var dated = base.filter(function (e) { return e.kind === "single" || e.kind === "multi_day"; });
-    var ongoing = base.filter(function (e) { return e.kind === "ongoing" && e.end_date >= TODAY; });
-    var regulars = base.filter(function (e) { return e.kind === "recurring" && !e.date_tbc && (!e.dates || !e.dates.length || e.dates.some(function (d) { return d >= TODAY; })) && (!F.weekend || !e.dates || e.dates.some(isWeekend) || /sat|sun|weekend/i.test(e.recurrence || "")); });
-    var tbc = base.filter(function (e) { return e.date_tbc; });
+    var S = sections(F), all = sections(NOFILTER);
+    var dated = S.dated, ongoing = S.ongoing, regulars = S.regulars, tbc = S.tbc, ahead = S.ahead;
+    aheadAll = all.ahead.length; aheadShown = ahead.length;
 
     /* day -> entries */
     var byDay = {}; dayCounts = {};
     dated.forEach(function (e) {
       if (e.date_tbc) return;
-      var vis = visibleDays(e); if (!vis.length) return;
+      var vis = visibleDays(e, F); if (!vis.length) return;
       vis.forEach(function (d, i) {
         (byDay[d] = byDay[d] || []).push({ e: e, first: i === 0, idx: e._days.indexOf(d) + 1, total: e._days.length });
         var c = dayCounts[d] = dayCounts[d] || { n: 0, star: false };
@@ -297,7 +334,7 @@
       });
     });
     /* regular dated occurrences add dots (not list rows) */
-    regulars.forEach(function (e) { visibleDays(e).forEach(function (d) { var c = dayCounts[d] = dayCounts[d] || { n: 0, star: false }; c.n++; if (stars.has(e.id)) c.star = true; }); });
+    regulars.forEach(function (e) { visibleDays(e, F).forEach(function (d) { var c = dayCounts[d] = dayCounts[d] || { n: 0, star: false }; c.n++; if (stars.has(e.id)) c.star = true; }); });
 
     /* blocks */
     var blocks = "";
@@ -314,7 +351,7 @@
     bandsFor(BAND_FROM).forEach(function (b) {
       var ds = days.filter(function (d) { return d >= b.from && d <= b.to; });
       if (!ds.length && !(b.weekend && b.to >= WIN.start)) return;
-      var range = b.to === "9999-12-31" ? "" : fmtShort(b.from) + (b.from !== b.to ? "–" + fmtShort(b.to) : "");
+      var range = fmtShort(b.from) + (b.from !== b.to ? "–" + fmtShort(b.to) : "");
       html += '<section class="band' + (b.weekend ? " weekend" : "") + '" aria-labelledby="band-' + b.key + '"><h2 id="band-' + b.key + '">' + b.title + (range ? " <small>" + range + "</small>" : "") + "</h2>";
       if (!ds.length) html += '<p class="past-note" style="padding:0 4px 8px">Nothing dated matches your filters this weekend' + (regulars.length ? " — see Regulars above." : ".") + "</p>";
       ds.forEach(function (d) {
@@ -332,19 +369,43 @@
       });
       html += "</section>";
     });
-    var nShown = dated.filter(function (e) { return visibleDays(e).length; }).length + ongoing.length + regulars.length + tbc.length;
+    var nShown = S.nNear + ahead.length, nTotal = all.nNear + all.ahead.length;
     if (!nShown) html = '<div class="empty-state"><p>No events match these filters.</p><button class="btn" type="button" id="empty-clear">Clear filters</button></div>';
     document.getElementById("list").innerHTML = html;
     var emptyBtn = document.getElementById("empty-clear");
     if (emptyBtn) emptyBtn.addEventListener("click", resetFilters);
 
     /* tbc */
-    document.getElementById("tbc").innerHTML = tbc.length ? '<section class="band" aria-labelledby="band-tbc"><h2 id="band-tbc">Date to be confirmed</h2><div class="day-list">' +
-      tbc.map(function (e) { return card(e, { lead: '<span class="tbc">date tbc</span>', idPrefix: "t-" }); }).join("") + "</div></section>" : "";
+    document.getElementById("tbc").innerHTML = (tbc.length ? '<section class="band" aria-labelledby="band-tbc"><h2 id="band-tbc">Date to be confirmed</h2><div class="day-list">' +
+      tbc.map(function (e) { return card(e, { lead: '<span class="tbc">date tbc</span>', idPrefix: "t-" }); }).join("") + "</div></section>" : "") +
+      hiddenLine(all.nNear - S.nNear, "in the coming weeks");
+
+    /* further ahead: by month of the first day, after the dated bands */
+    var aheadHtml = "";
+    if (all.ahead.length) {
+      var months = {};
+      ahead.slice().sort(function (a, b) { return a._ahead < b._ahead ? -1 : a._ahead > b._ahead ? 1 : (a.start_time || "99").localeCompare(b.start_time || "99"); })
+        .forEach(function (e) { (months[e._ahead.slice(0, 7)] = months[e._ahead.slice(0, 7)] || []).push(e); });
+      aheadHtml = '<section class="band ahead" aria-labelledby="band-ahead"><h2 id="band-ahead">Further ahead <small>' + fmtShort(add(NEAR, 1)) + "–" + fmtShort(WIN.end) + " · " + ahead.length + "</small></h2>" +
+        '<p class="ahead-intro">What the sources already list beyond the coming weeks. Few list this far ahead, so this is not all that will be on.</p>';
+      Object.keys(months).sort().forEach(function (m) {
+        aheadHtml += '<section class="ahead-month" aria-labelledby="am-' + m + '"><h3 class="day-h" id="am-' + m + '">' + MONTHS[+m.slice(5, 7) - 1] + " " + m.slice(0, 4) +
+          (m === WIN.end.slice(0, 7) ? ' <small>to ' + fmtShort(WIN.end) + "</small>" : "") + '</h3><div class="day-list">' +
+          months[m].map(function (e) {
+            var when = e.date_tbc ? '<span class="tbc">date tbc</span>' : e.kind === "recurring" ? esc(e.recurrence || "Recurring") : e.kind === "ongoing" ? fmtShort(e.start_date) + "–" + fmtShort(e.end_date)
+              : fmtDay(e.start_date) + (e.end_date && e.end_date !== e.start_date ? "–" + fmtShort(e.end_date) : "") + (e.start_time ? ", " + esc(e.start_time) : "");
+            /* "Big event" restates the readers' rule (50 minutes or more is kept only if big), so it is derived, not stored */
+            return card(e, { lead: when, idPrefix: "a-", noSpan: true, tag: e.drive_min != null && e.drive_min >= 50 ? '<span class="far-tag">Big event</span>' : "" });
+          }).join("") + "</div></section>";
+      });
+      if (!ahead.length) aheadHtml += '<p class="past-note">Nothing further ahead matches your filters.</p>';
+      aheadHtml += hiddenLine(all.ahead.length - ahead.length, "further ahead") + "</section>";
+    }
+    document.getElementById("ahead").innerHTML = aheadHtml;
 
     /* result line */
     var filtered = F.cats.size || F.dist !== "any" || F.free || F.weekend || F.picks || F.q;
-    document.getElementById("result-line").innerHTML = "<span>" + nShown + " of " + EVENTS.length + " events" + (filtered ? " match" : "") + "</span>" +
+    document.getElementById("result-line").innerHTML = "<span>" + nShown + " of " + nTotal + " events" + (filtered ? " match" : "") + "</span>" +
       (filtered ? '<button type="button" class="linkish" id="clear-filters">Clear filters</button>' : "") +
       (F.picks && !stars.size ? "<span>Tap ☆ on any event to add it to My picks.</span>" : "");
 
@@ -365,29 +426,34 @@
   function renderNav() {
     /* phone strip: window start..end */
     var s = "", prevM = -1;
-    for (var d = WIN.start; d <= WIN.end; d = add(d, 1)) {
+    for (var d = WIN.start; d <= NEAR; d = add(d, 1)) {
       var m = parse(d).getMonth();
       if (m !== prevM) { s += '<span class="mlabel" aria-hidden="true">' + MO[m] + "</span>"; prevM = m; }
       s += dayBtn(d, '<span class="wd" aria-hidden="true">' + WD[dow(d)].slice(0, 2) + "</span>");
     }
+    if (aheadAll) s += '<a class="ahead-chip" href="#ahead">Further ahead <span class="n">' + aheadAll + "</span> ›</a>";
     document.getElementById("strip").innerHTML = s;
 
     /* desktop: one grid per month in the window */
     var r = "", cur = WIN.start.slice(0, 7) + "-01";
-    while (cur <= WIN.end) {
+    while (cur <= NEAR) {
       var dt = parse(cur), y = dt.getFullYear(), mo = dt.getMonth();
       r += '<div class="month"><h2>' + MONTHS[mo] + " " + y + '</h2><div class="grid" role="group" aria-label="' + MONTHS[mo] + '">';
       ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"].forEach(function (x, i) { r += '<span class="dow' + (i > 3 ? " we" : "") + '" aria-hidden="true">' + x + "</span>"; });
       var lead = (dow(cur) + 6) % 7;
       for (var i = 0; i < lead; i++) r += "<span></span>";
       for (var dd = cur; parse(dd).getMonth() === mo; dd = add(dd, 1)) {
-        if (dd < WIN.start || dd > WIN.end) r += '<span class="day-btn out" aria-hidden="true"><span class="num">' + parse(dd).getDate() + "</span></span>";
+        if (dd < WIN.start || dd > NEAR) r += '<span class="day-btn out" aria-hidden="true"><span class="num">' + parse(dd).getDate() + "</span></span>";
         else r += dayBtn(dd);
       }
-      r += "</div></div>";
+      r += "</div>";
+      /* the greyed days after NEAR are not empty days: say where their events are */
+      if (aheadAll && NEAR.slice(0, 7) === cur.slice(0, 7) && add(NEAR, 1).slice(0, 7) === cur.slice(0, 7)) r += '<p class="grid-note">Events from ' + fmtShort(add(NEAR, 1)) + ' on are under Further ahead.</p>';
+      r += "</div>";
       cur = add(cur, 32).slice(0, 7) + "-01";
     }
     r += '<div class="legend"><span><span class="mk"><span class="dots"><span class="dot"></span></span></span>one event (up to 3 shown)</span><span><span class="mk"><span class="dots"><span class="dot star">' + STAR + '</span></span></span>a day with one of your picks</span>' + (inWindow ? '<span><span class="mk"><span class="today"><span class="num">' + parse(realToday).getDate() + '</span></span></span>today</span>' : "") + '</div>';
+    if (aheadAll) r += '<a class="ahead-link" href="#ahead"><b>Further ahead</b><span>' + aheadAll + (aheadAll === 1 ? " event" : " events") + " to " + fmtShort(WIN.end) + "</span></a>";
     document.getElementById("rail").innerHTML = r;
   }
 
@@ -418,6 +484,9 @@
     var line = stickyTop + 60, best = null;
     for (var i = 0; i < secs.length; i++) { if (secs[i].getBoundingClientRect().top <= line) best = secs[i].dataset.day; else break; }
     if (!best && secs.length) best = secs[0].dataset.day;
+    /* once Further ahead (which has no days to mark) reaches the line, the last dated day is no longer where we are */
+    var ah = document.getElementById("ahead");
+    if (ah && ah.firstChild && ah.getBoundingClientRect().top <= line) best = null;
     setActive(best);
   }
   var ticking = false;
@@ -538,4 +607,6 @@
   document.getElementById("foot").innerHTML = "<p>Times are local, Portugal. Drive times are estimates from " + esc(DATA.origin || "the town centre") + ".</p>";
 
   renderAll();
+  /* a link to #ahead followed while the section did not exist yet (the page draws it) */
+  if (location.hash === "#ahead") { var ahEl = document.getElementById("ahead"); if (ahEl && ahEl.firstChild) ahEl.scrollIntoView(); }
 })();

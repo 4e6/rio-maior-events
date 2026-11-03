@@ -387,7 +387,8 @@ function totalsList(d: Json): string {
 export function renderStatus(d: Json, css: string, statusCss: string): string {
   const ok = (d.sources as SourceRow[]).filter((s) => s.state === "ok").length;
   const n = (d.sources as SourceRow[]).length;
-  const win = d.window ? `${x(d.window.start)} to ${x(d.window.end)}` : "";
+  const ahead = d.window?.near_end && d.window.near_end < d.window.end ? `, further ahead to ${x(d.window.end)}` : "";
+  const win = d.window ? `${x(d.window.start)} to ${x(d.window.near_end && ahead ? d.window.near_end : d.window.end)}${ahead}` : "";
   const facts: [string, string][] = [];
   if (d.commit) facts.push(["Commit", link(d.commit.url, d.commit.short)]);
   if (d.run_url) facts.push(["Actions run", link(d.run_url, "open")]);

@@ -41,6 +41,18 @@ describe("SampleTests", () => {
     expect(data.sources_checked.some((s: Doc) => !s.ok)).toBe(true);
   });
 
+  test("test_sample_has_a_further_ahead_part_that_reaches_every_routing_branch", () => {
+    const data = sample();
+    const far = data.events.filter((e: Doc) => e.start_date > data.window.near_end);   // "2027-03" and "2026-12-12" compare as strings, like the page
+    expect(data.window.near_end > data.window.start && data.window.near_end < data.window.end).toBe(true);
+    expect(far.some((e: Doc) => e.date_tbc)).toBe(true);
+    expect(far.some((e: Doc) => e.kind === "ongoing")).toBe(true);
+    expect(far.some((e: Doc) => e.kind === "multi_day" && e.drive_min >= 50)).toBe(true);
+    expect(far.some((e: Doc) => e.kind === "single" && !e.date_tbc)).toBe(true);
+    // the dated part is still there
+    expect(data.events.some((e: Doc) => e.start_date <= data.window.near_end && !e.date_tbc)).toBe(true);
+  });
+
   test("test_sample_html_matches_committed_file_byte_for_byte", () => {
     const committed = readFileSync(SAMPLE_HTML);
     expect(Buffer.from(htmlOf(sample()), "utf8").equals(committed)).toBe(true);
@@ -50,7 +62,7 @@ describe("SampleTests", () => {
     const out = join(d, "page.html");
     const [code, said] = run([SAMPLE_JSON, out]);
     expect(code).toBe(0);
-    expect(said).toMatch(/^wrote .*: 17 events, from 2026-10-20 to 2026-11-30\n$/);
+    expect(said).toMatch(/^wrote .*: 21 events, from 2026-10-20 to 2027-04-20\n$/);
     expect(readFileSync(out).equals(readFileSync(SAMPLE_HTML))).toBe(true);
   }));
 
@@ -68,6 +80,38 @@ describe("SampleTests", () => {
     writeFileSync(src, "{nope");
     expect(run([src, join(d, "o.html")])[0]).toBe(2);
   }));
+});
+
+describe("WindowNearEnd", () => {
+  const problemsWith = (w: Doc, keepFar = true) => {
+    const d = sample(); d.window = w;
+    if (!keepFar) d.events = d.events.filter((e: Doc) => e.start_date <= "2026-11-30");   // the far sample events are outside a short window
+    return render.check(d);
+  };
+  const W = { start: "2026-10-20", end: "2027-04-20" };
+
+  test("near_end between start and end, or equal to either, is fine", () => {
+    for (const near_end of ["2026-10-20", "2026-11-22", "2027-04-20"]) expect(problemsWith({ ...W, near_end })).toEqual([]);
+  });
+  test("near_end that is not a real date, or lies outside the window, is a problem", () => {
+    for (const near_end of ["soon", "2026-02-30", "2026-10-19", "2027-04-21", null, 20261122]) {
+      expect(problemsWith({ ...W, near_end }).some((p) => p.includes("near_end"))).toBe(true);
+    }
+  });
+  test("a short window may leave it out, a long one may not", () => {
+    expect(problemsWith({ start: "2026-10-20", end: "2026-11-30" }, false)).toEqual([]);                 // the length the collector has always used
+    expect(problemsWith({ start: "2026-10-20", end: "2026-12-19" }, false)).toEqual([]);                 // 60 days
+    expect(problemsWith(W).some((p) => p.includes("near_end is required"))).toBe(true);
+  });
+  test("the schema and the page data carry it", () => {
+    expect(readFileSync(join(ROOT, "references", "events-schema.json"), "utf8")).toContain('"near_end"');
+    expect(render.pageData(sample()).window.near_end).toBe("2026-11-22");
+  });
+  test("the no-script line says where the dated weeks end only when there is a Further ahead", () => {
+    expect(htmlOf(sample())).toContain("2026-10-20 to 2026-11-22, and further ahead to 2027-04-20.");
+    const d = sample(); d.window = { start: "2026-10-20", near_end: "2027-04-20", end: "2027-04-20" };
+    expect(htmlOf(d)).toContain("2026-10-20 to 2027-04-20.");
+  });
 });
 
 describe("IdTests", () => {
@@ -183,9 +227,9 @@ describe("ValidationTests", () => {
   });
 
   test("test_recurring_dates_must_be_inside_the_window", () => {
-    const found = problemsAfter((d) => { first(d, "recurring").dates = ["2026-10-24", "2026-12-05"]; });
+    const found = problemsAfter((d) => { first(d, "recurring").dates = ["2026-10-24", "2027-05-05"]; });
     expect(found.length).toBe(1);
-    expect(found[0]).toContain("2026-12-05");
+    expect(found[0]).toContain("2027-05-05");
   });
 
   test("test_an_event_that_ended_before_the_window_is_rejected", () => {
@@ -198,7 +242,7 @@ describe("ValidationTests", () => {
   });
 
   test("test_a_single_event_outside_the_window_is_rejected", () => {
-    for (const day of ["2026-10-19", "2026-12-01"]) {
+    for (const day of ["2026-10-19", "2027-04-21"]) {
       expect(problemsAfter((d) => { first(d, "single").start_date = day; }).some((p) => p.includes("outside the window"))).toBe(true);
     }
   });
@@ -209,7 +253,7 @@ describe("ValidationTests", () => {
   });
 
   test("test_a_month_only_date_is_judged_by_its_month", () => {
-    expect(problemsAfter((d) => { d.events.find((e: Doc) => e.date_tbc).start_date = "2027-02"; })
+    expect(problemsAfter((d) => { d.events.find((e: Doc) => e.date_tbc).start_date = "2027-05"; })
       .some((p) => p.includes("outside the window"))).toBe(true);
     expect(problemsAfter((d) => { d.events.find((e: Doc) => e.date_tbc).start_date = "2026-10"; })).toEqual([]);
   });
@@ -326,6 +370,25 @@ describe("PageScriptTests", () => {
     expect(js).not.toContain("clear-filters\\').click()");
   });
 
+  test("test_the_dated_part_ends_at_near_end_and_a_lost_near_end_falls_back_to_the_window", () => {
+    expect(js).toContain("WIN.near_end");
+    expect(js).toContain("var stale = realToday > NEAR;");
+    // neither the strip nor the grids run to the far end, and "Later" is not open-ended
+    expect(/\bd <= WIN\.end/.test(js)).toBe(false);
+    expect(/\bcur <= WIN\.end/.test(js)).toBe(false);
+    expect(js).not.toContain("9999-12-31");
+    // a near_end outside the window is ignored rather than trusted
+    expect(js).toContain("WIN.near_end >= WIN.start && WIN.near_end <= WIN.end ? WIN.near_end : WIN.end");
+  });
+
+  test("test_further_ahead_and_the_hidden_lines_are_drawn", () => {
+    expect(js).toContain("Further ahead");
+    expect(js).toContain("hidden by your filters");
+    expect(js).toContain('getElementById("ahead")');
+    expect(assetText("page.css")).toContain("#ahead");
+    expect(htmlOf(sample())).toContain('<div id="ahead" tabindex="-1"></div>');
+  });
+
   test("test_no_demo_leftovers", () => {
     expect(js).not.toContain("__demo");
   });
@@ -380,6 +443,12 @@ describe("Status link, as the page draws it", () => {
       document, window, { getItem: () => null, setItem() {} }, {}, window.location, {}, () => 0, () => 0, function () { return { observe() {} }; }, () => make("computed"));
     return html;
   }
+
+  test("the header line says where the dated weeks end and where Further ahead ends", () => {
+    expect(drawn(sample()).meta).toContain("covers 20 Oct–22 Nov, further ahead to 20 Apr");
+    const d = sample(); d.window = { start: "2026-10-20", end: "2026-11-30" };
+    expect(drawn(d).meta).toContain("covers 20 Oct–30 Nov ·");
+  });
 
   test("the header line links to status.html with the counts, and the footer line is drawn", () => {
     const data = sample();
