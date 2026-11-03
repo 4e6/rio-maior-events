@@ -7,7 +7,7 @@
     "rio-maior": "Rio Maior: the municipality, and the Cineteatro",
     "oeste-norte": "Northern Oeste and the Leiria coast: Caldas da Rainha, Óbidos, Bombarral, Peniche, Nazaré, Alcobaça, Porto de Mós, Batalha, Leiria, Marinha Grande",
     "oeste-sul": "Southern Oeste: Cadaval, Lourinhã, Torres Vedras, Alenquer, Arruda dos Vinhos, Sobral de Monte Agraço",
-    "ribatejo": "Ribatejo: Santarém, Cartaxo, Almeirim, Alcanena, Chamusca, Benavente",
+    "ribatejo": "Ribatejo: Santarém, Cartaxo, Almeirim, Alcanena, Chamusca",
     "medio-tejo": "Médio Tejo: Torres Novas, Entroncamento, Ourém, Vila Nova da Barquinha",
     "regional": "Regional listings: Portugal Running"
   },
@@ -46,7 +46,6 @@
     {"name": "cm-alenquer", "label": "Município de Alenquer", "adapter": "nextjs", "town": "Alenquer", "group": "oeste-sul", "url": "https://www.alenquer.pt/agenda", "follow": 10},
     {"name": "cm-arruda", "label": "Município de Arruda dos Vinhos", "adapter": "municipal_rss", "town": "Arruda dos Vinhos", "group": "oeste-sul", "url": "https://www.cm-arruda.pt/pages/comunicar%2Fagenda-de-eventos.rss", "options": {"page": "https://www.cm-arruda.pt/comunicar/agenda-de-eventos"}, "follow": 8},
     {"name": "cm-sobral", "label": "Município de Sobral de Monte Agraço", "adapter": "nextjs", "town": "Sobral de Monte Agraço", "group": "oeste-sul", "url": "https://www.cm-sobral.pt/agenda", "follow": 10},
-    {"name": "cm-mgrande", "label": "Município da Marinha Grande", "adapter": "municipal_rss", "town": "Marinha Grande", "group": "oeste-norte", "url": "https://www.cm-mgrande.pt/pages/comunicar%2Feventos.rss", "options": {"page": "https://www.cm-mgrande.pt/comunicar/eventos"}, "follow": 5},
-    {"name": "cm-benavente", "label": "Município de Benavente", "adapter": "text", "town": "Benavente", "group": "ribatejo", "url": "https://www.cm-benavente.pt/index.php/agenda/", "links": "^/index\\.php/events/(?!feed/)[^/?]+/$", "follow": 6}
+    {"name": "cm-mgrande", "label": "Município da Marinha Grande", "adapter": "municipal_rss", "town": "Marinha Grande", "group": "oeste-norte", "url": "https://www.cm-mgrande.pt/pages/comunicar%2Feventos.rss", "options": {"page": "https://www.cm-mgrande.pt/comunicar/eventos"}, "follow": 5}
   ]
 }

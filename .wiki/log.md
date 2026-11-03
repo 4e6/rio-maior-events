@@ -1,7 +1,7 @@
 # Wiki Update Log
 
 ## 2026-11-03
-* **Benavente**: joins as a source (the `text` adapter on its Modern Events Calendar agenda), read for its big events only (50 minutes); its feed and REST list could not be used ([sources](/architecture/rio-maior-events-sources.md)).
+* **Benavente left out**: it refuses a GitHub runner (two timeouts) and the proxy answered 502 once, so it is not a source; the verified reading approach is kept in `references/sources.md`, and the shared `excerpt()` menu-fallback defect is recorded as a known issue ([sources](/architecture/rio-maior-events-sources.md)).
 * **More municipalities**: Arruda dos Vinhos, Sobral de Monte Agraço and Marinha Grande join as sources, read for their big events only (the 50-minute rule of `towns.md`), the range widened by the owner from about 45 to about 55 minutes for such towns; Alpiarça stays out because its events category is stale ([sources](/architecture/rio-maior-events-sources.md), [architecture](/architecture/rio-maior-events.md)).
 * **Proxy retries**: a proxied request that times out or is reset is attempted up to three times, at most three retries a host, counted in `index.json`'s `proxy` and `status.json` ([architecture](/architecture/rio-maior-events.md), [decision](/decisions/0004-a-residential-proxy-for-the-sites-that-refuse-github-runners.md)).
 

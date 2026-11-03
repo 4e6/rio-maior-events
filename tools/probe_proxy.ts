@@ -4,7 +4,7 @@
 import { writeFileSync } from "node:fs";
 import { ProxyGateway } from "../src/net.ts";
 
-const SITES = ["cm-santarem", "cm-torresnovas", "cm-alcanena", "cm-entroncamento", "cm-vnbarquinha", "cm-benavente"];
+const SITES = ["cm-santarem", "cm-torresnovas", "cm-alcanena", "cm-entroncamento", "cm-vnbarquinha"];
 
 let gateway: ProxyGateway | null = null;
 try {

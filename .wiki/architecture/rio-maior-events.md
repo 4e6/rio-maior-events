@@ -11,7 +11,7 @@ sources:
   - resource: test/**
   - resource: .github/workflows/**
   - resource: certs/**
-sources_digest: 1fd3afb070c07f09
+sources_digest: 2744bcd9b0ca8c3a
 ---
 
 # What it is
@@ -241,7 +241,7 @@ later weeks rest on few sources; the page says which in its `note`.
 
 # What reaches the network, and where it is careful
 
-A run fetches about 36 list pages and up to about 210 event pages, one POST and the rest GETs, read-only, a few
+A run fetches about 35 list pages and up to about 210 event pages, one POST and the rest GETs, read-only, a few
 minutes. The project was a Claude skill driven by Python scripts and was ported to TypeScript on Bun, run once a week (Mondays; it ran daily, then twice a week, until 2026-10-21) by a
 GitHub Actions workflow; the `claude -p` readers and editor are confined to file tools on named files
 (`src/build.ts`).
