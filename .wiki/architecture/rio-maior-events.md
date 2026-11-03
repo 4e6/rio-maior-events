@@ -11,7 +11,7 @@ sources:
   - resource: test/**
   - resource: .github/workflows/**
   - resource: certs/**
-sources_digest: 5c9f51bcf1b77b79
+sources_digest: 1d48710575336438
 ---
 
 # What it is
@@ -105,9 +105,12 @@ and each has its own traps.
   an HTTP status, a redirect refusal, a TLS or DNS error or an abort). The retry
   loop is `proxiedWithRetry` in `go()` in `src/collect.ts`; `src/net.ts` stays a
   single attempt. The waits are 2 s then 5 s, each plus 0-25 % jitter (an injected
-  `random`) and never less than the host's crawl delay, one wait and not two. Each
-  attempt runs `guard()` and is charged to the budget, so a dead or spent proxy
-  ends the retries ("proxy budget reached", not a refusal). A host spends at most
+  `random`) and never less than the host's crawl delay, one wait and not two. `available()` is
+  checked before a retry is counted or waited: a proxy already dead or out of budget
+  ends the loop and the original timeout or reset stands, a refusal exactly as a
+  single proxied timeout was before. Only a budget spent during the wait meets
+  `guard()` on the next attempt and fails as "proxy budget reached" (a proxy stop,
+  not a refusal). A host spends at most
   3 retries in a run (`MAX_HOST_RETRIES`); past that a timeout fails as before.
   Only the last error is classified, so the skip-the-rest-of-the-host rule is
   unchanged. Only a request without a body (a GET or a follow) is retried: a POST

@@ -518,7 +518,7 @@ describe("retrying a proxied request", () => {
     expect(log).toHaveLength(1);
     expect(c.sleeps).toEqual([]);
     expect(noted).toEqual([]);
-    expect(outcomes.a!.error).toBe("TimeoutError: timed out after 20 s");
+    expect(outcomes.a).toMatchObject({ error: "TimeoutError: timed out after 20 s", refused: true });
   });
 
   test("follows are retried the same way", async () => {
@@ -538,7 +538,7 @@ describe("retrying a proxied request", () => {
     expect(c.sleeps).toEqual([2]);
   });
 
-  test("the proxy budget ends the retries: the attempt after a timeout meets the guard, and the source is not a refusal", async () => {
+  test("a budget spent during the retry wait is met by guard(): the source ends as a proxy stop, not a refusal", async () => {
     const w = await world(0.001);
     // a first tunnel spends the budget; the next proxied attempt is stopped by guard() before it is made
     let attempts = 0;
