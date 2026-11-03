@@ -119,7 +119,9 @@ describe("Parse", () => {
   });
 });
 
-// A hand-written page in the shape of Portugal Running's cards (not a saved page: the corpus is private). Fixed dates, no clock.
+// A hand-written page in the shape of Portugal Running's cards (not a saved page: the corpus is private): a marker, the
+// header with the date, "Tipo", "Local", a count and "Adiciona à tua lista", as every card of the three pages was printed on
+// 2026-11-03. Fixed dates, no clock.
 describe("card_dates portugalrunning", () => {
   const source: Source = { name: "pr", label: "PR", adapter: "text", town: "T", group: "regional", url: "https://pr.example/corridas/",
     links: "^/eventos/[^/?]+/$", follow: 8, horizon: "near", options: { card_dates: "portugalrunning" } };
@@ -128,7 +130,7 @@ describe("card_dates portugalrunning", () => {
     const [year, day, dd, mon] = date.split(" ");
     return `<div><a href="https://pr.example/eventos/${slug}/"><span>${title} ${year}</span>` +
       `<span class="blk"><span><em>${day}</em><em>${dd}</em><em>${mon}</em><em>${tail}</em></span></span></a>` +
-      `<p>Tipo Corrida Local Portugal ${slug}</p></div>`;
+      `<p>Tipo Corrida, Trail ${slug}</p><p>Local Portugal Lisboa e Centro ${slug}</p><p>7</p><p>Adiciona à tua lista</p></div>`;
   };
   const page = (...parts: string[]) => `<h1>Corridas</h1><p>${"calendario ".repeat(30)}</p>${parts.join("\n")}`;
   const parse = (html: string, window: [string, string] = ["2026-10-20", "2026-11-22"], src: Source = source): ParseResult =>
@@ -147,12 +149,12 @@ describe("card_dates portugalrunning", () => {
     expect(parsed.text).not.toContain("Trail D");
     expect(parsed.text).not.toContain("/eventos/c/");
     expect(parsed.follow!.map((r) => r.url)).toEqual(["https://pr.example/eventos/a/", "https://pr.example/eventos/b/"]);
-    expect(parsed.note).toBeNull();
+    expect(parsed.note).toBe("4 dated race cards, 2 after 2026-11-22 left out");
     expect(parsed.text).toContain("Corridas");
   });
 
   test("the year of the card is its own, and a trailing time or the (mon day) suffix still dates it", () => {
-    const html = page(`<div><a href="https://pr.example/eventos/e/"><span>Trail E 2027</span><span><em>sab</em><em>27</em><em>fev</em>(fev 27)<em>0:00</em></span></a></div>`);
+    const html = page(`<div><a href="https://pr.example/eventos/e/"><span>Trail E 2027</span><span><em>sab</em><em>27</em><em>fev</em>(fev 27)<em>0:00</em></span></a><p>Tipo Trail</p><p>Local Portugal e</p></div>`);
     expect(parse(html).text).not.toContain("Trail E");
     expect(parse(html, ["2026-10-20", "2027-03-01"]).text).toContain("Trail E 2027 sab 27 fev");
   });
@@ -167,6 +169,36 @@ describe("card_dates portugalrunning", () => {
     expect(parsed.text).toContain("Linhas de Torres 100");
     expect(parsed.text).not.toContain("Trail H");
     expect(parsed.follow!.map((r) => r.url)).toEqual(["https://pr.example/eventos/f/", "https://pr.example/eventos/g/"]);
+    // F looks like a card but its date is not read: kept, and the note says so (a partial layout change)
+    expect(parsed.note).toBe("1 dated race cards, 1 after 2026-11-22 left out; 1 race card(s) the filter could not read were kept (layout may have changed)");
+  });
+
+  test("a dropped card ends at its own lines: what follows the last one, with no Mostrar mais, is kept", () => {
+    const parsed = parse(page(card("a", "Trail A", "2026 sab 21 nov"), card("c", "Trail C", "2026 dom 06 dez"),
+      `<h2>dezembro</h2><h2>Perguntas frequentes</h2><p>Quais são as corridas mais populares?</p><p>Contactos</p>`));
+    expect(parsed.text).not.toContain("Trail C");
+    expect(parsed.text).not.toContain("Local Portugal Lisboa e Centro c");
+    for (const kept of ["dezembro", "Perguntas frequentes", "Quais são as corridas mais populares?", "Contactos"]) expect(parsed.text).toContain(kept);
+  });
+
+  test("a card is dated by its header only: a date further down a block, or an unmarked card after a dropped one, is kept", () => {
+    const parsed = parse(page(
+      // a guide-table block whose second line carries a late date: not a card header, so the block stays
+      `<div><a href="https://pr.example/eventos/g/"><span>Linhas de Torres 100</span></a><p>Edição de 2027 sab 27 fev</p></div>`,
+      card("c", "Trail C", "2026 dom 06 dez"),
+      // an unmarked near card right after the dropped one: no longer swept into it
+      `<div><span>Trail Sem Link 2026 sab 21 nov</span><p>Tipo Corrida</p><p>Local Portugal x</p></div>`,
+    ));
+    expect(parsed.text).toContain("Linhas de Torres 100\nEdição de 2027 sab 27 fev");
+    expect(parsed.text).not.toContain("Trail C");
+    expect(parsed.text).toContain("Trail Sem Link 2026 sab 21 nov\nTipo Corrida\nLocal Portugal x");
+  });
+
+  test("a late card whose lines are not a card's is kept whole and counted", () => {
+    const parsed = parse(page(card("a", "Trail A", "2026 sab 21 nov"),
+      `<div><a href="https://pr.example/eventos/z/"><span>Trail Z 2026 dom 06 dez</span></a><p>Tipo Corrida</p><p>Inscrições abertas</p></div>`));
+    expect(parsed.text).toContain("Trail Z 2026 dom 06 dez\nTipo Corrida\nInscrições abertas");
+    expect(parsed.note).toBe("2 dated race cards, 0 after 2026-11-22 left out; 1 race card(s) the filter could not read were kept (layout may have changed)");
   });
 
   test("a Mostrar mais line ends a card, and the lines after it are kept", () => {

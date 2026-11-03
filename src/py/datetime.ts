@@ -235,6 +235,9 @@ export function defaultEnd(start: string): string {
   return ymd(ms + ((6 - weekday + 7) % 7) * DAY);
 }
 
+/** How many calendar months the agenda reaches (the window's far end). */
+export const AHEAD_MONTHS = 6;
+
 /**
  * The far end of the agenda: the same day six months on, clamped to the last day of a shorter month
  * (31 Aug -> 28/29 Feb). The last month is therefore partial, and the page says where it stops.
@@ -248,9 +251,6 @@ export function aheadEnd(start: string, months = AHEAD_MONTHS): string {
   const last = new Date(Date.UTC(year, month, 0)).getUTCDate();
   return `${pad(year, 4)}-${pad(month)}-${pad(Math.min(d, last))}`;
 }
-
-/** How many calendar months the agenda reaches (the window's far end). */
-export const AHEAD_MONTHS = 6;
 
 /** datetime.now().astimezone().isoformat(timespec="seconds") (collect.py:560 collected_at; merge.py generated_at). */
 export function localIsoNow(now: Date = new Date()): string {

@@ -93,7 +93,8 @@ Decide which to add as events:
   doubtful, or when it repeats another hint;
 - never state a day for a hint;
 - add no race from Portugal Running that starts after `window.near_end`: its
-  sources are read for the coming weeks only.
+  sources are read for the coming weeks only; never add back a race the report
+  lists under "races left out", from the candidates files or otherwise.
 
 ## 5. When the page's check fails
 

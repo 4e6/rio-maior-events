@@ -226,21 +226,43 @@ export function startsAfter(e: Doc, nearEnd: string): boolean {
   return start > nearEnd.slice(0, start.length);
 }
 
+/**
+ * Where a candidate starts against `nearEnd`: "within" (on or before it), "after", or "unknown" when merge cannot
+ * tell: not an object, no real start_date, or only a month (date_tbc "YYYY-MM") that is near_end's own month and runs
+ * past it. The race cut drops "unknown" as well as "after" (fail closed): an invalid date is otherwise only reported,
+ * and the editor's repair of it is never held to near_end again.
+ */
+export function placeStart(e: unknown, nearEnd: string): "within" | "after" | "unknown" {
+  if (!isDict(e) || typeof e.start_date !== "string") return "unknown";
+  const start: string = e.start_date;
+  if (render.realDate(start)) return start > nearEnd ? "after" : "within";
+  if (!render.realMonth(start)) return "unknown";
+  const month = nearEnd.slice(0, 7);
+  if (start !== month) return start > month ? "after" : "within";
+  // the month runs past near_end unless near_end is its last day
+  const next = new Date(Date.UTC(+nearEnd.slice(0, 4), +nearEnd.slice(5, 7) - 1, +nearEnd.slice(8, 10) + 1));
+  return next.getUTCDate() === 1 ? "within" : "unknown";
+}
+
 /** The most dates a recurring event keeps that begin after the coming weeks (it is Further ahead from its first date on). */
 export const FAR_RECURRING_DATES = 4;
 
 /**
  * A recurring event lists its dates only up to near_end, with the rest in `recurrence`: a weekly market over six
  * months would otherwise carry about 26 dates into the readers' output and the editor's input. One that starts after
- * near_end keeps its first FAR_RECURRING_DATES. Not trimmed when that would leave one date and no recurrence text
- * (the page's check reads that as a single event). Returns whether it trimmed.
+ * near_end keeps its first FAR_RECURRING_DATES distinct dates. Not trimmed when that would leave one date and no
+ * recurrence text (the page's check reads that as a single event), nor when a date is not a string (left for the check
+ * to report). Returns whether it trimmed. start_date and end_date are left as they are: the page places a recurring
+ * event by its dates, render.checkEvent ties neither to them, and the kept dates are the earliest, so the span the
+ * event states (to end_date, with the rest in `recurrence`) still holds.
  */
 export function trimRecurring(e: Doc, nearEnd: string): boolean {
   if (e.kind !== "recurring" || e.date_tbc === true || !Array.isArray(e.dates)) return false;
-  const dates = [...e.dates].filter((d) => typeof d === "string").sort();
+  if (!e.dates.every((d: unknown) => typeof d === "string")) return false;
+  const dates = [...new Set<string>(e.dates)].sort();
   const near = dates.filter((d) => d <= nearEnd);
   const kept = near.length ? near : dates.slice(0, FAR_RECURRING_DATES);
-  if (kept.length === dates.length || e.dates.length !== dates.length) return false;
+  if (kept.length === dates.length) return false;
   if (kept.length < 2 && !render.textOk(e.recurrence)) return false;
   e.dates = kept;
   return true;
@@ -357,28 +379,47 @@ export function merge(
   }
 
   // What the coming weeks hold, deterministically, before anything else sees the candidates.
-  const cut = { hints: 0, races: [] as string[], recurring: 0 };
+  const cut = { hints: 0, races: [] as string[], unplaced: [] as string[], recurring: 0, units: [] as string[] };
   let keptHints = hints;
   if (nearEnd) {
     // Races. This is where the rule that Portugal Running's races stop at the coming weeks is enforced: a candidate from a
     // unit whose sources are ALL horizon "near" and that starts after near_end is left out, by the unit it came from (not by
     // any source name or label the reader wrote). The collector's card filter only saves reading cost and noise, and
     // this still holds when the site changes its card layout and the filter finds nothing to cut. The same race
-    // from its town's own unit is a separate candidate and stays.
+    // from its town's own unit is a separate candidate and stays. It fails closed: a candidate it cannot place before
+    // near_end is left out too, and so is a far one from a unit whose sources it cannot tell (reported, never silent).
+    // manual.json is a person's own hand-written list, not a reader's unit, and is not cut.
+    const sourceNames = new Set<unknown>(sources.filter(isDict).map((s: Doc) => s.name));
     const nearOnly = new Map<string, boolean>();
     const isNearOnly = (unit: string): boolean => {
       if (!nearOnly.has(unit)) {
         const listed = unitSources.get(unit);
+        // a piece always lists its sources (split.ts); a group without a list falls back to the index rows of that group
         const names: unknown[] = Array.isArray(listed) ? listed : sources.filter((s: Doc) => isDict(s) && s.group === unit).map((s: Doc) => s.name);
-        nearOnly.set(unit, names.length > 0 && names.every((n) => horizonNear.has(n)));
+        const unknown = names.filter((n) => !sourceNames.has(n));
+        const near = names.filter((n) => horizonNear.has(n));
+        let held = names.length > 0 && near.length === names.length;
+        if (!names.length || unknown.length) {
+          held = true;
+          cut.units.push(`${unit}: ${names.length ? `lists sources not in the index (${unknown.map(pyStr).join(", ")})` : "lists no sources"}; ` +
+            "held to the coming weeks as if all were horizon near");
+        } else if (near.length && !held) {
+          cut.units.push(`${unit}: mixes horizon-near sources (${near.map(pyStr).join(", ")}) with others; its candidates are not held to the coming weeks`);
+        }
+        nearOnly.set(unit, held);
       }
       return nearOnly.get(unit)!;
     };
     const keepEvents: Doc[] = [];
     const keepOrigins: string[] = [];
     events.forEach((e, i) => {
-      if (isDict(e) && origins[i] !== "manual" && isNearOnly(origins[i]!) && startsAfter(e, nearEnd)) {
+      const place = origins[i] !== "manual" && isNearOnly(origins[i]!) ? placeStart(e, nearEnd) : "within";
+      if (place === "after") {
         cut.races.push(describe(e));
+        return;
+      }
+      if (place === "unknown") {
+        cut.unplaced.push(isDict(e) ? describe(e) : `not an object: ${pyRepr(e)}`);
         return;
       }
       keepEvents.push(e);
@@ -395,7 +436,7 @@ export function merge(
   const townMinutes = opts.towns ?? loadTowns();
   for (const e of events) if (isDict(e) && e.drive_min === null) fillDrive(e, townMinutes);
   const wStart = render.realDate(window.start), wEnd = render.realDate(window.end);
-  const candidateCount = events.length + cut.races.length;
+  const candidateCount = events.length + cut.races.length + cut.unplaced.length;
   const collapsed = collapseDuplicates(events, origins, wStart && wEnd && wStart <= wEnd ? [wStart, wEnd] : null, true);
   events = collapsed.events;
   opts.onStats?.({ candidates: candidateCount, collapsed: collapsed.collapsed, events: events.length });
@@ -417,6 +458,11 @@ export function merge(
     lines.push(`races left out (after the coming weeks, ${nearEnd}): ${cut.races.length}`);
     for (const t of cut.races) lines.push(`  ${t}`);
   }
+  if (cut.unplaced.length) {
+    lines.push(`races left out (no start_date that places them on or before ${nearEnd}: none that is real, or only its month): ${cut.unplaced.length}`);
+    for (const t of cut.unplaced) lines.push(`  ${t}`);
+  }
+  for (const t of cut.units) lines.push(`near-end attribution: ${t}`);
   if (cut.recurring) lines.push(`recurring events with their dates cut to the coming weeks (the rest is in recurrence): ${cut.recurring}`);
   if (cut.hints) lines.push(`hints left out (expected after the coming weeks, ${nearEnd}): ${cut.hints}`);
   lines.push("hints:");

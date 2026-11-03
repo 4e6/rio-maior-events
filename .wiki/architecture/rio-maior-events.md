@@ -11,7 +11,7 @@ sources:
   - resource: test/**
   - resource: .github/workflows/**
   - resource: certs/**
-sources_digest: d243bb6dbef3106a
+sources_digest: 370b74a76f9448e4
 ---
 
 # What it is
@@ -36,11 +36,16 @@ and each has its own traps.
   days on). A source row with `"horizon": "near"` (the three Portugal Running rows)
   is given the near window, and `index.sources[]` carries its `horizon`. Their text
   also passes `options.card_dates: "portugalrunning"`: each card dated after
-  `near_end` (year, weekday, day, month; the weekday must match; undated blocks kept)
-  is dropped before the cap and before the event pages are picked, so the filter
-  costs no detail slot and `follow` caps are unchanged. That filter is a saving in
-  reading cost and noise; it says "no dated race cards found" in the source's note when
-  the layout changes. The rule is merge's (below). It parses no HTML layout: layouts change, and a model
+  `near_end` is dropped before the cap and before the event pages are picked, so the filter
+  costs no detail slot and `follow` caps are unchanged. A card is dated by its header only
+  (the line after its link marker: year, weekday, day, month; the weekday must match) and
+  is dropped only in the shape every card of the three pages had on 2026-11-03 ("Tipo",
+  "Local", an optional count and "Adiciona à tua lista"), ending at its own last line, so it
+  can only keep too much, never lose the guide table, month names or FAQ after it. That filter
+  is a saving in reading cost and noise; the source's note always gives its counts ("30 dated
+  race cards, 15 after … left out"), says "no dated race cards found" when nothing is dated,
+  and counts the blocks that look like cards but could not be read, which is a partial layout
+  change; the source never fails over it. The rule is merge's (below). It parses no HTML layout: layouts change, and a model
   reads changed text better than a regex does. Only data a site publishes as
   data (JSON-LD, JSON, a framework's embedded list) is read by field.
   It undoes gzip and deflate itself (by header or by the gzip magic bytes) and
@@ -61,9 +66,16 @@ and each has its own traps.
   unit attribution, never by the source names a reader wrote; the town's own unit
   lists the same race separately and keeps it) that starts after `near_end` is left
   out (the backstop that makes the Portugal Running rule hold when the card filter
-  reads nothing, as with the undated guide table); a hint after `near_end` is left out
+  reads nothing, as with the undated guide table). It fails closed, each case on a report line of its own:
+  such a candidate whose start it cannot place on or before `near_end` (no real `start_date`,
+  not an object, or only a month that runs past `near_end`, like the guide table's "Dezembro") is left out
+  too, since the editor's repair of a bad date is never held to `near_end` again; a unit whose
+  sources it cannot tell (none listed, or one not in the index) is held as if all were near; a
+  unit mixing near and other sources is named, not held. `manual.json`, a person's own list, is not
+  cut. A hint after `near_end` is left out
   (the yearly table stays a coming-weeks list); a recurring event's `dates` are cut
-  to `near_end` (a far one keeps its first four), because a weekly market over six
+  to `near_end` (a far one keeps its first four distinct dates; start and end dates stay, since the page
+  places a recurring event by its dates), because a weekly market over six
   months would carry about 26 dates. The editor (`claude -p` run by `src/build.ts`) settles those and writes the `note`; if it fails, `merge --finalize` writes one. Both take `--stats FILE` and write their counts there (candidates, collapsed, events, dropped), for the status page to report; that write is best effort, a warning on stderr and never a failed merge.
 - **`src/render.ts` checks and draws.** It validates the file in plain code
   (exit 2 lists each problem with its event), makes each event's id, and inlines

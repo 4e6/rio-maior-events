@@ -104,8 +104,9 @@ no `id`, and no `window` or `sources_checked`: those come from the merge.
   already list it. So list a later event when a source gives it, and do not go
   looking for more. Races from Portugal Running reach only the coming weeks:
   the script cut the cards after `window.near_end`, and the merge step leaves
-  out any race that only those sources list after it, so write no such race,
-  not even one named in a guide table without a date.
+  out any race that only those sources list after it, or whose date does not
+  show it is on or before it (a month alone in `window.near_end`'s own month), so
+  write no such race, not even one named in a guide table without a date.
 - 50 minutes or more (towns.md) keep only a big event: a named festival, a
   national or international concert or race, a major venue's headline show;
   not a local workshop or screening. The same rule at any date: a local

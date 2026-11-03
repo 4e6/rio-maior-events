@@ -18,7 +18,13 @@ export const text: Adapter = {
       // that these races stop at the coming weeks is merge's, which holds when the layout changes and nothing is dated.
       const cut = dropCardsAfter(body, window[1]);
       ({ text: body, truncated, urls } = capWithMarks(cut.text, cut.marks, cap));
+      // The note always says what the filter did, so a partial layout change (some cards no longer read) shows too; the
+      // source never fails over it.
       if (cut.dated === 0) cardNote = "no dated race cards found (layout may have changed)";
+      else {
+        cardNote = `${cut.dated} dated race cards, ${cut.dropped} after ${window[1]} left out`;
+        if (cut.unread) cardNote += `; ${cut.unread} race card(s) the filter could not read were kept (layout may have changed)`;
+      }
     } else if (source.options?.card_dates) {
       throw new AdapterError(`unknown card_dates: ${String(source.options.card_dates)}`);
     }

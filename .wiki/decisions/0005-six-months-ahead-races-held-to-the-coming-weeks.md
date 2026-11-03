@@ -29,7 +29,11 @@ The yearly-hint table stays on the coming weeks.
   so they would swamp the section. A reader rule for "no far races" varies between
   runs, so it is not the rule: the collector's card filter saves cost, and merge's
   backstop (by unit, not by names) enforces it, since the undated guide table of
-  usual months survives the filter.
+  usual months survives the filter. The backstop fails closed: a race it cannot place
+  before `near_end` (a bad date, or a month like "Dezembro" that runs past it) or from a
+  unit it cannot attribute is left out and reported, because nothing after merge holds
+  races to `near_end`. The filter fails the other way: it drops only a card in the
+  shape it knows, so a layout change costs reading, never text.
 - Hints over six months would make the hand-kept yearly table the far list.
 - A month grid over six months would read as "nothing on in March".
 

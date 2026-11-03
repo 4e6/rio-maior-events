@@ -9,7 +9,7 @@ import { ADAPTERS } from "../src/adapters/index.ts";
 import { AdapterError } from "../src/adapters/types.ts";
 import type { Adapter, Page, ParseResult, Request, Source } from "../src/adapters/types.ts";
 import {
-  collectAll, defaultEnd, windowFor, followRequests, lisbonToday, loadConfig, main, runHost, writeOutput, type Outcome,
+  collectAll, defaultEnd, nearEndOf, windowFor, followRequests, lisbonToday, loadConfig, main, runHost, writeOutput, type Outcome,
 } from "../src/collect.ts";
 import type { CollectDeps, MainDeps } from "../src/collect.ts";
 import { HttpError, NetworkError, RedirectRefused, TimeoutError, garbled } from "../src/net.ts";
@@ -557,8 +557,23 @@ describe("Horizon", () => {
     expect(seen["far-1"]).toEqual(["requests 2026-10-20 2027-04-20", "parse 2026-10-20 2027-04-20", "details 2026-10-20 2027-04-20"]);
   });
 
-  test("without a near end every source gets the whole window", () => {
-    expect(windowFor(list[1]!, ["2026-10-20", "2027-04-20"])).toEqual(["2026-10-20", "2027-04-20"]);
+  test("without a near end given, the near end is nearEndOf(window), as main derives it", async () => {
+    // 2026-10-20 is a Tuesday: the first Sunday 28+ days on is 2026-11-22
+    expect(nearEndOf(["2026-10-20", "2027-04-20"])).toBe("2026-11-22");
+    expect(nearEndOf(["2026-10-20", "2026-11-03"])).toBe("2026-11-03");
+    expect(nearEndOf(["2026-10-20", "2026-11-22"])).toBe("2026-11-22");
+    expect(windowFor(list[1]!, ["2026-10-20", "2027-04-20"])).toEqual(["2026-10-20", "2026-11-22"]);
+    for (const k of Object.keys(seen)) delete seen[k];
+    await collectAll(list, ["2026-10-20", "2027-04-20"], {}, 0, {
+      fetch: async () => ok(), sleep: noSleep, clock: () => 0.0, maxWorkers: 2, report: () => {}, defaultDetails: fakeDefaultDetails,
+      adapters: withText(recorder),
+    });
+    expect(seen["near-1"]).toEqual(["requests 2026-10-20 2026-11-22", "parse 2026-10-20 2026-11-22", "details 2026-10-20 2026-11-22"]);
+    expect(seen["far-1"]![0]).toBe("requests 2026-10-20 2027-04-20");
+  });
+
+  test("a near end given explicitly decides; a source without horizon always gets the whole window", () => {
+    expect(windowFor(list[1]!, ["2026-10-20", "2027-04-20"], "2027-04-20")).toEqual(["2026-10-20", "2027-04-20"]);
     expect(windowFor(list[1]!, ["2026-10-20", "2027-04-20"], "2026-11-22")).toEqual(["2026-10-20", "2026-11-22"]);
     expect(windowFor(list[0]!, ["2026-10-20", "2027-04-20"], "2026-11-22")).toEqual(["2026-10-20", "2027-04-20"]);
   });
