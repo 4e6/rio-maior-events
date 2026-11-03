@@ -5,9 +5,9 @@ import { ADAPTERS } from "./adapters/index.ts";
 import { defaultDetails } from "./adapters/common.ts";
 import { AdapterError } from "./adapters/types.ts";
 import type { Adapter, Config, Detail, Page, ParseResult, Request, Source, SourceResult, Window } from "./adapters/types.ts";
-import { classifyFailure, classifyFollowFailure, ProxyError, triggersFallback } from "./net-errors.ts";
+import { classifyFailure, classifyFollowFailure, ProxyError, retriesThroughProxy, triggersFallback } from "./net-errors.ts";
 import { fetchFollow, fetchPage, garbled, ProxyGateway, toPage } from "./net.ts";
-import type { FetchResult, Fetcher } from "./net.ts";
+import type { FetchResult, Fetcher, ProxyStats } from "./net.ts";
 import { defaultEnd, lisbonToday, localIsoNow, parseIsoDate } from "./py/datetime.ts";
 import { cpLen } from "./py/str.ts";
 import { cleanUrl, hostOf, sameSite } from "./url.ts";
@@ -34,8 +34,17 @@ export interface ProxyFetchers {
   followFetch: Fetcher;
   /** False when the proxy is dead or out of budget: a refused host then stays a direct refusal. */
   available?: () => boolean;
-  stats?: () => { bytes: number; max_bytes: number; dead: string | null; hosts: Record<string, number> };
+  stats?: () => ProxyStats;
+  /** Called once per retry of a proxied request, with the host: the run's count of retries. */
+  noteRetry?: (host: string) => void;
 }
+
+/** Attempts per proxied request: the first and up to two retries, after waits of 2 s and then 5 s (each plus 0-25 %
+ *  jitter, and never less than the host's crawl delay). */
+export const PROXY_ATTEMPTS = 3;
+export const PROXY_BACKOFF_S = [2, 5];
+/** Retries one host may spend in a run, so a bad exit cannot push the collect step toward its timeout. */
+export const MAX_HOST_RETRIES = 3;
 
 /** Everything collectAll lets a test replace (collect.collect_all's fetch/sleep/clock/max_workers/report/follow_fetch). */
 export interface CollectDeps {
@@ -47,6 +56,8 @@ export interface CollectDeps {
   sleep?: (seconds: number, signal?: AbortSignal) => Promise<void> | void;
   /** Seconds, monotonic. Default: performance.now() / 1000. */
   clock?: () => number;
+  /** [0, 1), for the retry backoff's jitter. Default: Math.random. */
+  random?: () => number;
   maxWorkers?: number;
   /** Progress lines. Default: console.log. */
   report?: (line: string) => void;
@@ -117,7 +128,7 @@ export async function collectAll(sources: Source[], window: Window, hosts: Confi
   const work = async (host: string, entries: [Source, Request[]][]): Promise<void> => {
     const byName = new Map(entries.map(([s]) => [s.name, s] as const));
     await runHost(host, entries.map(([s, r]) => [s.name, r] as [string, Request[]]), {
-      fetch, sleep, clock, delay: delayOf(host), signal, followFetch, proxy: deps.proxy,
+      fetch, sleep, clock, delay: delayOf(host), signal, followFetch, proxy: deps.proxy, random: deps.random,
       onDone(name, outcome) {
         const [result, follow] = parseOutcome(byName.get(name)!, outcome, window, parseDeps.adapters);
         results.set(name, result);
@@ -179,8 +190,11 @@ export async function runHost(host: string, jobs: [name: string, requests: Reque
   followFetch?: Fetcher; onFollowed?: (name: string, pages: Page[], viaProxy: boolean) => void;
   /** The fallback proxy; see CollectDeps.proxy. */
   proxy?: ProxyFetchers | null;
+  /** [0, 1), for the retry backoff's jitter. Default: Math.random. */
+  random?: () => number;
 }): Promise<Record<string, Outcome>> {
   const { fetch, sleep, clock, delay, onDone, signal, onFollowed, proxy } = deps;
+  const random = deps.random ?? Math.random;
   const followFetch = deps.followFetch ?? fetch;
   const outcomes: Record<string, Outcome> = {};
   const wanted: [string, Request[]][] = [];
@@ -198,9 +212,29 @@ export async function runHost(host: string, jobs: [name: string, requests: Reque
   };
 
   // Direct first. The first refusal (net-errors.triggersFallback) switches the host to the proxy: that request is
-  // retried once through it and every later request of the host goes through it, with no second direct attempt.
+  // retried through it and every later request of the host goes through it, with no second direct attempt. A proxied
+  // request that times out or is reset (net-errors.retriesThroughProxy) is attempted up to PROXY_ATTEMPTS times: the
+  // gateway rotates its exit, so a new tunnel often works where the same wait would not. Only the last error is
+  // classified, and the host spends at most MAX_HOST_RETRIES in all.
   let viaProxy = false;
+  let hostRetries = 0;
   const STOPPED = Symbol("stopped");
+  const proxiedWithRetry = async (fetcher: Fetcher, request: Request, follow: boolean): Promise<FetchResult> => {
+    for (let attempt = 1; ; attempt++) {
+      try {
+        return await fetcher(request.url, follow ? null : request.data, signal);
+      } catch (err) {
+        if (attempt >= PROXY_ATTEMPTS || hostRetries >= MAX_HOST_RETRIES || !retriesThroughProxy(err)) throw err;
+        if (signal?.aborted) throw STOPPED;
+        hostRetries++;
+        proxy?.noteRetry?.(host);
+        // One wait that also covers the crawl delay, so it is not paid twice.
+        const backoff = PROXY_BACKOFF_S[attempt - 1]! * (1 + 0.25 * random());
+        await sleep(Math.max(backoff, delay), signal);
+        if (signal?.aborted) throw STOPPED;
+      }
+    }
+  };
   const go = async (request: Request, follow: boolean): Promise<FetchResult> => {
     const direct = follow ? followFetch : fetch;
     const proxied = follow ? proxy?.followFetch : proxy?.fetch;
@@ -214,7 +248,7 @@ export async function runHost(host: string, jobs: [name: string, requests: Reque
       lastEnd = clock();
       if (!(await pause())) throw STOPPED;
     }
-    return proxied!(request.url, follow ? null : request.data, signal);
+    return proxiedWithRetry(proxied!, request, follow);
   };
   /** The proxy failed or ran out of budget: ends the host without counting as the site refusing. */
   let proxyStopped: string | null = null;
@@ -400,7 +434,7 @@ const dumps = (value: unknown): string => JSON.stringify(value, null, 1) + "\n";
 
 /** collect.write_output: index.json and one <group>.json per group in outDir (JSON.stringify(x, null, 1) + "\n"). */
 export function writeOutput(outDir: string, collectedAt: string, window: Window, groups: string[], sources: Source[], results: SourceResult[],
-  extra: { collect_s?: number; proxy?: ReturnType<NonNullable<ProxyFetchers["stats"]>> } = {}): unknown {
+  extra: { collect_s?: number; proxy?: ProxyStats } = {}): unknown {
   mkdirSync(outDir, { recursive: true });
   const groupOf = new Map(sources.map((s) => [s.name, s.group] as const));
   const span = { start: window[0], end: window[1] };

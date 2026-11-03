@@ -11,7 +11,7 @@ sources:
   - resource: test/**
   - resource: .github/workflows/**
   - resource: certs/**
-sources_digest: 987ac85bd29252c9
+sources_digest: 4f7843c66ba84f0f
 ---
 
 # What it is
@@ -55,7 +55,7 @@ and each has its own traps.
   name each one, counted per source and before any duplicates were merged, so
   the column adds up to more than the candidate total; or its error, marked when
   the site refused it, or marked "proxy" when it was read through the fallback proxy; "not read" when its reader failed), the step timings,
-  the readers and the editor, usage at list price, the proxy's estimated bytes against its cap, and the event counts after
+  the readers and the editor, usage at list price, the proxy's estimated bytes against its cap (`status.json`'s `proxy` also carries `retries` and `host_retries`), and the event counts after
   each step. The agenda's header line links to it in place of the old sources
   list at the bottom. Its text comes from counts, fixed outcome words, source
   labels and URLs and short scrubbed error strings, never from a reader's or the
@@ -94,11 +94,26 @@ and each has its own traps.
   refusal by the site, HTTP 403 or a 5xx (`triggersFallback` in
   `src/net-errors.ts`); not a 429 (a throttle, respected), a TLS verification
   error, a DNS failure, a 404 or other 4xx, a redirect refusal or a parse
-  failure. The refused request is retried once through the proxy, and the host's
+  failure. The refused request is retried through the proxy, and the host's
   remaining requests, other sources' list pages and follows, go through it with
   no second direct attempt; a follow refused directly switches the host the same
   way. The delay and order are unchanged, and a refusal through the proxy ends
-  the host as a refusal does. The proxied request is the same request: the same
+  the host as a refusal does. **A proxied request that times out or is reset is
+  attempted up to three times** (`retriesThroughProxy` in `src/net-errors.ts`: a
+  `TimeoutError`, or a `NetworkError` ECONNRESET or ConnectionClosed, the signature
+  of a rotating gateway handing out a bad exit; nothing else: not a `ProxyError`,
+  an HTTP status, a redirect refusal, a TLS or DNS error or an abort). The retry
+  loop is `proxiedWithRetry` in `go()` in `src/collect.ts`; `src/net.ts` stays a
+  single attempt. The waits are 2 s then 5 s, each plus 0-25 % jitter (an injected
+  `random`) and never less than the host's crawl delay, one wait and not two. Each
+  attempt runs `guard()` and is charged to the budget, so a dead or spent proxy
+  ends the retries ("proxy budget reached", not a refusal). A host spends at most
+  3 retries in a run (`MAX_HOST_RETRIES`); past that a timeout fails as before.
+  Only the last error is classified, so the skip-the-rest-of-the-host rule is
+  unchanged. Worst case: about +75 s a host (3 retries of 20 s plus 5 s of wait;
+  the 20 s timeout is per hop, not per request), so a worker running four hosts
+  adds about 285 s to a ~133 s collect: some 7 minutes against the step's 15.
+  The proxied request is the same request: the same
   User-Agent and headers, timeout and redirect rules, and HTTPS through CONNECT
   with TLS verified end to end against the same CA list. Every proxied request
   opens its own tunnel (keepalive off); direct and proxied connections are never
@@ -110,7 +125,8 @@ and each has its own traps.
   estimate: body bytes plus 2 KB a request and 8 KB a tunnel, counted per host and
   per run (`ProxyGateway` in `src/net.ts`); the provider's own traffic cap is
   the real limit. `index.json` gets `via` per source, `collect_s` and, when the
-  proxy is on, `proxy` (bytes, cap, why dead, bytes per host). **The secret stays in
+  proxy is on, `proxy` (bytes, cap, why dead, bytes per host, `retries` and
+  `host_retries`, the retries spent in all and per host with any). **The secret stays in
   one step.** Errors are built from fields and scrubbed of the proxy's host, user
   and password, raw and percent-decoded; collect prints `::add-mask::` for them on stderr only (stdout may be tee'd into an uploaded file) in
   Actions. The variable is `FALLBACK_PROXY_URL`, never `HTTP(S)_PROXY`, which Bun
@@ -224,8 +240,9 @@ GitHub Actions workflow; the `claude -p` readers and editor are confined to file
   input and two assets and writes one file; nothing it writes fetches anything
   when opened (no remote script, stylesheet or font).
 - It names third-party sites, because they are its subject.
-- A site that refuses (a 403) or does not answer is retried once through the
-  fallback proxy when one is configured, and otherwise, or after the proxy
+- A site that refuses (a 403) or does not answer is retried through the
+  fallback proxy when one is configured (a timeout or reset there gets up to three
+  attempts in all), and otherwise, or after the proxy
   refuses too, recorded as failed. Never proxy first, and never for a path a site's
   robots.txt disallows; the source list stays the reviewed one. After a refusal (403, 429, a 5xx), a timeout or a
   connection error the rest of that site's pages are skipped, and requests to

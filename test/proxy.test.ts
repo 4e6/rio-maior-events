@@ -10,9 +10,9 @@ import { join } from "node:path";
 import { gzipSync } from "node:zlib";
 import { ADAPTERS } from "../src/adapters/index.ts";
 import type { Page, Request } from "../src/adapters/types.ts";
-import { collectAll, main, runHost } from "../src/collect.ts";
+import { MAX_HOST_RETRIES, collectAll, main, runHost } from "../src/collect.ts";
 import type { MainDeps, ProxyFetchers } from "../src/collect.ts";
-import { HttpError, NetworkError, ProxyError, RedirectRefused, TimeoutError, triggersFallback } from "../src/net-errors.ts";
+import { HttpError, NetworkError, ProxyError, RedirectRefused, TimeoutError, retriesThroughProxy, triggersFallback } from "../src/net-errors.ts";
 import { PROXY_REQUEST_BYTES, PROXY_TUNNEL_BYTES, ProxyGateway, fetchWith } from "../src/net.ts";
 import type { FetchResult, Fetcher } from "../src/net.ts";
 import { WINDOW } from "./helpers.ts";
@@ -265,7 +265,7 @@ const clockDeps = () => {
 const jobs = (...names: string[]): [string, Request[]][] => names.map((n) => [n, [req("https://h.example/" + n)]]);
 
 describe("runHost with a proxy", () => {
-  test("a refused direct request is retried once through the proxy, and the host's other sources go straight to it", async () => {
+  test("a refused direct request is attempted again through the proxy, and the host's other sources go straight to it", async () => {
     for (const refusal of REFUSALS) {
       const r = recorder((url) => (url.endsWith("/a") ? refusal : null));
       // a is refused; b and c must not try direct again
@@ -327,7 +327,7 @@ describe("runHost with a proxy", () => {
     }
   });
 
-  test("follows: a follow refused directly switches the host and is retried once; later follows go through the proxy", async () => {
+  test("follows: a follow refused directly switches the host and is attempted through the proxy; later follows go through the proxy", async () => {
     const r = recorder(() => null);
     const direct: Fetcher = async (url) => { r.log.push(`direct ${url}`); if (url.endsWith("/f2")) throw http(403); return ok(); };
     const { sleep, clock } = clockDeps();
@@ -372,6 +372,159 @@ describe("runHost with a proxy", () => {
       onDone: () => [req("https://h.example/f1"), req("https://h.example/f2")],
     });
     expect(r.log).toEqual(["direct https://h.example/a", "proxy-follow https://h.example/f1"]);
+  });
+});
+
+describe("retrying a proxied request", () => {
+  const timeout = () => new TimeoutError("timed out after 20 s");
+  /** The proxy fails with the given errors in turn (null = succeed); direct always refuses. */
+  function flaky(errors: unknown[]) {
+    const log: string[] = [];
+    let n = 0;
+    const next = (via: string): Fetcher => async (url) => { log.push(`${via} ${url}`); const e = errors[n++]; if (e) throw e; return ok(); };
+    const noted: string[] = [];
+    const direct: Fetcher = async (url) => { log.push(`direct ${url}`); throw http(403); };
+    const proxy: ProxyFetchers = { fetch: next("proxy"), followFetch: next("proxy-follow"), noteRetry: (h) => noted.push(h) };
+    return { log, noted, direct, proxy };
+  }
+  const run = (f: ReturnType<typeof flaky>, names = ["a"], delay = 0, random = () => 0) => {
+    const { c, sleep, clock } = clockDeps();
+    return runHost("h.example", jobs(...names), { fetch: f.direct, sleep, clock, delay, proxy: f.proxy, random }).then((outcomes) => ({ outcomes, c }));
+  };
+
+  test("the predicate: timeouts and resets only", () => {
+    for (const e of [timeout(), new NetworkError("r", "ECONNRESET"), new NetworkError("c", "ConnectionClosed")]) expect(retriesThroughProxy(e)).toBe(true);
+    for (const e of [new ProxyError("proxy failed: 502"), new ProxyError("proxy failed: 407", true), new ProxyError("proxy budget reached"), http(403), http(503),
+      new NetworkError("x", "ECONNREFUSED"), new NetworkError("x", "ENOTFOUND"), new NetworkError("tls", "CERT_HAS_EXPIRED"), new RedirectRefused("x"),
+      Object.assign(new Error("interrupted"), { name: "AbortError" }), new Error("x"), null]) expect(retriesThroughProxy(e)).toBe(false);
+  });
+
+  test("a timeout then success: two proxy calls, one 2 s wait, the retry counted", async () => {
+    const f = flaky([timeout()]);
+    const { outcomes, c } = await run(f);
+    expect(f.log).toEqual(["direct https://h.example/a", "proxy https://h.example/a", "proxy https://h.example/a"]);
+    expect(outcomes.a).toMatchObject({ error: null, viaProxy: true });
+    expect(c.sleeps).toEqual([2]);
+    expect(f.noted).toEqual(["h.example"]);
+  });
+
+  test("two failures then success: three calls, waits of 2 s then 5 s, plus jitter from the injected random", async () => {
+    const f = flaky([timeout(), new NetworkError("reset", "ECONNRESET")]);
+    const { outcomes, c } = await run(f, ["a"], 0, () => 0.5);
+    expect(f.log.filter((l) => l.startsWith("proxy"))).toHaveLength(3);
+    expect(outcomes.a!.error).toBeNull();
+    expect(c.sleeps).toEqual([2 * 1.125, 5 * 1.125]);
+  });
+
+  test("three timeouts: the source fails with the timeout, is a refusal, and is not marked ok", async () => {
+    const f = flaky([timeout(), timeout(), timeout()]);
+    const { outcomes } = await run(f, ["a", "b"]);
+    expect(f.log.filter((l) => l.startsWith("proxy"))).toHaveLength(3);
+    expect(outcomes.a).toMatchObject({ error: "TimeoutError: timed out after 20 s", refused: true, pages: null });
+    expect(outcomes.b!.error).toBe("skipped: h.example refused or did not answer");
+    expect(f.noted).toHaveLength(2);
+  });
+
+  test("the wait is never shorter than the host's crawl delay, and is not paid twice", async () => {
+    const f = flaky([timeout(), timeout()]);
+    const { c } = await run(f, ["a"], 3);
+    // direct refusal -> pause 3, first proxied attempt; waits max(2, 3) = 3 then max(5, 3) = 5
+    expect(c.sleeps).toEqual([3, 3, 5]);
+  });
+
+  test("no retry on a ProxyError (407, 402, gateway 5xx, unreachable), an HTTP status, a redirect refusal or a TLS error", async () => {
+    for (const e of [new ProxyError("proxy failed: 407", true), new ProxyError("proxy failed: 402", true), new ProxyError("proxy failed: 502"),
+      new ProxyError("proxy failed: ECONNREFUSED", true), http(503), http(403), new RedirectRefused("x"), new NetworkError("tls", "CERT_HAS_EXPIRED")]) {
+      const f = flaky([e]);
+      const { c } = await run(f);
+      expect(f.log.filter((l) => l.startsWith("proxy"))).toHaveLength(1);
+      expect(c.sleeps).toEqual([]);
+      expect(f.noted).toEqual([]);
+    }
+  });
+
+  test("no retry after an abort: during the attempt, or during the wait", async () => {
+    const abort = Object.assign(new Error("interrupted"), { name: "AbortError" });
+    const f = flaky([abort]);
+    await run(f);
+    expect(f.log.filter((l) => l.startsWith("proxy"))).toHaveLength(1);
+    const ctl = new AbortController();
+    const g = flaky([timeout(), timeout()]);
+    const sleeps: number[] = [];
+    const outcomes = await runHost("h.example", jobs("a"), {
+      fetch: g.direct, proxy: g.proxy, delay: 0, clock: () => 0, signal: ctl.signal, random: () => 0,
+      sleep: async (s) => { sleeps.push(s); ctl.abort(); },
+    });
+    expect(g.log.filter((l) => l.startsWith("proxy"))).toHaveLength(1);
+    expect(sleeps).toEqual([2]);
+    expect(outcomes.a).toBeUndefined();
+  });
+
+  test("the host's retries are capped across its run; past the cap a timeout fails as before", async () => {
+    // a spends 2 retries, b the third, c meets the cap on its first timeout
+    const errs = [timeout(), timeout(), null, timeout(), null, timeout()];
+    const g = flaky(errs);
+    const r = await run(g, ["a", "b", "c"]);
+    expect(g.noted).toHaveLength(3);
+    expect(Object.values(r.outcomes).map((o) => o.error)).toEqual([null, null, "TimeoutError: timed out after 20 s"]);
+    expect(g.log.filter((l) => l.startsWith("proxy"))).toHaveLength(6);
+  });
+
+  test("follows are retried the same way", async () => {
+    const r = recorder(() => null);
+    let n = 0;
+    const log: string[] = [];
+    const followProxy: Fetcher = async (url) => { log.push(url); if (n++ === 0) throw timeout(); return ok(); };
+    const direct: Fetcher = async () => { throw http(403); };
+    const { c, sleep, clock } = clockDeps();
+    const seen: string[][] = [];
+    await runHost("h.example", jobs("a"), {
+      fetch: r.direct, followFetch: direct, sleep, clock, delay: 0, random: () => 0, proxy: { ...r.proxy, followFetch: followProxy },
+      onDone: () => [req("https://h.example/f1")], onFollowed: (_n, pages) => seen.push(pages.map((p) => p.url)),
+    });
+    expect(log).toEqual(["https://h.example/f1", "https://h.example/f1"]);
+    expect(seen).toEqual([["https://h.example/f1"]]);
+    expect(c.sleeps).toEqual([2]);
+  });
+
+  test("the proxy budget ends the retries: the attempt after a timeout meets the guard, and the source is not a refusal", async () => {
+    const w = await world(0.001);
+    // a first tunnel spends the budget; the next proxied attempt is stopped by guard() before it is made
+    let attempts = 0;
+    const fetch: Fetcher = async (_u, data, signal) => {
+      if (attempts++ === 0) { await w.gateway.fetch(w.base + "/ok", null); throw timeout(); }
+      return w.gateway.fetch(w.base + "/ok", data, signal);
+    };
+    const { sleep, clock } = clockDeps();
+    const outcomes = await runHost("h.example", jobs("a", "b"), {
+      fetch: async () => { throw http(403); }, sleep, clock, delay: 0, random: () => 0,
+      proxy: { fetch, followFetch: fetch, noteRetry: (h) => w.gateway.noteRetry(h) },
+    });
+    expect(outcomes.a).toMatchObject({ error: "proxy budget reached" });
+    expect(outcomes.a!.refused).toBeUndefined();
+    expect(outcomes.b!.error).toBe("skipped: proxy budget reached");
+    expect(attempts).toBe(2);
+    expect(w.gateway.stats().retries).toBe(1);
+  });
+
+  test("the retries reach index.json's proxy block and no group file", async () => {
+    const g = new ProxyGateway("http://u:p@127.0.0.1:9");
+    let n = 0;
+    const proxied: ProxyFetchers = {
+      fetch: async () => { if (n++ === 0) throw timeout(); return ok(); }, followFetch: async () => ok(),
+      noteRetry: (h) => g.noteRetry(h), stats: () => g.stats(),
+    };
+    const dir = join(mkdtempSync(join(tmpdir(), "collect-")), "collected");
+    const code = await main([dir, "--only", "cineteatro", "mcr-caldas", "--from", "2026-10-20"], {
+      fetch: async (url) => { if (url.includes("cineteatrorm.pt")) return ok(); throw http(403); }, proxy: proxied,
+      sleep: async () => {}, clock: () => 0, random: () => 0, maxWorkers: 1, out: () => {}, err: () => {},
+      adapters: { ...ADAPTERS, text: { parse: () => ({ items: [], past: [], text: "x".repeat(300), truncated: false, note: null }) } as any },
+    });
+    expect(code).toBe(0);
+    const index = JSON.parse(readFileSync(join(dir, "index.json"), "utf8"));
+    expect(index.proxy.retries).toBe(1);
+    expect(index.proxy.host_retries).toEqual({ "www.mcr.pt": 1 });
+    for (const f of readdirSync(dir).filter((f) => f !== "index.json")) expect(readFileSync(join(dir, f), "utf8")).not.toContain("retries");
   });
 });
 

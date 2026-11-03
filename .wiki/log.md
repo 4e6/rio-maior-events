@@ -1,5 +1,8 @@
 # Wiki Update Log
 
+## 2026-11-03
+* **Proxy retries**: a proxied request that times out or is reset is attempted up to three times, at most three retries a host, counted in `index.json`'s `proxy` and `status.json` ([architecture](/architecture/rio-maior-events.md), [decision](/decisions/0004-a-residential-proxy-for-the-sites-that-refuse-github-runners.md)).
+
 ## 2026-10-22
 * **ops-watch reads status.json**: `rme-status-json` now warns on green-but-bad builds from the published `status.json`, whose field names become a contract; `rme-build` reads non-pull-request `main` runs again, now that ops-watch filters branches itself ([architecture](/architecture/rio-maior-events.md)).
 * **ops-watch reads any branch**: `rme-build` no longer filters `build.yml` runs to `main`, because GitHub's `?branch=main` listing came back empty for this workflow and left the check blind ([architecture](/architecture/rio-maior-events.md)).
