@@ -9,7 +9,7 @@ sources:
   - resource: references/sources.md
   - resource: tools/probe_*.ts
   - resource: .github/workflows/probe.yml
-sources_digest: d12e78d558146df8
+sources_digest: 78b99f63b668b49f
 ---
 
 # What this page is for
@@ -31,6 +31,7 @@ first decoded offline from the saved responses; then `src/collect.ts` itself was
 on 2026-10-20 and read all 32 sources ok in 14.7 s (Viral Agenda, left out, see [Not reachable](#not-reachable)).
 On 2026-11-03 the same was done for the three sources added then (Arruda dos Vinhos, Sobral de Monte Agraço, Marinha Grande): one plain GET per page and `robots.txt` once per host, and `src/collect.ts` itself run on them from a home address with no proxy, 3 ok, 22, 8 and 8 items, and 21 event pages read (8, 8 and 5). Whether they answer a GitHub runner directly was settled by the `probe` workflow, run on this branch on 2026-11-03 ([run 41654979471](https://github.com/4e6/rio-maior-events/actions/runs/41654979471)): Arruda dos Vinhos 200, 22 items, 8 details; Sobral de Monte Agraço 200, 8 items, 8 details; Marinha Grande 200, 8 items, 5 details, all answering the runner directly.
 On 2026-11-03 Benavente was read for the same purpose and left out. From a home address with no proxy `src/cli/collect.ts` read it ok (25 items, 6 distinct events, 6 event pages), but the `probe` workflow showed that Benavente did not answer a GitHub runner in two probes (20 s timeouts): the collector and a plain Bun fetch both timed out after 20 s, in runs [41660030753](https://github.com/4e6/rio-maior-events/actions/runs/41660030753) and [41660978728](https://github.com/4e6/rio-maior-events/actions/runs/41660978728); and in run [41662405912](https://github.com/4e6/rio-maior-events/actions/runs/41662405912) the proxy probe returned `ProxyError: proxy failed: 502` for Benavente while Santarém, Torres Novas, Alcanena, Entroncamento and Vila Nova da Barquinha all returned 200. That is one proxy probe, one sample: a transient exit fault is not excluded. The site sets a `cookiesession1` session cookie, which hints at a firewall in front; that is evidence, not proof. The owner left it out; the proxy is never used "to add a source on the grounds that it can now be read" ([decision 0004, Consequences](/decisions/0004-a-residential-proxy-for-the-sites-that-refuse-github-runners.md)).
+On 2026-11-03 the Feira Nacional do Cavalo's programme page (Golegã) was added as `fnc-golega`: one plain GET, `robots.txt` `Allow: /`, the `?p=497` redirect followed (301 to `/fnc-2026-3/`), and `src/cli/collect.ts --only fnc-golega` run from a home address with no proxy, ok, about 11,000 characters of text, not truncated, read directly. The `probe` workflow (GitHub run 41669143546, 2026-11-03) then read it from a GitHub runner: ok, 200, direct, no proxy (that step has none), 0 items, 11179 characters of text. (In the plain Bun fetch list `fnc-golega` shows 301, as expected: `probe_bun.ts` does not follow redirects.) A GitHub runner read it directly in one probe (run 41669143546); that is one run against a Cloudflare-fronted site, which may challenge or rate-limit some runner IPs on other days. Then this source fails alone for that build, and ops-watch's `rme-status-json` warns on failed sources and names it. The proxy is still not a reason to keep the source.
 Drive times in `towns.md` are estimates. A source is only as checked as that: a
 layout that changed since is the usual reason a run reports one failed or empty.
 
@@ -42,7 +43,7 @@ run, and the collector's 1.5 s spacing per host, are within the spirit of it.
 From a GitHub runner the picture differs: the `probe` workflow
 (`.github/workflows/probe.yml`, run by hand) collects once there and prints one
 line per source (`tools/probe_summary.ts`), plus one plain GET per source with
-Bun (`tools/probe_bun.ts`). On 2026-11-03, with the three added sources, it gave 30 of 35 ok; the five failures are the same runner-refusers named next. On 2026-10-21 it gave 27 of 32 ok; Santarém (timeout),
+Bun (`tools/probe_bun.ts`). On 2026-11-03, with the three added sources, it gave 30 of 35 ok; the five failures are the same runner-refusers named next. Later the same day, with `fnc-golega` added (run 41669143546), it gave 31 of 36 ok, the same five failing (Torres Novas, Entroncamento, Alcanena, Barquinha, Santarém). On 2026-10-21 it gave 27 of 32 ok; Santarém (timeout),
 Torres Novas (503), Alcanena, Entroncamento and Vila Nova da Barquinha
 (connection reset) refuse the runner's address while answering a home one. The scheduled build reads these five through the fallback proxy
 ([the decision](../decisions/0004-a-residential-proxy-for-the-sites-that-refuse-github-runners.md)); the probe's last step checks them through it.
@@ -122,6 +123,7 @@ browser; the page should show dated cards for the coming weeks.
   month only, so events from the 1st until the first Monday run are on no page, and
   the run before sees only the previous month. At 50 and 55 minutes, where only a big
   event is kept, that is the accepted cost.
+- **Feira Nacional do Cavalo (Golegã, `fnc-golega`).** One `text` row with no `links` and no `follow`, at the page's WordPress number (`/?p=497`): the programme's slug changes every year (old slugs 404), page 497 was created in 2022 (REST creation date) and now holds the 2026 programme; that the site edits it in place each year is inferred, not seen (the Wayback Machine was offline, so earlier years' addresses could not be read), the "Programa" link on the home page sits in the menu the text parser skips, and a followed page gives only an 800-character excerpt, far short of the programme. The year is not on the day headings, so `references/sources.md` tells the readers to take it from the title and the weekdays. Breaks quietly if the site makes a new page for a year: `?p=497` then keeps showing the old programme, the source stays `ok` and nothing alerts; the October hand check in `sources.md` is the only guard. If page 497 is deleted the source fails, which ops-watch reports. Cloudflare fronts the site; a GitHub runner read it directly in one probe (run 41669143546, 2026-11-03), but Cloudflare may challenge or rate-limit some runner IPs on other days, and the source then fails alone for that build. The proxy is still not a reason to keep it.
 - **Supplementary agendas.** As before: plain text, expect gaps.
 
 # Event links and event pages
@@ -170,7 +172,7 @@ covered several.
 | Municipality | Site | Reason |
 |---|---|---|
 | Azambuja | cm-azambuja.pt agendas culturais | 404; the agendas are PDFs |
-| Golegã | visitgolega.com/agenda | built by script, nothing to read |
+| Golegã | visitgolega.com/agenda | built by script, nothing to read; the fair's own site is read instead (`fnc-golega`) |
 | Alpiarça | cm-alpiarca.pt | the events category (`/documentos/eventos`) is stale, nine posts from April to September, and current items are in `/noticias`, mixed with news, so a plain reader would need a news filter (checked 2026-11-03) |
 | Salvaterra de Magos | cm-salvaterrademagos.pt | the home page links an agenda news post whose address changes |
 | Tomar | cm-tomar.pt | about 55 minutes, like Sobral de Monte Agraço and Marinha Grande; readable from home on 2026-11-03 (page 1 of 3, dates in the text), but not added; readable from a home address (page 1 of 3, dates in the text) but left out of this change as a scope decision; adding it would be a row in `sources.json` followed by a `probe` run (the probe only reads `sources.json`, so it cannot test Tomar before a row exists), and it stays out unless that shows a runner reads it directly |
@@ -189,7 +191,7 @@ covered several.
 | Torres Vedras | theatre and cinema categories of the municipal agenda | not fetched |
 
 Salvaterra de Magos has an agenda and only a stable address is
-missing; it is the most likely to be worth a manual re-check. Golegã and the Médio Tejo agenda would
+missing; it is the most likely to be worth a manual re-check. Golegã's agenda and the Médio Tejo agenda would
 need a browser.
 
 # Known issues
@@ -204,7 +206,7 @@ need a browser.
   town of 50 minutes or more (`references/reading.md`, `towns.md`). Widened by the
   owner on 2026-11-03: Peniche, Leiria, Chamusca, Entroncamento (50), Ourém and Vila
   Nova da Barquinha (55) were already sources at that distance; the widening added
-  towns there that had none before, Arruda dos Vinhos (50), Sobral de Monte Agraço
+  towns there that had none before, Arruda dos Vinhos (50), Golegã (50, its fair only), Sobral de Monte Agraço
   and Marinha Grande (55), and a town beyond that is still out. A source
   that needs a browser or a login is out, because the collector does not do
   either ([where it bends](rio-maior-events.md#what-reaches-the-network-and-where-it-is-careful)).

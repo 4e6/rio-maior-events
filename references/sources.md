@@ -29,6 +29,7 @@ The source list is `sources.json`; the sections below describe how to read each 
 - Feeds of one platform: cm-nazare, cm-batalha, cm-chamusca, cm-arruda, cm-mgrande
 - JSON sources: ourem, cm-cadaval
 - Next.js municipal sites: cm-bombarral, cm-lourinha, cm-alenquer, cm-sobral
+- Feira Nacional do Cavalo: fnc-golega
 - Known yearly events
 - Not used, and why
 - Not used: Benavente
@@ -223,6 +224,18 @@ The pages have no readable text; the script takes the events from the page's emb
 - Many are long runs (an exhibition for months, a project to December): ongoing.
 - Trap (Sobral): an item at the Auditório de Arruda dos Vinhos is also listed by `cm-arruda`; both are in `oeste-sul`, so it is one event. Council notices (editais) are not events.
 
+## Feira Nacional do Cavalo: fnc-golega
+
+`fnc-golega` `https://feiranacionaldocavalo.com/?p=497`, the programme of the Feira Nacional do Cavalo (also Feira Internacional do Cavalo Lusitano and Feira de São Martinho), Golegã, about 50 minutes: the town's one big event, ten days in early to mid November. The address is the page's WordPress number and the site answers it with a redirect (301) to the year's page (`/fnc-2026-3/` in 2026); the row relies on that redirect, and the recorded source address stays `?p=497`. Page 497 was created in 2022 (REST creation date) and now holds the 2026 programme; that the site edits it in place each year is an inference (the Wayback Machine was offline, so earlier years' addresses could not be read), and the row needs no yearly edit only if that holds. The October hand check below is the only guard: nothing alerts if the site makes a new page. The text is about 11,000 characters, not cut: it starts with the page title "FNC 2026 - Feira Nacional do Cavalo", then "Programa", then one block per day: "6 de Novembro – Sexta-Feira | Friday", a day sponsor ("Dia Paladin": not an event), a venue in capitals (ARNEIRO DA FEIRA, HIPPOS GOLEGÃ – CENTRO DE ALTO RENDIMENTO DE DESPORTOS EQUESTRES, EQUUSPOLIS), and timed lines "08:00 – <Portuguese> | <English>". A footer follows (contacts, "© Copyright <year>", a cookie notice).
+
+- Write the fair as ONE `ongoing` event (it runs ten days, and a `multi_day` event must be shorter than 7), category `festival`, `title_pt` "Feira Nacional do Cavalo", `start_date` the first day heading and `end_date` the last (2026: 2026-11-06 to 2026-11-15; a start before the window is allowed), town Golegã, its highlights in the description. Never one event per timed line.
+- Venue: the fair fills the town and the page names many places, so use the town, not one venue.
+- At most two days of their own, as `single` events, when they fall in the window: São Martinho's day (the 11th in 2026: the pilgrims' procession, the native-breeds presentations, "Proud of Portugal" at 20:00) and the Gala Equestre (21:30 on the 12th in 2026). Everything else (show jumping, dressage, carriage driving, working equitation, the tennis open, prize givings, seminars, meetings, a course or book presentation) is not a reason to drive 50 minutes: leave it out, or name it in the fair's description.
+- Trap: the day headings carry no year. The year is in the title "FNC <year>". The page is last year's programme, and no event may be written from it, if either the title's year is not the year of `collected_at`, or the Portuguese weekdays do not fit that year (6 Nov 2027 is a Saturday, and a stale page will still say Sexta-Feira). The site posts the new programme only days before the fair. Ignore the footer "© Copyright <year>" (generated), "Edição de 2022" in the "Inscrições" block and "Golegã 2025 Awards".
+- Trap: check the Portuguese weekday against the date. The English one after "|" is sometimes wrong ("10 de Novembro – terça-Feira | Wednesday"), and there are typos ("Doming o").
+- Times are local ("08h00" is also written). No price is given: price null.
+- By hand, every October: open the address and check that it shows the new year's programme. If the site made a new page instead of reusing page 497, the address keeps showing last year's programme, the source stays `ok` and nothing alerts. The new page's number is in its `shortlink` (`?p=<n>`): change the `url` in `sources.json` and here.
+
 ## Known yearly events
 
 From past listings, not from this collection. Use one only as "date to be confirmed" when its usual dates overlap the window (not merely its month) and no source lists a date for it; say it is expected, never state a date. A hint's `title_pt` is the `title_pt` column. The Title column says whether that is a name seen in a listing (`name`) or our own description of the event (`descriptive`, a translation or a gloss): a descriptive title is still the hint's `title_pt`, and its caveat says the name is not confirmed. Its source is the municipality's own site named in the last column; a hint rests on one sighting, so it is always low confidence.
@@ -255,7 +268,7 @@ From past listings, not from this collection. Use one only as "date to be confir
 - Região de Rio Maior (local paper): stale since 2019.
 - O Mirante agenda: HTTP 500.
 - Visit Alentejo: built by JavaScript, nothing to read without a browser.
-- Golegã (visitgolega.com/agenda) and the Médio Tejo agenda (agenda.mediotejo.pt): built by JavaScript, empty to a plain request.
+- Golegã's own agenda (visitgolega.com/agenda) and the Médio Tejo agenda (agenda.mediotejo.pt): built by JavaScript, empty to a plain request. Golegã's fair is read from its own site (`fnc-golega`).
 - Alpiarça: its events category (`/documentos/eventos`) is stale, nine posts from April to September, and current items are in `/noticias`, mixed with news, so a plain reader would need a news filter.
 - Salvaterra de Magos: the home page links an agenda news post ("Agenda Viver Salvaterra" for the month), whose address changes, so no fixed address can be given.
 - Azambuja: the agenda page answers 404 and its agendas are PDFs.
