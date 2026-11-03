@@ -52,7 +52,9 @@ The yearly-hint table stays on the coming weeks.
 - Recurring events list dates to `near_end` only, when `recurrence` says how they go on
   (without it every date stays). A far hint the editor re-adds is held by `editing.md`
   alone: finalize's rule is for races. Ourém is one request at `per_page=50`: a
-  busier calendar would lose its latest events silently. Santarém Acontece is still cut at
-  about 4 December by its own cap.
+  busier calendar would lose its latest events silently. Santarém Acontece publishes
+  only about seven weeks ahead on one page; its cap was raised from 31,700 to 50,000
+  characters on 2026-11-03 so that page is read whole (39,458 characters that day, to
+  19 December, where the old cap stopped at 11 December).
 - Rejected: the far end as the end of the sixth month; chosen is the same day, which
   is the literal six months and leaves the last month partial (the page says "to 3 May").
