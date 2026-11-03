@@ -65,6 +65,9 @@
   function diff(a, b) { return Math.round((parse(b) - parse(a)) / 864e5); }
   function fmtDay(s) { var d = parse(s); return WD[d.getDay()] + " " + d.getDate() + " " + MO[d.getMonth()]; }
   function fmtShort(s) { var d = parse(s); return d.getDate() + " " + MO[d.getMonth()]; }
+  /* "23 Nov 2026–20 Apr 2027" when a range crosses a year boundary, "23 Nov–20 Apr" otherwise; fmtShort stays compact */
+  function fmtYear(s) { return fmtShort(s) + " " + parse(s).getFullYear(); }
+  function fmtSpan(a, b) { return a.slice(0, 4) === b.slice(0, 4) ? fmtShort(a) + "–" + fmtShort(b) : fmtYear(a) + "–" + fmtYear(b); }
   function isWeekend(s) { var w = dow(s); return w === 0 || w === 5 || w === 6; }   // Friday to Sunday, as in the bands
   var WIN = DATA.window;
   /* The dated agenda ends at NEAR; what starts later is listed under "Further ahead". A near_end that is absent or
@@ -395,7 +398,7 @@
       var months = {};
       ahead.slice().sort(function (a, b) { return a._ahead < b._ahead ? -1 : a._ahead > b._ahead ? 1 : (a.start_time || "99").localeCompare(b.start_time || "99"); })
         .forEach(function (e) { (months[e._ahead.slice(0, 7)] = months[e._ahead.slice(0, 7)] || []).push(e); });
-      aheadHtml = '<section class="band ahead" aria-labelledby="band-ahead"><h2 id="band-ahead">Further ahead <small>' + fmtShort(add(NEAR, 1)) + "–" + fmtShort(WIN.end) + " · " + ahead.length + "</small></h2>" +
+      aheadHtml = '<section class="band ahead" aria-labelledby="band-ahead"><h2 id="band-ahead">Further ahead <small>' + fmtSpan(add(NEAR, 1), WIN.end) + " · " + ahead.length + "</small></h2>" +
         '<p class="ahead-intro">What the sources already list beyond the coming weeks. Few list this far ahead, so this is not all that will be on.</p>';
       Object.keys(months).sort().forEach(function (m) {
         aheadHtml += '<section class="ahead-month" aria-labelledby="am-' + m + '"><h3 class="day-h" id="am-' + m + '">' + MONTHS[+m.slice(5, 7) - 1] + " " + m.slice(0, 4) +
@@ -462,7 +465,7 @@
       cur = add(cur, 32).slice(0, 7) + "-01";
     }
     r += '<div class="legend"><span><span class="mk"><span class="dots"><span class="dot"></span></span></span>one event (up to 3 shown)</span><span><span class="mk"><span class="dots"><span class="dot star">' + STAR + '</span></span></span>a day with one of your picks</span>' + (inWindow ? '<span><span class="mk"><span class="today"><span class="num">' + parse(realToday).getDate() + '</span></span></span>today</span>' : "") + '</div>';
-    if (aheadAll) r += '<a class="ahead-link" href="#ahead"><b>Further ahead</b><span>' + aheadAll + (aheadAll === 1 ? " event" : " events") + " to " + fmtShort(WIN.end) + "</span></a>";
+    if (aheadAll) r += '<a class="ahead-link" href="#ahead"><b>Further ahead</b><span>' + aheadAll + (aheadAll === 1 ? " event" : " events") + " to " + (NEAR.slice(0, 4) === WIN.end.slice(0, 4) ? fmtShort(WIN.end) : fmtYear(WIN.end)) + "</span></a>";
     document.getElementById("rail").innerHTML = r;
   }
 

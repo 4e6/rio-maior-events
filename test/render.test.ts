@@ -496,6 +496,18 @@ describe("Status link, as the page draws it", () => {
     for (const t of ["Sat first", "Ongoing far", "Tbc far"]) expect(we).toContain(t);
   });
 
+  test("Further ahead names the year only when its range crosses a year boundary", () => {
+    const events = [ev({ title_pt: "Far one", title_en: "Far one" })];
+    const crossing = drawn(farData(events, "2026-11-22"));
+    expect(crossing.ahead).toContain("23 Nov 2026–20 Apr 2027");
+    expect(crossing.rail).toContain("to 20 Apr 2027</span>");
+    const d = farData(events, "2026-10-25"); d.window = { start: "2026-10-20", near_end: "2026-10-25", end: "2026-12-15" };
+    const within = drawn(d);
+    expect(within.ahead).toContain("26 Oct–15 Dec ·");
+    expect(within.ahead).not.toContain("26 Oct 2026");
+    expect(within.rail).toContain("to 15 Dec</span>");
+  });
+
   test("the last month grid says where Further ahead starts, also when the dated part ends on a month end", () => {
     const events = [ev({ title_pt: "Near one", title_en: "Near one", start_date: "2026-10-30" }), ev({ title_pt: "Far one", title_en: "Far one" })];
     expect(drawn(farData(events, "2026-11-30")).rail).toContain("Events after 30 Nov are under Further ahead.");

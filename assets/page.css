@@ -304,6 +304,5 @@ footer.foot p { margin: 0; }
 
 @media print {
   .strip-wrap, .rail, .filters, .star, .theme-btn, .linkish, .ahead-chip { display: none !important; }
-  .hidden-line { display: none; }
   .card-more { display: block !important; }
 }

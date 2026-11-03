@@ -11,7 +11,7 @@ sources:
   - resource: test/**
   - resource: .github/workflows/**
   - resource: certs/**
-sources_digest: 7dd4e22428487a4d
+sources_digest: cdafeb6c05b9748a
 ---
 
 # What it is
@@ -303,7 +303,9 @@ dark.
   and date-tbc events as the dated part does. The
   distance and other filters apply to both parts, and each part says how many events
   its filters hide ("N more ... hidden by your filters. Show all"; the dated
-  part's line is left out when the empty-state card is showing); the result line's
+  part's line is left out when the empty-state card is showing, and print drops only its
+  "Show all" button, so a printed filtered page still says events were left out); a range
+  that crosses a year boundary names the year in the Further ahead heading and the rail link; the result line's
   denominator counts only events not yet over. `collect` writes `near_end` into
   `index.json` (the default end, so a `--to` beyond it adds only Further ahead; without `--to`
   it equals `end` and collected data is unchanged) and the page
