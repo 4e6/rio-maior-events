@@ -11,7 +11,7 @@ sources:
   - resource: test/**
   - resource: .github/workflows/**
   - resource: certs/**
-sources_digest: ca943a697888418b
+sources_digest: 8ef322906aa740d4
 ---
 
 # What it is
@@ -409,8 +409,16 @@ dark.
     `hashchange`; letting go moves no mark, the next scroll does), because a smooth
     scroll from November to March passes every day and the last days cannot reach the
     scroll line at the foot of the page; at the foot, the last day in view is the
-    active one. `renderAll` restores the mark on the rebuilt rail after any filter
-    change.
+    active one. A far month's heading on the line marks that month's first day, though
+    the band's intro keeps the day itself below the line, so a month chip, which lands on
+    the heading, goes active (only in the gap between a far heading and its first day:
+    up to the heading and intro, about 80 px, on live data). The Date to be confirmed link
+    and chip are jumps that hold no day (the hash they set does not end the hold), on a
+    plain click only, since a click with a modifier key scrolls nothing here: at the foot
+    that list's heading cannot reach the line, and the last far day in view would keep
+    the mark. `renderAll`
+    restores the mark on the rebuilt rail after any filter change, and a star counts the
+    days again before the rail is redrawn, so its dot comes and goes at once.
   The year is named in a day button's label and the grid's label outside the start year.
   The range stays "to 3 May" in the header. The distance and other filters, the result line's
   denominator (events not yet over) and the hidden-by-filters sentences are as before.
