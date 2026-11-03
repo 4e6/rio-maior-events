@@ -1202,4 +1202,27 @@ describe("Finalize: far races the editor adds back", () => {
     expect(titles(short.out)).toEqual(["Corrida"]);
     expect(short.stats.races).toBe(0);
   });
+
+  test("the backstop being off is warned about, counted and never fails the build", () => {
+    const race = () => [event("Corrida Longe", "2027-01-17", "Santarém", cites(SANTAREM))];
+    const warning = "warning: the race backstop could not run";
+    const stripped = checked().map(({ horizon: _h, ...rest }) => rest);
+    const noLabel = checked().map(({ label: _l, ...rest }) => rest);
+    const noNearRow = checked().filter((s) => s.horizon !== "near");
+    for (const sources of [stripped, noLabel, noNearRow, []]) {
+      const r = run(doc(race(), sources));
+      expect(r.code).toBe(0);
+      expect(titles(r.out)).toEqual(["Corrida Longe"]);
+      expect(r.stdout.split("\n").filter((l) => l.startsWith(warning))).toHaveLength(1);
+      expect(r.stats).toEqual({ events: 1, dropped: 0, collapsed: 0, races: 0, races_guard_off: 1 });
+    }
+    // intact: no warning, no field
+    const ok = run(doc([...race(), event("Concerto", "2027-01-10", "Rio Maior")]));
+    expect(ok.stdout).not.toContain(warning);
+    expect(ok.stats).toEqual({ events: 1, dropped: 0, collapsed: 0, races: 1 });
+    // an old file without near_end is not damaged, only old
+    const old = run(doc([event("Corrida Perto", "2026-11-15", "Santarém", cites(SANTAREM))], stripped, { start: "2026-10-20", end: "2026-11-22" }));
+    expect(old.stdout).not.toContain(warning);
+    expect(old.stats).toEqual({ events: 1, dropped: 0, collapsed: 0, races: 0 });
+  });
 });

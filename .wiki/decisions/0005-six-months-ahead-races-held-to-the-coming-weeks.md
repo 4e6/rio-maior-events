@@ -37,7 +37,9 @@ The yearly-hint table stays on the coming weeks.
   horizon-near row of `sources_checked`, which merge writes for it. Finalize matches by
   name because it has only the file; that is weaker than the unit but fails safe (a race
   its town also lists cites the town and stays), and a file without the horizon cuts
-  nothing. The filter fails the other way: it drops only a card in the
+  nothing. When the window has a `near_end` but `sources_checked` has no horizon-near row with a
+  label (the editor stripped them; a fresh merge always writes them), finalize warns on one line
+  and counts `races_guard_off` in its stats, and never fails the build. The filter fails the other way: it drops only a card in the
   shape it knows, so a layout change costs reading, never text.
 - Hints over six months would make the hand-kept yearly table the far list.
 - A month grid over six months would read as "nothing on in March".

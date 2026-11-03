@@ -11,7 +11,7 @@ sources:
   - resource: test/**
   - resource: .github/workflows/**
   - resource: certs/**
-sources_digest: b747a20ac5d3e142
+sources_digest: 407ddfcd1b66ca53
 ---
 
 # What it is
@@ -90,7 +90,10 @@ and each has its own traps.
   weaker than merge's unit attribution but fails safe: a race its town's source lists too cites
   that source and stays, and so does one naming a source no row has. A file without a horizon on
   any row (one from before this, or one whose editor stripped `sources_checked`), or a window with
-  no `near_end` before its end, cuts nothing. Finalize cannot tell where an event came from, so a
+  no `near_end` before its end, cuts nothing. When the window does have a `near_end` before its end but no
+  horizon-near row carries a label (a fresh merge always writes both, so the editor stripped them), the guard
+  is off: finalize prints one `warning: the race backstop could not run` line and adds `races_guard_off: 1` to
+  `--stats` (absent otherwise; `status.json` carries it as `totals.finalize_races_guard_off`), never failing the build. Finalize cannot tell where an event came from, so a
   far `manual.json` race citing only horizon-near rows, which merge keeps, is cut here. A far hint
   the editor adds from a town group is held by `editing.md` alone.
 - **`src/render.ts` checks and draws.** It validates the file in plain code

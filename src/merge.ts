@@ -564,7 +564,7 @@ export function collapseDuplicates(
 }
 
 /** `races`: events left out by farRaces (after the coming weeks, every source horizon near); not in `dropped`. */
-type Stats = { events: number; dropped: number; collapsed: number; races: number };
+type Stats = { events: number; dropped: number; collapsed: number; races: number; races_guard_off?: number };
 
 /** A source name or label as finalize matches it: its words, accents, case and punctuation folded ("-" for "–"). */
 const sourceKey = (text: unknown): string => typeof text === "string" ? (normalise(text).match(/[a-z0-9]+/g) ?? []).join(" ") : "";
@@ -591,6 +591,21 @@ export function farRaces(doc: Doc): ((e: Doc) => boolean) | null {
   if (!near.size) return null;
   return (e) => Array.isArray(e.sources) && e.sources.length > 0 &&
     e.sources.every((s: unknown) => isDict(s) && near.has(sourceKey(s.name))) && placeStart(e, ne) !== "within";
+}
+
+/**
+ * Whether the race backstop could not run on this file though it should have: a fresh merge writes a horizon "near"
+ * row, with a label, for Portugal Running whenever the window has a near_end before its end, so a file with such a
+ * window and no near row, or none with a label, lost them after merge (the editor stripped them). A file without a
+ * near_end is an old one, not a damaged one: false.
+ */
+export function raceGuardOff(doc: Doc): boolean {
+  const w = doc.window;
+  const ne = isDict(w) ? render.realDate(w.near_end) : null, we = isDict(w) ? render.realDate(w.end) : null;
+  if (!(ne && we && ne < we)) return false;
+  const rows = Array.isArray(doc.sources_checked) ? doc.sources_checked : [];
+  const near = rows.filter((s: unknown) => isDict(s) && s.horizon === "near");
+  return !near.some((s: Doc) => sourceKey(s.label) !== "");
 }
 
 /** merge.finalize_document: [events file fixed so render.check passes, stats, report lines] or [null, problems]. */
@@ -623,6 +638,12 @@ export function finalizeDocument(doc: unknown): [Doc, Stats, string[]] | [null, 
     for (const t of races) report.push(`  ${t}`);
   }
 
+  const guardOff = raceGuardOff(doc);
+  if (guardOff) {
+    report.push("warning: the race backstop could not run: the window has a near_end but sources_checked has no horizon \"near\" row with a label " +
+      "(the editor stripped them?), so far races the editor re-added were not checked");
+  }
+
   const kept = collapseDuplicates(valid, [], window).events;
   const collapsed = valid.length - kept.length;
 
@@ -642,7 +663,9 @@ export function finalizeDocument(doc: unknown): [Doc, Stats, string[]] | [null, 
   out.note = note;
   const problems = render.check(out);
   if (problems.length) return [null, problems];
-  return [out, { events: kept.length, dropped: dropped.length, collapsed, races: races.length }, report];
+  const stats: Stats = { events: kept.length, dropped: dropped.length, collapsed, races: races.length };
+  if (guardOff) stats.races_guard_off = 1;
+  return [out, stats, report];
 }
 
 /** The counts file is only for the status page: a failed write is a warning, never a failed merge. */
