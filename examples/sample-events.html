@@ -1460,22 +1460,23 @@ footer.foot p { margin: 0; }
   function hiddenLine(n, where) {
     return n > 0 ? '<p class="hidden-line">' + n + (n === 1 ? " more event " : " more events ") + where + ' hidden by your filters. <button type="button" class="linkish" data-clear>Show all</button></p>' : "";
   }
-  /* day -> entries, and the dots each day gets (dayCounts, read by the rail and the strip); a star changes only the dots,
-     so recountStars counts again with the same filters rather than drawing the rail from the old counts */
+  /* day -> entries, and the dots each day gets (the counts; the caller makes them dayCounts, which the rail and the strip
+     read); a star changes only the dots, so recountStars counts again with the same filters rather than drawing the rail
+     from the old counts. Fresh objects each time, so no caller can leave the rail half counted. */
   function countDays(S) {
-    var byDay = {}; dayCounts = {};
+    var byDay = {}, counts = {};
     S.dated.forEach(function (e) {
       if (e.date_tbc) return;
       var vis = visibleDays(e, F); if (!vis.length) return;
       vis.forEach(function (d, i) {
         (byDay[d] = byDay[d] || []).push({ e: e, first: i === 0, idx: e._days.indexOf(d) + 1, total: e._days.length });
-        var c = dayCounts[d] = dayCounts[d] || { n: 0, star: false };
+        var c = counts[d] = counts[d] || { n: 0, star: false };
         c.n++; if (stars.has(e.id)) c.star = true;
       });
     });
     /* regular dated occurrences add dots (not list rows) */
-    S.regulars.forEach(function (e) { visibleDays(e, F).forEach(function (d) { var c = dayCounts[d] = dayCounts[d] || { n: 0, star: false }; c.n++; if (stars.has(e.id)) c.star = true; }); });
-    return byDay;
+    S.regulars.forEach(function (e) { visibleDays(e, F).forEach(function (d) { var c = counts[d] = counts[d] || { n: 0, star: false }; c.n++; if (stars.has(e.id)) c.star = true; }); });
+    return { byDay: byDay, counts: counts };
   }
   var tbcShown = 0, farShown = [];   // for the strip chips and the rail link: the far months drawn now, and the undated list
   function renderAll() {
@@ -1483,7 +1484,8 @@ footer.foot p { margin: 0; }
     var dated = S.dated, ongoing = S.ongoing, regulars = S.regulars, tbc = S.tbc;
     tbcShown = tbc.length;   // the band's own count: a chip never reads more than the band it opens, and at 0 the chip and link are left out, as a month chip is
 
-    var byDay = countDays(S);
+    var C = countDays(S), byDay = C.byDay;
+    dayCounts = C.counts;
 
     /* blocks */
     var blocks = "";
@@ -1698,7 +1700,7 @@ footer.foot p { margin: 0; }
      scroll moves it. */
   var activeDay = null, jumpHold = false, holdTimer = 0, jumpHash = null;
   /* a frame later, so a sync that the jump's last scroll event already queued still sees the hold */
-  function letGo() { requestAnimationFrame(function () { jumpHold = false; }); }
+  function letGo() { requestAnimationFrame(function () { jumpHold = false; jumpHash = null; }); }
   function letGoSoon() { clearTimeout(holdTimer); holdTimer = setTimeout(letGo, 200); }   // where scrollend is missing
   function setActive(d) {
     if (d === activeDay) return;
@@ -1788,8 +1790,10 @@ footer.foot p { margin: 0; }
       return;
     }
     /* the undated list's rail link and strip chip are links, so the browser scrolls; they are jumps all the same, holding
-       no day: at the foot of the page the list's heading cannot reach the line, and the last day in view would keep the mark */
-    if (ev.target.closest('a[href="#band-tbc"]')) { jumpHold = true; jumpHash = "#band-tbc"; setActive(null); letGoSoon(); return; }
+       no day: at the foot of the page the list's heading cannot reach the line, and the last day in view would keep the mark.
+       Only a plain click scrolls this page (a modifier opens a tab or a window, or saves the link); following the hash the
+       page already has fires no hashchange, so the hold then spares none */
+    if (plainClick(ev) && ev.target.closest('a[href="#band-tbc"]')) { jumpHold = true; jumpHash = location.hash === "#band-tbc" ? null : "#band-tbc"; setActive(null); letGoSoon(); return; }
     var st = ev.target.closest("[data-star]");
     if (st) {
       var id = st.dataset.star;
@@ -1815,7 +1819,8 @@ footer.foot p { margin: 0; }
       if (tgt) { ev.preventDefault(); tgt.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" }); tgt.querySelector(".card-toggle").focus({ preventScroll: true }); }
     }
   });
-  function recountStars() { countDays(sections(F)); renderNav(); var a = activeDay; activeDay = null; setActive(a); }
+  function plainClick(ev) { return !ev.button && !ev.metaKey && !ev.ctrlKey && !ev.shiftKey && !ev.altKey && !ev.defaultPrevented; }
+  function recountStars() { dayCounts = countDays(sections(F)).counts; renderNav(); var a = activeDay; activeDay = null; setActive(a); }
   document.addEventListener("toggle", function (ev) {
     if (ev.target.id === "blk-ongoing") store.set(NS + "open-ongoing", ev.target.open);
     if (ev.target.id === "blk-regulars") store.set(NS + "open-regulars", ev.target.open);

@@ -11,7 +11,7 @@ sources:
   - resource: test/**
   - resource: .github/workflows/**
   - resource: certs/**
-sources_digest: 870414ea3ee7a519
+sources_digest: e1006db1c35813c1
 ---
 
 # What it is
@@ -407,9 +407,12 @@ dark.
     scroll line at the foot of the page; at the foot, the last day in view is the
     active one. A far month's heading on the line marks that month's first day, though
     the band's intro keeps the day itself below the line, so a month chip, which lands on
-    the heading, goes active. The Date to be confirmed link and chip are jumps that hold
-    no day (the hash they set does not end the hold): at the foot that list's heading
-    cannot reach the line, and the last far day in view would keep the mark. `renderAll`
+    the heading, goes active (only in the gap between a far heading and its first day:
+    up to the heading and intro, about 80 px, on live data). The Date to be confirmed link
+    and chip are jumps that hold no day (the hash they set does not end the hold), on a
+    plain click only, since a click with a modifier key scrolls nothing here: at the foot
+    that list's heading cannot reach the line, and the last far day in view would keep
+    the mark. `renderAll`
     restores the mark on the rebuilt rail after any filter change, and a star counts the
     days again before the rail is redrawn, so its dot comes and goes at once.
   The year is named in a day button's label and the grid's label outside the start year.

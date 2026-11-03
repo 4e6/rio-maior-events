@@ -408,17 +408,23 @@ describe("PageScriptTests", () => {
     expect(js).toContain('["wheel", "touchstart", "mousedown", "keydown"]');
     expect(js).toContain('window.addEventListener("scrollend", function () { if (jumpHold) letGo(); });');
     expect(js).toContain('window.addEventListener("hashchange"');
-    expect(js).toMatch(/function letGo\(\) \{ requestAnimationFrame\(function \(\) \{ jumpHold = false; \}\); \}/);
+    expect(js).toMatch(/function letGo\(\) \{ requestAnimationFrame\(function \(\) \{ jumpHold = false; jumpHash = null; \}\); \}/);
     // the keyboard's tab stop is not moved by the scroll while the keyboard is in the rail
     expect(js).toContain("if (keyboardIn(rail)) return stripTo(d);");
     expect(js).toContain("window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2");
     // renderNav draws the rail without the mark and setActive returns early for the day it holds
     expect(js).toContain("var held = activeDay; activeDay = null; setActive(held);");
+    // Source text, not behaviour, from here: the page-draw harness below has no layout (every position is the same) and
+    // records only innerHTML, so the line, the hold and the active class cannot be seen there. These were checked in
+    // headless Chrome on the live data (a 30 px scroll sweep at 390 and 1280 px, and the clicks below), which this
+    // repository has no committed harness for.
     // a far month's heading on the line marks the month's first day (a month chip lands on the heading, above its intro)
     expect(js).toContain('document.querySelectorAll("#list .band.far > h2")');
     expect(js).toContain("if (fd && (!best || fd.dataset.day > best)) best = fd.dataset.day;");
-    // the undated list's link and chip are jumps that hold no day, and the hash they set does not end the hold
-    expect(js).toContain(`if (ev.target.closest('a[href="#band-tbc"]')) { jumpHold = true; jumpHash = "#band-tbc"; setActive(null); letGoSoon(); return; }`);
+    // the undated list's link and chip are jumps that hold no day, a plain click only (a modifier scrolls nothing here),
+    // and the hash they set does not end the hold, unless the page already had it (no hashchange then)
+    expect(js).toContain(`if (plainClick(ev) && ev.target.closest('a[href="#band-tbc"]')) { jumpHold = true; jumpHash = location.hash === "#band-tbc" ? null : "#band-tbc"; setActive(null); letGoSoon(); return; }`);
+    expect(js).toContain("return !ev.button && !ev.metaKey && !ev.ctrlKey && !ev.shiftKey && !ev.altKey && !ev.defaultPrevented;");
     expect(js).toContain("if (location.hash !== jumpHash) jumpHold = false;");
     expect(js).toContain("jumpHold = true; jumpHash = null; setActive(target.dataset.day);");
   });
@@ -447,7 +453,7 @@ describe("Status link", () => {
 
 describe("Status link, as the page draws it", () => {
   /** Runs page.js against a stand-in document that records what is written to each element's innerHTML. */
-  function drawn(data: Doc, opt: { today?: string; toggles?: string[]; then?: ["toggle" | "star", string][] } = {}): Record<string, string> {
+  function drawn(data: Doc, opt: { today?: string; toggles?: string[]; then?: ["toggle" | "star" | "tbc", string][] } = {}): Record<string, string> {
     const html: Record<string, string> = {};
     const listeners: Record<string, ((ev: any) => void)[]> = {};
     const make = (id: string): any => {
@@ -491,8 +497,15 @@ describe("Status link, as the page draws it", () => {
       const btn = { dataset: { star: id } };
       for (const fn of listeners["document:click"] ?? []) fn({ target: { closest: (sel: string) => (sel === "[data-star]" ? btn : null) } });
     };
+    // the undated list's rail link, clicked plainly ("") or with a modifier key ("metaKey", "shiftKey", ...)
+    const tbc = (mod: string) => {
+      const link = { getAttribute: () => "#band-tbc" };
+      const ev: any = { button: 0, target: { closest: (sel: string) => (sel === 'a[href="#band-tbc"]' ? link : null) } };
+      if (mod) ev[mod] = true;
+      for (const fn of listeners["document:click"] ?? []) fn(ev);
+    };
     for (const toggle of opt.toggles ?? []) press(toggle);
-    for (const [what, arg] of opt.then ?? []) (what === "toggle" ? press : star)(arg);
+    for (const [what, arg] of opt.then ?? []) ({ toggle: press, star, tbc })[what](arg);
     return html;
   }
 
@@ -835,6 +848,18 @@ describe("Status link, as the page draws it", () => {
     const picks = drawn(farData(events), { then: [["star", far!], ["toggle", "picks"], ["star", far!], ["toggle", "picks"]] }).rail!;
     expect(dot(picks, "2026-12-12")).toBe(false);
     expect(dot(drawn(farData(events), { then: [["star", far!], ["toggle", "picks"]] }).rail!, "2026-12-12")).toBe(true);
+  });
+
+  test("after the undated link, plain or with a modifier, a star and a filter still draw the rail with its dots", () => {
+    // the link holds no day (the mark is null), and what reads the mark next must take that: recountStars, renderAll
+    const events = [ev({ title_pt: "Far one", title_en: "Far one", start_date: "2026-12-12" }), ev({ title_pt: "Some day", title_en: "Some day", start_date: "2026-12", date_tbc: true })];
+    const far = render.pageData(farData(events)).events.find((x: Doc) => x.title_en === "Far one")!.id as string;
+    const dot = (rail: string) => /data-go="2026-12-12"[^>]*>(?:(?!<\/button>).)*dot star/.test(rail);
+    for (const mod of ["", "metaKey", "shiftKey"]) {
+      const h = drawn(farData(events), { then: [["tbc", mod], ["star", far], ["tbc", mod], ["toggle", "free"], ["toggle", "free"]] });
+      expect(h.rail).toContain('href="#band-tbc"');
+      expect(dot(h.rail!)).toBe(true);
+    }
   });
 
   test("the unfiltered counts are worked out once, from one filter factory", () => {
