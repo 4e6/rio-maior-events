@@ -74,8 +74,10 @@ events, month-only or with a full date, mark nothing.
 - **The rail is longer** (five grids on live data, up to seven), so each grid is one
   tab stop with arrow keys and a skip link, and the active day is scrolled into view in
   the rail (not while the keyboard is in it). Greyed past days are not stops. A jump
-  holds its day until the user takes over the scroll or the jump's scroll ends, and the
-  foot of the page marks the last day in view.
+  holds its day until the user takes over the scroll or the jump's scroll ends (the
+  Date to be confirmed link holds no day), the foot of the page marks the last day in
+  view, and a far month's heading on the line marks its first day, so a month chip goes
+  active where it lands.
 - **The page grows** by about 11 KB of script (`page.js` 43,175 to 54,371 bytes in this change, inlined in
   every page); the far cards existed before, in a list, and the longer list is drawn in
   the browser.

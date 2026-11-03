@@ -342,15 +342,11 @@
   function hiddenLine(n, where) {
     return n > 0 ? '<p class="hidden-line">' + n + (n === 1 ? " more event " : " more events ") + where + ' hidden by your filters. <button type="button" class="linkish" data-clear>Show all</button></p>' : "";
   }
-  var tbcShown = 0, farShown = [];   // for the strip chips and the rail link: the far months drawn now, and the undated list
-  function renderAll() {
-    var S = sections(F), all = unfiltered();
-    var dated = S.dated, ongoing = S.ongoing, regulars = S.regulars, tbc = S.tbc;
-    tbcShown = tbc.length;   // the band's own count: a chip never reads more than the band it opens, and at 0 the chip and link are left out, as a month chip is
-
-    /* day -> entries */
+  /* day -> entries, and the dots each day gets (dayCounts, read by the rail and the strip); a star changes only the dots,
+     so recountStars counts again with the same filters rather than drawing the rail from the old counts */
+  function countDays(S) {
     var byDay = {}; dayCounts = {};
-    dated.forEach(function (e) {
+    S.dated.forEach(function (e) {
       if (e.date_tbc) return;
       var vis = visibleDays(e, F); if (!vis.length) return;
       vis.forEach(function (d, i) {
@@ -360,7 +356,16 @@
       });
     });
     /* regular dated occurrences add dots (not list rows) */
-    regulars.forEach(function (e) { visibleDays(e, F).forEach(function (d) { var c = dayCounts[d] = dayCounts[d] || { n: 0, star: false }; c.n++; if (stars.has(e.id)) c.star = true; }); });
+    S.regulars.forEach(function (e) { visibleDays(e, F).forEach(function (d) { var c = dayCounts[d] = dayCounts[d] || { n: 0, star: false }; c.n++; if (stars.has(e.id)) c.star = true; }); });
+    return byDay;
+  }
+  var tbcShown = 0, farShown = [];   // for the strip chips and the rail link: the far months drawn now, and the undated list
+  function renderAll() {
+    var S = sections(F), all = unfiltered();
+    var dated = S.dated, ongoing = S.ongoing, regulars = S.regulars, tbc = S.tbc;
+    tbcShown = tbc.length;   // the band's own count: a chip never reads more than the band it opens, and at 0 the chip and link are left out, as a month chip is
+
+    var byDay = countDays(S);
 
     /* blocks */
     var blocks = "";
@@ -573,7 +578,7 @@
      and so does the end of the jump's scroll (or a jump with nothing to scroll), for a scroll that comes with no input
      (find in page, back and forward, a screen reader): letting go leaves the mark where the jump put it, and the next
      scroll moves it. */
-  var activeDay = null, jumpHold = false, holdTimer = 0;
+  var activeDay = null, jumpHold = false, holdTimer = 0, jumpHash = null;
   /* a frame later, so a sync that the jump's last scroll event already queued still sees the hold */
   function letGo() { requestAnimationFrame(function () { jumpHold = false; }); }
   function letGoSoon() { clearTimeout(holdTimer); holdTimer = setTimeout(letGo, 200); }   // where scrollend is missing
@@ -614,6 +619,14 @@
     var line = stickyTop + 60, best = null;
     for (var i = 0; i < secs.length; i++) { if (secs[i].getBoundingClientRect().top <= line) best = secs[i].dataset.day; else break; }
     if (!best && secs.length) best = secs[0].dataset.day;
+    /* a far month's heading on the line is that month, though its intro keeps the first day below the line: a month chip
+       lands on the heading, and the chip goes active with a day of its month */
+    var heads = document.querySelectorAll("#list .band.far > h2");
+    for (var k = heads.length - 1; k >= 0; k--) if (heads[k].getBoundingClientRect().top <= line) {
+      var fd = heads[k].parentNode.querySelector(".day");
+      if (fd && (!best || fd.dataset.day > best)) best = fd.dataset.day;
+      break;
+    }
     /* at the foot of the page the line cannot reach the last days: the last day in view is where we are */
     if (secs.length && window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2) {
       for (var j = secs.length - 1; j >= 0; j--) if (secs[j].getBoundingClientRect().top < window.innerHeight) { best = secs[j].dataset.day; break; }
@@ -637,7 +650,8 @@
   window.addEventListener("scrollend", function () { if (jumpHold) letGo(); });
   /* a link followed with no input on the page (back, forward, a typed address) is the reader's scroll, not the jump's */
   window.addEventListener("hashchange", function () {
-    jumpHold = false;
+    if (location.hash !== jumpHash) jumpHold = false;   // the hash the jump's own link set keeps the hold
+    jumpHash = null;
     if (location.hash === "#ahead" && !document.getElementById("ahead")) toAhead();
   });
 
@@ -650,11 +664,14 @@
       var y = target.getBoundingClientRect().top + window.scrollY - stickyTop + 1;
       /* a click focuses the button: it is then its grid's stop, so Tab and the arrows go on from where the user is */
       if (go.closest("#rail") && go.tagName === "BUTTON") setStop(go);
-      jumpHold = true; setActive(target.dataset.day);
+      jumpHold = true; jumpHash = null; setActive(target.dataset.day);
       window.scrollTo({ top: y, behavior: reduceMotion ? "auto" : "smooth" });
       letGoSoon();   // a jump with nothing to scroll fires no scroll event to end it
       return;
     }
+    /* the undated list's rail link and strip chip are links, so the browser scrolls; they are jumps all the same, holding
+       no day: at the foot of the page the list's heading cannot reach the line, and the last day in view would keep the mark */
+    if (ev.target.closest('a[href="#band-tbc"]')) { jumpHold = true; jumpHash = "#band-tbc"; setActive(null); letGoSoon(); return; }
     var st = ev.target.closest("[data-star]");
     if (st) {
       var id = st.dataset.star;
@@ -680,7 +697,7 @@
       if (tgt) { ev.preventDefault(); tgt.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" }); tgt.querySelector(".card-toggle").focus({ preventScroll: true }); }
     }
   });
-  function recountStars() { renderNav(); var a = activeDay; activeDay = null; setActive(a); }
+  function recountStars() { countDays(sections(F)); renderNav(); var a = activeDay; activeDay = null; setActive(a); }
   document.addEventListener("toggle", function (ev) {
     if (ev.target.id === "blk-ongoing") store.set(NS + "open-ongoing", ev.target.open);
     if (ev.target.id === "blk-regulars") store.set(NS + "open-regulars", ev.target.open);
