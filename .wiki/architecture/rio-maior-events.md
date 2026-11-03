@@ -1,7 +1,7 @@
 ---
 type: Module
 title: Rio Maior events
-description: "A weekly build that gathers leisure events within about 45 minutes of Rio Maior (big ones to 55) and renders an agenda beside a month calendar. Why a script collects and the model reads; the sources, the payload rules; the Claude token and ops-watch."
+description: "A weekly build that gathers events within about 45 minutes of Rio Maior (big ones to 55) and renders an agenda beside a month calendar. Why a script collects, a model reads; the sources, the page, the payload rules; the Claude token and ops-watch."
 tags: [architecture, network, page]
 sources:
   - resource: src/**

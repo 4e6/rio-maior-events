@@ -39,7 +39,7 @@ About 35 list pages a run, each read once, then up to about 210 event pages of t
 - **The race calendar** of Portugal Running, for road races and trails.
 
 Gaps: Facebook and Instagram are not read, and the Cineteatro now announces
-mostly there. Azambuja, Alpiarça, Salvaterra de Magos, Golegã and Tomar have no
+mostly there. Azambuja, Alpiarça, Salvaterra de Magos, Golegã, Tomar, Constância and Benavente have no
 source. Only the first page of a long list is read (Lourinhã and Alenquer have a
 second page; Leiria's list runs to 128). No municipal app or digital street
 screens were found online.

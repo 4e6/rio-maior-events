@@ -29,7 +29,7 @@ On 2026-10-20, one plain GET per page (and `robots.txt` once per host), the
 visible text read by eye. The two JSON sources and the three Next.js sites were
 first decoded offline from the saved responses; then `src/collect.ts` itself was run
 on 2026-10-20 and read all 32 sources ok in 14.7 s (Viral Agenda, left out, see [Not reachable](#not-reachable)).
-On 2026-11-03 the same was done for the three sources added then (Arruda dos Vinhos, Sobral de Monte Agraço, Marinha Grande): one plain GET per page and `robots.txt` once per host, and `src/collect.ts` itself run on them from a home address with no proxy, 3 ok, 22, 8 and 8 items, and 21 event pages read (8, 8 and 5). Whether they answer a GitHub runner directly is for the `probe` workflow, which reads `sources.json` and so covers them; that has not been run.
+On 2026-11-03 the same was done for the three sources added then (Arruda dos Vinhos, Sobral de Monte Agraço, Marinha Grande): one plain GET per page and `robots.txt` once per host, and `src/collect.ts` itself run on them from a home address with no proxy, 3 ok, 22, 8 and 8 items, and 21 event pages read (8, 8 and 5). Whether they answer a GitHub runner directly was settled by the `probe` workflow, run on this branch on 2026-11-03 ([run 41654979471](https://github.com/4e6/rio-maior-events/actions/runs/41654979471)): Arruda dos Vinhos 200, 22 items, 8 details; Sobral de Monte Agraço 200, 8 items, 8 details; Marinha Grande 200, 8 items, 5 details, all answering the runner directly.
 Drive times in `towns.md` are estimates. A source is only as checked as that: a
 layout that changed since is the usual reason a run reports one failed or empty.
 
@@ -41,7 +41,7 @@ run, and the collector's 1.5 s spacing per host, are within the spirit of it.
 From a GitHub runner the picture differs: the `probe` workflow
 (`.github/workflows/probe.yml`, run by hand) collects once there and prints one
 line per source (`tools/probe_summary.ts`), plus one plain GET per source with
-Bun (`tools/probe_bun.ts`). On 2026-10-21 it gave 27 of 32 ok; Santarém (timeout),
+Bun (`tools/probe_bun.ts`). On 2026-11-03, with the three added sources, it gave 30 of 35 ok; the five failures are the same runner-refusers named next. On 2026-10-21 it gave 27 of 32 ok; Santarém (timeout),
 Torres Novas (503), Alcanena, Entroncamento and Vila Nova da Barquinha
 (connection reset) refuse the runner's address while answering a home one. The scheduled build reads these five through the fallback proxy
 ([the decision](../decisions/0004-a-residential-proxy-for-the-sites-that-refuse-github-runners.md)); the probe's last step checks them through it.
@@ -172,7 +172,7 @@ covered several.
 | Golegã | visitgolega.com/agenda | built by script, nothing to read |
 | Alpiarça | cm-alpiarca.pt | the events category (`/documentos/eventos`) is stale, nine posts from April to September, and current items are in `/noticias`, mixed with news, so a plain reader would need a news filter (checked 2026-11-03) |
 | Salvaterra de Magos | cm-salvaterrademagos.pt | the home page links an agenda news post whose address changes |
-| Tomar | cm-tomar.pt | about 55 minutes, like Sobral de Monte Agraço and Marinha Grande; readable from home on 2026-11-03 (page 1 of 3, dates in the text), but not added; a candidate only if the `probe` shows it answering a GitHub runner directly |
+| Tomar | cm-tomar.pt | about 55 minutes, like Sobral de Monte Agraço and Marinha Grande; readable from home on 2026-11-03 (page 1 of 3, dates in the text), but not added; readable from a home address (page 1 of 3, dates in the text) but left out of this change as a scope decision; adding it would be a row in `sources.json` followed by a `probe` run (the probe only reads `sources.json`, so it cannot test Tomar before a row exists), and it stays out unless that shows a runner reads it directly |
 | Constância | none | stale: the newest agenda entry is December 2025 (2026-11-03) |
 | Benavente | none | would need a reader of its own |
 | Médio Tejo (region) | agenda.mediotejo.pt | built by script, empty to a plain request |
@@ -197,8 +197,10 @@ need a browser.
   the few at 50 to 55 minutes that an existing adapter reads, their big events only.**
   The page is for a person in Rio Maior; the readers keep only a big event from a
   town of 50 minutes or more (`references/reading.md`, `towns.md`). Widened by the
-  owner on 2026-11-03: Arruda dos Vinhos (50), Sobral de Monte Agraço and Marinha
-  Grande (55) joined, and a town beyond that is still out. A source
+  owner on 2026-11-03: Peniche, Leiria, Chamusca, Entroncamento (50), Ourém and Vila
+  Nova da Barquinha (55) were already sources at that distance; the widening added
+  towns there that had none before, Arruda dos Vinhos (50), Sobral de Monte Agraço
+  and Marinha Grande (55), and a town beyond that is still out. A source
   that needs a browser or a login is out, because the collector does not do
   either ([where it bends](rio-maior-events.md#what-reaches-the-network-and-where-it-is-careful)).
 - **Own site before an aggregator.** A municipality's own listing is the
