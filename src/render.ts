@@ -213,7 +213,7 @@ export function check(data: unknown): string[] {
         problems.push(`window.near_end is more than ${MAX_DATED_SPAN} days after window.start; the dated part may span ${MAX_DATED_SPAN} days at most`);
       }
     } else if (dayNumber(we) - dayNumber(ws) > MAX_DATED_SPAN) {
-      // The page puts everything after near_end under Further ahead; without it a long window would be one long dated list.
+      // The page bands only the days up to near_end and puts the later ones in month bands; without it a long window would be one long dated list.
       problems.push(`window.near_end is required when the window is longer than ${MAX_DATED_SPAN} days`);
     }
   }
@@ -292,14 +292,14 @@ function plainList(data: Doc): string {
   return items.join("\n");
 }
 
-/** Where the window's dated part ends: `near` is near_end, or `end` when there is no Further ahead (`ahead` false). */
+/** Where the window's dated part ends: `near` is near_end, or `end` when the window does not run on past it (`ahead` false). */
 export function windowSplit(w: Doc): { start: string; near: string; end: string; ahead: boolean } {
   const start = pyStr(w.start), end = pyStr(w.end);
   const ahead = has(w, "near_end") && w.near_end < w.end;
   return { start, near: ahead ? pyStr(w.near_end) : end, end, ahead };
 }
 
-/** "S to E", or "S to N, and further ahead to E" when the window has a Further ahead part. */
+/** "S to E", or "S to N, and further ahead to E" when the window runs on past the coming weeks. */
 function windowLine(w: Doc): string {
   const { start, near, end, ahead } = windowSplit(w);
   return ahead ? `${start} to ${near}, and further ahead to ${end}` : `${start} to ${end}`;
@@ -348,7 +348,6 @@ const PAGE = `<!doctype html>
       <div id="blocks"></div>
       <div id="list"></div>
       <div id="tbc"></div>
-      <div id="ahead" tabindex="-1"></div>
       <footer class="foot" id="foot"></footer>
     </main>
   </div>

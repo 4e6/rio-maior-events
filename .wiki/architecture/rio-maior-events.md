@@ -11,7 +11,7 @@ sources:
   - resource: test/**
   - resource: .github/workflows/**
   - resource: certs/**
-sources_digest: 407ddfcd1b66ca53
+sources_digest: c229f69a2ec55310
 ---
 
 # What it is
@@ -337,26 +337,67 @@ dark.
   output depends on its input alone and the sample HTML is compared byte for
   byte. Dates are built as local dates, never parsed from `YYYY-MM-DD` strings,
   which a browser reads as UTC.
-- **Further ahead is a separate section, and the calendar stays near.** The window
-  has a named boundary, `window.near_end`: the dated weeks (bands, month grids, day
-  strip) end there, and anything whose first day is later (any kind: an exhibition
-  opening in February is not "Ongoing") is listed under Further ahead, grouped by
-  month, as the same cards, with a "Big event" tag at 50 minutes or more (derived
-  from `drive_min`, shown on those cards only). Absent or outside the window,
-  `near_end` means the whole window is dated; `src/render.ts` rejects a window of
-  more than 60 days without one, and a `near_end` more than 60 days after
-  `window.start`, so neither a lost field nor `near_end == end` can turn a long
-  window into one endless list. The grids stay on the near weeks because half a year of mostly
-  empty months would read as "nothing on in March"; the last grid always says where the
-  later events are ("Events after 22 Nov are under Further ahead"), and a rail link and a strip chip jump to the section. The
-  Weekend filter judges a recurring event there by its next date, and keeps ongoing
-  and date-tbc events as the dated part does. The
-  distance and other filters apply to both parts, and each part says how many events
-  its filters hide ("N more ... hidden by your filters. Show all"; the dated
-  part's line is left out when the empty-state card is showing, and print drops only its
-  "Show all" button, so a printed filtered page still says events were left out); a range
-  that crosses a year boundary names the year in the Further ahead heading and the rail link; the result line's
-  denominator counts only events not yet over. `collect` writes `near_end` into
+- **Every day with an event is on the calendar; only the undated are listed apart.**
+  The window has a named boundary, `window.near_end`: the bands (This week to
+  Later), the phone's day strip and the out-of-date notice end there. Absent or
+  outside the window, `near_end` means the whole window is dated; `src/render.ts`
+  rejects a window of more than 60 days without one, and a `near_end` more than 60
+  days after `window.start`, so neither a lost field nor `near_end == end` can turn a
+  long window into one endless list. Past it the page does not change kind
+  ([decision 0006](../decisions/0006-every-placeable-event-on-the-calendar.md)):
+  - *Placement.* A `single` or `multi_day` event marks every one of its days, near or
+    far; its card is on the first visible day and the others get a "continues" row,
+    now also past `near_end`. A recurring event whose next date is after `near_end`
+    marks every listed date (merge keeps four when `recurrence` has text), with one
+    card and an "again" row on the rest. An ongoing event that opens after
+    `near_end` sits on its opening day ("opens · until 6 Jan") and not in Ongoing; one
+    already open stays in Ongoing, and a near regular stays in Regulars (its dots
+    now run past `near_end` where it lists dates). A `date_tbc` event, month-only or
+    with a full day, marks nothing: a dot would assert a day no source confirmed.
+  - *Grids.* One per month, through the last month with a marked day and at least
+    through `near_end`'s month, worked out once in `page.js` with no filters (the
+    placement rules live there, and a grid that grew and shrank as you typed would be
+    worse than a quiet March). Days outside the window are greyed and not buttons;
+    days from `near_end` to `window.end` are live, empty or dotted. Two notes: under
+    `near_end`'s month "After 6 Dec, only what the sources already list; few list this
+    far ahead", and under the last grid "No dated events after March, other than long
+    runs and regulars; the agenda runs to 3 May" (not "nothing listed": an ongoing run
+    can reach past the last grid), so a missing month reads as "not covered". A month
+    with only undated events gets no grid.
+  - *List.* After the near bands, one band per month with a marked day (an `h2`, the
+    first carrying `id="ahead"`, which old links to `#ahead` still reach), then the
+    same day sections and cards, so a far day jumps like a near one. The rail's month
+    names are paragraphs, not headings, so heading navigation meets each month once.
+    "Big event" is a tag on every card of a town 50 minutes or more away (derived
+    from `drive_min`, the readers' rule restated).
+  - *Date to be confirmed* is the one separate list, after every day: every `date_tbc`
+    event, near or far, by the month or day the source gave ("December, day tbc"),
+    with a deterministic order. A rail link and a strip chip go to it.
+  - *Phone.* The strip stays on the coming weeks (34 buttons, not 180); each far month
+    with a card is a chip after it ("Dec 12 · Jan 4 · Feb 3 · Mar 1 · Date tbc 2"),
+    counted as cards, so a run that began near is not counted again; it goes
+    `.active` while a day in that month is.
+  - *Filters.* Distance, free, search, category and stars apply everywhere. Weekend
+    judges each day of a placed event, so a Tuesday-and-Saturday regular shows on its
+    Saturday; this reverses the earlier rule that a far regular is judged by its next
+    date. A far ongoing event is exempt (its run spans weekends; near ones are kept
+    too). The dated part says how many events its filters hide ("N more ... on the
+    calendar hidden by your filters. Show all"), the undated list says its own; the
+    dated line is left out when the empty-state card is showing, and print drops only
+    the "Show all" button.
+  - *Keyboard and scroll.* The rail holds up to seven grids, so each grid is one tab
+    stop (roving `tabindex`, written in the markup: the active day, else today, else the
+    first day not past), arrows move a day or a week across grids, Home and End jump to
+    the ends, and a "Skip the calendar" link comes first. A jump keeps its day marked
+    until the user takes over the scroll (wheel, touch, mouse, key), because a smooth
+    scroll from November to March passes every day and the last days cannot reach the
+    scroll line at the foot of the page; at the foot, the last day in view is the
+    active one. `renderAll` restores the mark on the rebuilt rail after any filter
+    change.
+  The year is named in a day button's label and the grid's label outside the start year.
+  The range stays "to 3 May" in the header. The distance and other filters, the result line's
+  denominator (events not yet over) and the hidden-by-filters sentences are as before.
+  `collect` writes `near_end` into
   `index.json` (the default end of the old window; `--to` is the far end, and an
   earlier `--to` ends both) and the page
   data and `status.json`'s `window` carry it through (additive; ops-watch reads neither
@@ -421,5 +462,9 @@ result order), the adapters on small hand-written fixtures and on saved pages,
 `src/merge.ts` (including the near-end cuts), the card filter on hand-written fixtures, the proxy fallback (`test/proxy.test.ts`: a local CONNECT proxy and HTTPS origin with throwaway fixture certificates, and a fake proxy fetcher beside the direct one), and the renderer's validation, ids,
 escaping, byte-stable sample and its rules for `page.js`. A live run is not in
 CI: the sources change and some throttle. No eval measures the model's reading.
-The gap: `page.js` behaviour (bands, filters, `.ics`) is checked in headless
-Chrome by hand, not in CI; the tests only grep its source.
+The gap: `page.js` runs in CI only against a stand-in document that records each
+element's `innerHTML` (`drawn()` in `test/render.test.ts`, with a fixed clock): it
+covers what is drawn (grids, notes, far bands, chips, hidden lines, tab stops in the
+markup, escaping) and not what needs a real DOM (arrow keys, focus, the scroll mark and
+its hold after a jump, the rail's scroll). Those, and the look, are checked in headless
+Chrome by hand (390 and 1280 pixels, light and dark).

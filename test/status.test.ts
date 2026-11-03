@@ -169,7 +169,7 @@ describe("status data", () => {
 describe("status page", () => {
   const html = (over: Partial<StatusInput> = {}) => renderStatus(buildStatus(input(over)), "/*css*/", "/*status*/");
 
-  test("window.near_end passes through, and the header names Further ahead only when there is one", () => {
+  test("window.near_end passes through, and the header says further ahead only when the window runs past the coming weeks", () => {
     const base = input();
     const near = { ...base.index, window: { start: "2026-10-20", near_end: "2026-11-22", end: "2027-04-20" } };
     expect(buildStatus(input({ index: near })).window).toEqual(near.window);

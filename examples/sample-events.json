@@ -622,7 +622,7 @@
         "text": "Free"
       },
       "kids": true,
-      "description_en": "Sample entry. Starts after the dated weeks, so it is listed under Further ahead, not under Ongoing.",
+      "description_en": "Sample entry. Starts after the dated weeks, so it sits on its opening day on the calendar, not under Ongoing.",
       "sources": [
         {
           "name": "Município de Rio Maior — Agenda",
@@ -656,6 +656,40 @@
         {
           "name": "Óbidos — Eventos",
           "url": "https://example.org/obidos#chocolate"
+        }
+      ],
+      "confidence": "high",
+      "caveat": null
+    },
+    {
+      "title_pt": "Mercado de domingo (sample)",
+      "title_en": "Sunday market in January (sample)",
+      "category": "market",
+      "kind": "recurring",
+      "start_date": "2027-01-10",
+      "end_date": null,
+      "start_time": "08:00",
+      "dates": [
+        "2027-01-10",
+        "2027-01-17",
+        "2027-01-24",
+        "2027-01-31"
+      ],
+      "recurrence": "Sundays from 10 Jan",
+      "date_tbc": false,
+      "venue": "Largo do Mercado",
+      "town": "Rio Maior",
+      "drive_min": 2,
+      "price": {
+        "free": true,
+        "text": "Free"
+      },
+      "kids": true,
+      "description_en": "Sample entry. Fruit, vegetables, cheese, bread and plants from local growers.",
+      "sources": [
+        {
+          "name": "Município de Rio Maior",
+          "url": "https://example.org/rio-maior/mercado"
         }
       ],
       "confidence": "high",

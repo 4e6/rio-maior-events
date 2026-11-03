@@ -100,7 +100,7 @@ no `id`, and no `window` or `sources_checked`: those come from the merge.
   outside the window.
 - The window is about six months. Its first weeks, to `window.near_end` ("the
   coming weeks"), are listed in full; what starts after `window.near_end` is
-  shown on the page under "Further ahead", and only as far as the sources
+  shown on the page by month after the coming weeks, and only as far as the sources
   already list it. So list a later event when a source gives it, and do not go
   looking for more. Races from Portugal Running reach only the coming weeks:
   the script cut the cards after `window.near_end`, and the merge step leaves

@@ -461,7 +461,7 @@ export function writeOutput(outDir: string, collectedAt: string, window: Window,
   extra: { nearEnd?: string; collect_s?: number; proxy?: ProxyStats } = {}): unknown {
   mkdirSync(outDir, { recursive: true });
   const groupOf = new Map(sources.map((s) => [s.name, s.group] as const));
-  // near_end (extra.nearEnd, default nearEndOf): the last dated day; the page lists what starts after it under Further ahead.
+  // near_end (extra.nearEnd, default nearEndOf): the last dated day; the page shows what starts after it by month, on the calendar.
   const span = { start: window[0], near_end: extra.nearEnd ?? nearEndOf(window), end: window[1] };
   const index: { collected_at: string; collect_s?: number; proxy?: unknown; window: typeof span; groups: Record<string, { file: string; sources: string[] }>; sources: unknown[] } =
     { collected_at: collectedAt, window: span, groups: {}, sources: [] };

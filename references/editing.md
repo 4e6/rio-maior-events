@@ -19,9 +19,9 @@ first.
   counts of what the merge left out after the coming weeks ("races left out",
   "hints left out", recurring dates cut): those are done, not for you to undo;
 - the window (first and last day) to keep to, and where the coming weeks end
-  (`window.near_end`). The window is about six months; the page lists what
-  starts after `window.near_end` under "Further ahead" by itself, and explains
-  it, so write nothing about it in the note and leave `window` as it is, and
+  (`window.near_end`). The window is about six months; the page shows what
+  starts after `window.near_end` by month, with a note of its own, so write
+  nothing about it in the note and leave `window` as it is, and
   `sources_checked` too (its `label` and `horizon` are for the final checks);
 - the events file.
 

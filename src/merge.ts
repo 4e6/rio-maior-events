@@ -245,7 +245,7 @@ export function placeStart(e: unknown, nearEnd: string): "within" | "after" | "u
   return next.getUTCDate() === 1 ? "within" : "unknown";
 }
 
-/** The most dates a recurring event keeps that begin after the coming weeks (it is Further ahead from its first date on). */
+/** The most dates a recurring event keeps that begin after the coming weeks (the page shows it by month from its first date on). */
 export const FAR_RECURRING_DATES = 4;
 
 /**

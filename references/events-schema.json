@@ -16,7 +16,7 @@
       },
       "required": ["start", "end"],
       "additionalProperties": false,
-      "description": "The first and last day the agenda covers. `end` is not before `start`. `near_end`, when present, is the last day of the dated weeks: `start <= near_end <= end`, and events after it are listed under Further ahead. Absent means the whole window is dated. Required once the window is longer than 60 days, so a page cannot lose it silently."
+      "description": "The first and last day the agenda covers. `end` is not before `start`. `near_end`, when present, is the last day of the dated weeks: `start <= near_end <= end`, and events after it are shown by month after the coming weeks. Absent means the whole window is dated. Required once the window is longer than 60 days, so a page cannot lose it silently."
     },
     "origin": {
       "type": "string",
