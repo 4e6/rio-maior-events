@@ -14,7 +14,7 @@ sources:
 
 The agenda reaches six months ahead (`window.end`, the same day six months on,
 clamped to a shorter month). The part listed in full, the coming weeks, ends at
-`window.near_end`, the old default end. What starts later is Further ahead on the page.
+`window.near_end`, the old default end. What starts later is shown by month after them ([decision 0006](0006-every-placeable-event-on-the-calendar.md); at first a separate Further ahead list).
 Portugal Running's three rows have `horizon: "near"`: their races stop at `near_end`.
 The yearly-hint table stays on the coming weeks.
 
@@ -42,7 +42,7 @@ The yearly-hint table stays on the coming weeks.
   and counts `races_guard_off` in its stats, and never fails the build. The filter fails the other way: it drops only a card in the
   shape it knows, so a layout change costs reading, never text.
 - Hints over six months would make the hand-kept yearly table the far list.
-- A month grid over six months would read as "nothing on in March".
+- A month grid over six months would read as "nothing on in March". (Reversed for the page: [decision 0006](0006-every-placeable-event-on-the-calendar.md) puts every placeable event on the calendar, with a note where the marks stop.)
 
 # Consequences
 

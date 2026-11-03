@@ -216,7 +216,7 @@ async function collect(work: string, given: string): Promise<boolean> {
 /** What one reader reads: a whole group, or (with READ_SPLIT_CHARS) a piece of one. */
 type Unit = { id: string; group: string; file: string; sources: string[]; piece: boolean };
 
-/** "S to E", and where the coming weeks end when the window has a Further ahead part (window.near_end before its end). */
+/** "S to E", and where the coming weeks end when the window runs on past them (window.near_end before its end). */
 export function windowSentence(window: Json): string {
   const ahead = typeof window.near_end === "string" && window.near_end < window.end;
   return ahead

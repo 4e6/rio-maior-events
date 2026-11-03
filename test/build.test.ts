@@ -423,7 +423,7 @@ describe("scheduled build", () => {
 });
 
 describe("The window in the prompts", () => {
-  test("a window with a Further ahead part names where the coming weeks end; one without says the plain thing", () => {
+  test("a window that runs past the coming weeks names where the coming weeks end; one without says the plain thing", () => {
     expect(windowSentence({ start: "2026-10-20", near_end: "2026-11-22", end: "2027-04-20" }))
       .toBe("The window is 2026-10-20 to 2027-04-20; the coming weeks end at 2026-11-22 (window.near_end).");
     expect(windowSentence({ start: "2026-10-20", end: "2026-11-15" })).toBe("The window is 2026-10-20 to 2026-11-15.");

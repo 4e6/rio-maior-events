@@ -62,7 +62,7 @@ describe("SampleTests", () => {
     const out = join(d, "page.html");
     const [code, said] = run([SAMPLE_JSON, out]);
     expect(code).toBe(0);
-    expect(said).toMatch(/^wrote .*: 21 events, from 2026-10-20 to 2027-04-20\n$/);
+    expect(said).toMatch(/^wrote .*: 22 events, from 2026-10-20 to 2027-04-20\n$/);
     expect(readFileSync(out).equals(readFileSync(SAMPLE_HTML))).toBe(true);
   }));
 
@@ -113,7 +113,7 @@ describe("WindowNearEnd", () => {
     expect(readFileSync(join(ROOT, "references", "events-schema.json"), "utf8")).toContain('"near_end"');
     expect(render.pageData(sample()).window.near_end).toBe("2026-11-22");
   });
-  test("the no-script line says where the dated weeks end only when there is a Further ahead", () => {
+  test("the no-script line says where the dated weeks end only when the window runs further ahead", () => {
     expect(htmlOf(sample())).toContain("2026-10-20 to 2026-11-22, and further ahead to 2027-04-20.");
     const d = sample(); d.window = { start: "2026-10-20", near_end: "2027-04-20", end: "2027-04-20" };
     expect(htmlOf(d)).toContain("2026-10-20 to 2027-04-20.");
@@ -376,23 +376,44 @@ describe("PageScriptTests", () => {
     expect(js).not.toContain("clear-filters\\').click()");
   });
 
-  test("test_the_dated_part_ends_at_near_end_and_a_lost_near_end_falls_back_to_the_window", () => {
+  test("test_the_phone_strip_ends_at_near_end_the_grids_at_the_last_marked_month_and_a_lost_near_end_falls_back_to_the_window", () => {
     expect(js).toContain("WIN.near_end");
     expect(js).toContain("var stale = realToday > NEAR;");
-    // neither the strip nor the grids run to the far end, and "Later" is not open-ended
-    expect(/\bd <= WIN\.end/.test(js)).toBe(false);
+    // the strip and the bands stop at near_end; the grids follow the last month with a marked day, never the window's end
+    expect(js).toContain("for (var d = WIN.start; d <= NEAR; d = add(d, 1))");
+    expect(js).toContain("d >= b.from && d <= b.to && d <= NEAR");
+    expect(js).toContain("while (cur.slice(0, 7) <= GRID_END)");
     expect(/\bcur <= WIN\.end/.test(js)).toBe(false);
     expect(js).not.toContain("9999-12-31");
     // a near_end outside the window is ignored rather than trusted
     expect(js).toContain("WIN.near_end >= WIN.start && WIN.near_end <= WIN.end ? WIN.near_end : WIN.end");
   });
 
-  test("test_further_ahead_and_the_hidden_lines_are_drawn", () => {
-    expect(js).toContain("Further ahead");
+  test("test_the_first_far_band_is_the_ahead_anchor_and_the_hidden_lines_are_drawn", () => {
     expect(js).toContain("hidden by your filters");
-    expect(js).toContain('getElementById("ahead")');
+    expect(js).toContain('id="ahead" tabindex="-1"');
+    expect(js).not.toContain('getElementById("ahead").innerHTML');
     expect(assetText("page.css")).toContain("#ahead");
-    expect(htmlOf(sample())).toContain('<div id="ahead" tabindex="-1"></div>');
+    // the page no longer carries an empty container for it: far days are in #list, the undated ones in #tbc
+    expect(htmlOf(sample())).not.toContain('<div id="ahead"');
+    expect(js).toContain("in the agenda above");
+    expect(js).toContain("with a date to be confirmed");
+  });
+
+  test("test_a_jump_keeps_its_day_until_the_user_scrolls_and_a_rebuilt_calendar_gets_its_mark_back", () => {
+    // a smooth scroll from November to March passes every day and cannot put the last days on the line: no fixed timer;
+    // an input lets go, and so does the scroll's end (or a jump with nothing to scroll), without moving the mark
+    expect(js).not.toContain("jumping++");
+    expect(js).toContain("jumpHold = true");
+    expect(js).toContain('["wheel", "touchstart", "mousedown", "keydown"]');
+    expect(js).toContain('window.addEventListener("scrollend", function () { if (jumpHold) letGo(); });');
+    expect(js).toContain('window.addEventListener("hashchange"');
+    expect(js).toMatch(/function letGo\(\) \{ requestAnimationFrame\(function \(\) \{ jumpHold = false; \}\); \}/);
+    // the keyboard's tab stop is not moved by the scroll while the keyboard is in the rail
+    expect(js).toContain("if (keyboardIn(rail)) return stripTo(d);");
+    expect(js).toContain("window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2");
+    // renderNav draws the rail without the mark and setActive returns early for the day it holds
+    expect(js).toContain("var held = activeDay; activeDay = null; setActive(held);");
   });
 
   test("test_no_demo_leftovers", () => {
@@ -460,7 +481,7 @@ describe("Status link, as the page draws it", () => {
     return html;
   }
 
-  test("the header line says where the dated weeks end and where Further ahead ends", () => {
+  test("the header line says where the dated weeks end and where the agenda ends", () => {
     expect(drawn(sample()).meta).toContain("covers 20 Oct–22 Nov, further ahead to 20 Apr");
     const d = sample(); d.window = { start: "2026-10-20", end: "2026-11-30" };
     expect(drawn(d).meta).toContain("covers 20 Oct–30 Nov ·");
@@ -480,53 +501,306 @@ describe("Status link, as the page draws it", () => {
     const d = sample(); d.window = { start: "2026-10-20", near_end, end: "2027-04-20" }; d.events = events; return d;
   };
 
-  test("the Weekend filter on Further ahead judges a recurring event by its next date, and keeps ongoing and tbc as the dated part does", () => {
+  test("the Weekend filter judges each day of a far event, and keeps an ongoing one and the undated list as the dated part does", () => {
     const d = farData([
       ev({ title_pt: "Tue first", title_en: "Tue first", kind: "recurring", dates: ["2026-12-01", "2026-12-05"], recurrence: "Tuesdays and Saturdays" }),
-      ev({ title_pt: "Sat first", title_en: "Sat first", kind: "recurring", dates: ["2026-12-05", "2026-12-08"], recurrence: "Saturdays and Tuesdays" }),
       ev({ title_pt: "Weekday single", title_en: "Weekday single", start_date: "2026-12-02" }),
       ev({ title_pt: "Ongoing far", title_en: "Ongoing far", kind: "ongoing", start_date: "2026-12-01", end_date: "2026-12-03" }),
       ev({ title_pt: "Tbc far", title_en: "Tbc far", date_tbc: true, start_date: "2026-12" }),
     ]);
-    const all = drawn(d).ahead!;
-    for (const t of ["Tue first", "Sat first", "Weekday single", "Ongoing far", "Tbc far"]) expect(all).toContain(t);
-    const we = drawn(d, { toggles: ["weekend"] }).ahead!;
-    expect(we).not.toContain("Tue first");
-    expect(we).not.toContain("Weekday single");
-    for (const t of ["Sat first", "Ongoing far", "Tbc far"]) expect(we).toContain(t);
+    const all = drawn(d);
+    for (const t of ["Tue first", "Weekday single", "Ongoing far"]) expect(all.list).toContain(t);
+    expect(all.tbc).toContain("Tbc far");
+    const we = drawn(d, { toggles: ["weekend"] });
+    expect(we.list).not.toContain("Weekday single");
+    // its Tuesday is gone but its Saturday is a day that qualifies: the card moves there, as a Saturday regular should
+    expect(we.list).toContain("Tue first");
+    expect(we.list).toContain('id="d-2026-12-05"');
+    expect(all.list).toContain("again: <b>Tue first</b>");
+    expect(we.list).not.toContain("again: <b>Tue first</b>");   // one qualifying date, so one card and no row
+    // the card under Saturday leads with the recurrence text, never with the Tuesday it no longer sits under
+    const sat = we.list!.slice(we.list!.indexOf('id="d-2026-12-05"'));
+    expect(sat).toContain('<span class="line2">Tuesdays and Saturdays');
+    expect(sat).not.toMatch(/line2">[^<]*1 Dec/);
+    // an ongoing run opens on a weekday and still shows (its weekday opening keeps a day block while Weekend is on)
+    expect(we.list).toContain("Ongoing far");
+    expect(we.tbc).toContain("Tbc far");
   });
 
-  test("Further ahead names the year only when its range crosses a year boundary", () => {
-    const events = [ev({ title_pt: "Far one", title_en: "Far one" })];
-    const crossing = drawn(farData(events, "2026-11-22"));
-    expect(crossing.ahead).toContain("23 Nov 2026–20 Apr 2027");
-    expect(crossing.rail).toContain("to 20 Apr 2027</span>");
+  test("a far month band names its year, and the rail link names the undated list", () => {
+    const events = [ev({ title_pt: "Far one", title_en: "Far one" }), ev({ title_pt: "Far two", title_en: "Far two", start_date: "2027-01-09" }), ev({ title_pt: "Tbc", title_en: "Tbc", date_tbc: true, start_date: "2027-02" })];
+    const h = drawn(farData(events));
+    expect(h.list).toContain('<h2 id="band-2026-12">December 2026</h2>');
+    expect(drawn(farData([ev({ title_pt: "Dec 12", title_en: "Dec 12", start_date: "2026-12-12" })], "2026-12-06")).list).toContain('<h2 id="band-2026-12">December 2026 <small>from 7 Dec</small></h2>');
+    expect(h.list).toContain('<h2 id="band-2027-01">January 2027</h2>');
+    expect(h.rail).toContain('<a class="ahead-link" href="#band-tbc"><b>Date to be confirmed</b><span>1 event with no day yet</span></a>');
+    expect(h.tbc).toContain("February 2027, day tbc");
+    // the rail names its months in a paragraph, so heading navigation meets each month once, in the list
+    expect(h.rail).not.toContain("<h2");
     const d = farData(events, "2026-10-25"); d.window = { start: "2026-10-20", near_end: "2026-10-25", end: "2026-12-15" };
     const within = drawn(d);
-    expect(within.ahead).toContain("26 Oct–15 Dec ·");
-    expect(within.ahead).not.toContain("26 Oct 2026");
-    expect(within.rail).toContain("to 15 Dec</span>");
+    expect(within.list).toContain('<h2 id="band-2026-12">December 2026 <small>to 15 Dec</small></h2>');
+    expect(within.list).not.toContain("2026 <small>from");
   });
 
-  test("the last month grid says where Further ahead starts, also when the dated part ends on a month end", () => {
-    const events = [ev({ title_pt: "Near one", title_en: "Near one", start_date: "2026-10-30" }), ev({ title_pt: "Far one", title_en: "Far one" })];
-    expect(drawn(farData(events, "2026-11-30")).rail).toContain("Events after 30 Nov are under Further ahead.");
-    expect(drawn(farData(events, "2026-11-22")).rail).toContain("Events after 22 Nov are under Further ahead.");
-    const rail = drawn(farData(events, "2026-11-30")).rail!;
-    expect(rail.split("grid-note").length - 1).toBe(1);
-    expect(drawn(farData([events[0]!], "2026-11-30")).rail).not.toContain("grid-note");
+  test("the grids run through the last month with a marked day, whatever the window's end", () => {
+    const events = [ev({ title_pt: "Near one", title_en: "Near one", start_date: "2026-10-30" }), ev({ title_pt: "Far one", title_en: "Far one", start_date: "2027-03-20" })];
+    const rail = drawn(farData(events)).rail!;
+    for (const m of ["November 2026", "December 2026", "January 2027", "February 2027", "March 2027"]) expect(rail).toContain(m);
+    expect(rail).not.toContain("April 2027");
+    // an undated April event has no day to mark, so it does not make an empty April
+    expect(drawn(farData([...events, ev({ title_pt: "Apr tbc", title_en: "Apr tbc", date_tbc: true, start_date: "2027-04" })])).rail).not.toContain("April 2027");
+    // only near events: the grids end in near_end's month
+    const near = drawn(farData([events[0]!])).rail!;
+    expect(near).toContain("November 2026");
+    expect(near).not.toContain("December 2026");
   });
 
-  test("with nothing matching, the empty-state card stands alone for the dated part and Further ahead keeps its hidden line", () => {
-    const events = [ev({ title_pt: "Near one", title_en: "Near one", start_date: "2026-10-30" }), ev({ title_pt: "Far one", title_en: "Far one" })];
+  test("a far day is a live day button, a day past the window's end is not, and the label names a later year", () => {
+    const events = [ev({ title_pt: "Far one", title_en: "Far one", start_date: "2026-12-12" }), ev({ title_pt: "Jan one", title_en: "Jan one", start_date: "2027-01-09" }), ev({ title_pt: "April one", title_en: "April one", start_date: "2027-04-10" })];
+    const rail = drawn(farData(events)).rail!;
+    expect(rail).toMatch(/data-go="2026-12-12"[^>]*aria-label="Sat 12 Dec: 1 event"/);
+    expect(rail).toMatch(/data-go="2027-01-09"[^>]*aria-label="Sat 9 Jan 2027: 1 event"/);
+    expect(rail).toContain('aria-label="January 2027"');
+    expect(rail).toMatch(/data-go="2027-04-20"/);
+    expect(rail).toContain('<span class="day-btn out" aria-hidden="true"><span class="num">21</span>');
+    expect(rail).not.toMatch(/data-go="2027-04-21"/);
+    // nothing in the window after 31 Dec 7th: a December day with nothing on it is still a button, as a near one is
+    expect(rail).toMatch(/data-go="2026-12-31"/);
+  });
+
+  test("grid notes: the caveat under near_end's month, and where the marks stop under the last grid", () => {
+    const events = [ev({ title_pt: "Near one", title_en: "Near one", start_date: "2026-10-30" }), ev({ title_pt: "Far one", title_en: "Far one", start_date: "2026-12-12" })];
+    const rail = drawn(farData(events, "2026-11-22")).rail!;
+    expect(rail).toContain("After 22 Nov, only what the sources already list; few list this far ahead.");
+    expect(rail).toContain("No dated events after December, other than long runs and regulars; the agenda runs to 20 Apr.");
+    expect(rail).not.toContain("are under Further ahead");
+    expect(rail.split("grid-note").length - 1).toBe(2);
+    // near_end ending the last grid's month: the end note says it, the caveat is not drawn twice
+    const edge = drawn(farData([events[0]!], "2026-11-30")).rail!;
+    expect(edge.split("grid-note").length - 1).toBe(1);
+    expect(edge).toContain("No dated events after November");
+    // a window that ends in the last grid's month has no end note
+    const d = farData(events); d.window = { start: "2026-10-20", near_end: "2026-11-22", end: "2026-12-20" };
+    expect(drawn(d).rail).not.toContain("No dated events after");
+  });
+
+  test("a far day has a day block of its own, in a month band, and the first one is the ahead anchor", () => {
+    const events = [ev({ title_pt: "Near one", title_en: "Near one", start_date: "2026-10-30" }), ev({ title_pt: "Far one", title_en: "Far one", start_date: "2026-12-12" }), ev({ title_pt: "Far two", title_en: "Far two", start_date: "2027-02-25" })];
+    const list = drawn(farData(events)).list!;
+    expect(list).toContain('<section class="day" id="d-2026-12-12" data-day="2026-12-12">');
+    expect(list).toContain('<section class="day" id="d-2027-02-25" data-day="2027-02-25">');
+    expect(list.match(/class="band far"/g)?.length).toBe(2);
+    expect(list.match(/class="band far" id="ahead" tabindex="-1"/g)?.length).toBe(1);
+    expect(list.match(/id="ahead"/g)?.length).toBe(1);
+    expect(list).toContain("From 23 Nov, what the sources already list. Few list this far ahead");
+    // the near band does not draw a far day, and the days are in order
+    expect(list.indexOf("d-2026-12-12")).toBeLessThan(list.indexOf("d-2027-02-25"));
+  });
+
+  test("a run that crosses near_end gets a row on each later day", () => {
+    const events = [ev({ title_pt: "Long fair", title_en: "Long fair", kind: "multi_day", start_date: "2026-12-05", end_date: "2026-12-08", start_time: null })];
+    const list = drawn(farData(events, "2026-12-06")).list!;
+    expect(list).toContain("continues: <b>Long fair</b> (day 3 of 4)");
+    expect(list).toContain("continues: <b>Long fair</b> (day 4 of 4)");
+    expect(list.match(/<article class="card/g)?.length).toBe(1);
+  });
+
+  test("a far regular has one card and a row on its other dates; a far ongoing event sits on its opening day", () => {
+    const rec = { title_pt: "Sunday market", title_en: "Sunday market", kind: "recurring", start_date: "2027-01-10", dates: ["2027-01-10", "2027-01-17", "2027-01-24", "2027-01-31"], recurrence: "Sundays from 10 Jan" };
+    const h = drawn(farData([ev(rec)]));
+    expect(h.list!.match(/<article class="card/g)?.length).toBe(1);
+    expect(h.list!.match(/again: <b>Sunday market<\/b> \(Sundays from 10 Jan\)/g)?.length).toBe(3);
+    expect(h.rail).toMatch(/data-go="2027-01-31"[^>]*aria-label="Sun 31 Jan 2027: 1 event"/);
+    // with no recurrence text the row counts, without saying the series ends (the merge keeps only the first few far dates)
+    const bare = drawn(farData([ev({ ...rec, recurrence: null })])).list!;
+    expect(bare).toContain("again: <b>Sunday market</b> (date 2 of 4)");
+    const og = drawn(farData([ev({ title_pt: "Nativity", title_en: "Nativity", kind: "ongoing", start_date: "2026-12-01", end_date: "2027-01-06", start_time: null })]));
+    expect(og.list!.match(/<article class="card/g)?.length).toBe(1);
+    expect(og.list).toContain("opens · until 6 Jan");
+    expect(og.blocks ?? "").not.toContain("Nativity");
+  });
+
+  test("the strip ends at near_end and carries one chip a far month, and one for the undated list", () => {
+    const events = [
+      ev({ title_pt: "Dec one", title_en: "Dec one", start_date: "2026-12-12" }), ev({ title_pt: "Dec two", title_en: "Dec two", start_date: "2026-12-13" }),
+      ev({ title_pt: "Jan Sat", title_en: "Jan Sat", start_date: "2027-01-09" }), ev({ title_pt: "Tbc", title_en: "Tbc", date_tbc: true, start_date: "2026-12" }),
+    ];
+    const strip = drawn(farData(events)).strip!;
+    expect(strip.match(/data-go="/g)?.length).toBe(34);   // 20 Oct to 22 Nov
+    expect(strip).toContain('href="#band-2026-12"');
+    expect(strip).toContain('aria-label="December 2026: 2 events"');
+    expect(strip).toContain('aria-label="January 2027: 1 event"');
+    expect(strip).toContain('href="#band-tbc"');
+    // Weekend empties December: no chip for a month with nothing to show
+    const we = drawn(farData([ev({ title_pt: "Dec Mon", title_en: "Dec Mon", start_date: "2026-12-14" }), events[2]!]), { toggles: ["weekend"] }).strip!;
+    expect(we).not.toContain("band-2026-12");
+    expect(we).toContain("band-2027-01");
+    // the empty state draws none
+    expect(drawn(farData(events), { toggles: ["picks"] }).strip).not.toContain("band-20");
+  });
+
+  test("a run that began in the coming weeks is counted in a far month's chip, as its rows there are", () => {
+    const events = [ev({ title_pt: "Long fair", title_en: "Long fair", kind: "multi_day", start_date: "2026-12-05", end_date: "2026-12-08" }), ev({ title_pt: "Dec one", title_en: "Dec one", start_date: "2026-12-12" })];
+    expect(drawn(farData(events, "2026-12-06")).strip).toContain('aria-label="December 2026: 2 events"');
+    // only its continues rows in December: the chip still names it, never "0 events"
+    expect(drawn(farData([events[0]!], "2026-12-06")).strip).toContain('aria-label="December 2026: 1 event"');
+  });
+
+  test("each month grid is one tab stop, in the markup, with a skip link before the grids", () => {
+    const events = [ev({ title_pt: "Dec one", title_en: "Dec one", start_date: "2026-12-12" }), ev({ title_pt: "Mar one", title_en: "Mar one", start_date: "2027-03-20" })];
+    const rail = drawn(farData(events)).rail!;
+    const grids = rail.split('class="grid"').length - 1;
+    expect(grids).toBe(6);
+    expect(rail.match(/tabindex="0"/g)?.length).toBe(grids);
+    expect(rail.match(/tabindex="-1"/g)!.length).toBeGreaterThan(150);
+    // the stop is today in its grid (the harness's clock is 21 Oct), the first day not past in the others
+    expect(rail).toMatch(/data-go="2026-10-21" tabindex="0"/);
+    expect(rail).toMatch(/data-go="2026-12-01" tabindex="0"/);
+    expect(rail).toMatch(/data-go="2027-03-01" tabindex="0"/);
+    expect(rail.indexOf('<a class="skip-link" href="#main">')).toBe(0);
+    // the strip's buttons are not in that order
+    expect(drawn(farData(events)).strip).not.toContain("tabindex");
+  });
+
+  test("Date to be confirmed is the one list: near and far, by the month the source gave, with a deterministic order", () => {
+    const events = [
+      ev({ title_pt: "March", title_en: "March", date_tbc: true, start_date: "2027-03" }), ev({ title_pt: "Nodate", title_en: "Nodate", date_tbc: true, start_date: null }),
+      ev({ title_pt: "Dec full", title_en: "Dec full", date_tbc: true, start_date: "2026-12-12" }), ev({ title_pt: "Nov tbc", title_en: "Nov tbc", date_tbc: true, start_date: "2026-11" }),
+    ];
+    const t = drawn(farData(events)).tbc!;
+    expect(t).toContain("Listed by a source, but with no day to put on the calendar yet.");
+    expect(t).toContain("Date to be confirmed <small>4</small>");
+    expect(t).toContain("November, day tbc");
+    expect(t).toContain("March 2027, day tbc");
+    expect(t).toContain("Sat 12 Dec, to be confirmed");
+    expect(t).toContain("date tbc");
+    const order = ["Nov tbc", "Dec full", "March", "Nodate"].map((x) => t.indexOf(">" + x + "<") >= 0 ? t.indexOf(">" + x + "<") : t.indexOf(x));
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+    // none of them is on the calendar
+    const rail = drawn(farData(events)).rail!;
+    expect(rail).not.toContain("March 2027");
+  });
+
+  test("with nothing matching, the empty-state card stands alone for the dated part and the undated list keeps its hidden line", () => {
+    const events = [ev({ title_pt: "Near one", title_en: "Near one", start_date: "2026-10-30" }), ev({ title_pt: "Far one", title_en: "Far one" }), ev({ title_pt: "Tbc", title_en: "Tbc", date_tbc: true, start_date: "2026-12" })];
     const h = drawn(farData(events), { toggles: ["picks"] });
     expect(h.list).toContain("No events match these filters.");
-    expect(h.tbc).not.toContain("hidden by your filters");
-    expect(h.ahead).toContain("1 more event further ahead hidden by your filters");
+    expect(h.tbc).not.toContain("in the agenda above hidden");
+    expect(h.tbc).toContain("Date to be confirmed");
+    expect(h.tbc).toContain("Nothing without a date matches your filters.");
+    expect(h.tbc).toContain("1 more event with a date to be confirmed hidden by your filters");
     expect((h.list!.match(/Clear filters/g) ?? []).length).toBe(1);
-    // with something still showing, the dated part reports what its filters hide
-    const w = drawn(farData([ev({ title_pt: "Near one", title_en: "Near one", start_date: "2026-10-28" }), ev({ title_pt: "Near two", title_en: "Near two", start_date: "2026-10-30" })]), { toggles: ["weekend"] });
-    expect(w.tbc).toContain("1 more event in the coming weeks hidden by your filters");
+    // with something still showing, the dated part reports what its filters hide: the near and the far day alike
+    const w = drawn(farData([ev({ title_pt: "Near one", title_en: "Near one", start_date: "2026-10-28" }), ev({ title_pt: "Near two", title_en: "Near two", start_date: "2026-10-30" }), ev({ title_pt: "Far wed", title_en: "Far wed", start_date: "2026-12-02" })]), { toggles: ["weekend"] });
+    expect(w.tbc).toContain("2 more events in the agenda above hidden by your filters");
+    expect(w.list).toContain("Nothing after 22 Nov matches your filters.");
+    // no undated list, no undated hidden line
+    expect(w.tbc).not.toContain("Date to be confirmed");
+  });
+
+  test("an old file without near_end draws the grids it always did, and nothing of the far part", () => {
+    const d = farData([ev({ title_pt: "Near one", title_en: "Near one", start_date: "2026-11-10" })]); d.window = { start: "2026-10-20", end: "2026-11-30" };
+    const h = drawn(d);
+    expect(h.rail).toContain("November 2026");
+    expect(h.rail).not.toContain("December 2026");
+    for (const k of ["list", "rail", "strip"]) {
+      expect(h[k]).not.toContain("band far");
+      expect(h[k]).not.toContain("grid-note");
+      expect(h[k]).not.toContain("ahead-chip");
+    }
+  });
+
+  test("a page opened after near_end still says it is out of date", () => {
+    expect(drawn(farData([ev({ title_pt: "Far one", title_en: "Far one" })]), { today: "2026-12-20" }).notice).toContain("out of date");
+    expect(drawn(farData([ev({ title_pt: "Far one", title_en: "Far one" })])).notice ?? "").not.toContain("out of date");
+  });
+
+  test("text from a source is escaped in the far rows", () => {
+    const rec = { title_pt: "<img src=x onerror=alert(1)>", title_en: "<img src=x onerror=alert(1)>", kind: "recurring", start_date: "2027-01-10", dates: ["2027-01-10", "2027-01-17"], recurrence: "<u>" };
+    const h = drawn(farData([ev(rec)]));
+    for (const k of ["list", "rail", "tbc", "strip"]) {
+      expect(h[k] ?? "").not.toContain("<img");
+      expect(h[k] ?? "").not.toContain("<u>");
+    }
+    expect(h.list).toContain("again: <b>&lt;img src=x onerror=alert(1)&gt;</b> (&lt;u&gt;)");
+  });
+
+  test("the Big event tag is on every card from 50 minutes away, near or far", () => {
+    const events = [ev({ title_pt: "Near big", title_en: "Near big", start_date: "2026-10-30", drive_min: 60 }), ev({ title_pt: "Near small", title_en: "Near small", start_date: "2026-10-31", drive_min: 10 }), ev({ title_pt: "Far big", title_en: "Far big", drive_min: 55 })];
+    const list = drawn(farData(events)).list!;
+    expect(list.match(/far-tag/g)?.length).toBe(2);
+    expect(list.indexOf("far-tag")).toBeLessThan(list.indexOf("Near small"));
+  });
+
+  test("a near regular's dots stop at near_end: no far grid or dot for a day the list has no block for", () => {
+    // merge trims a regular's dates only when recurrence has text, so a bare one can reach the page with far dates
+    const reg = ev({ title_pt: "Bare regular", title_en: "Bare regular", kind: "recurring", start_date: "2026-10-24", dates: ["2026-10-24", "2026-11-21", "2027-02-13"], recurrence: null });
+    const h = drawn(farData([reg]));
+    expect(h.rail).not.toContain("February 2027");
+    expect(h.rail).not.toContain("December 2026");
+    expect(h.rail).toMatch(/data-go="2026-11-21"[^>]*aria-label="Sat 21 Nov: 1 event"/);
+    expect(h.blocks).toContain("Bare regular");
+    // with a far single in February the grid is there, but the regular's February date is no dot on it
+    const f = drawn(farData([reg, ev({ title_pt: "Feb one", title_en: "Feb one", start_date: "2027-02-20" })]));
+    expect(f.rail).toMatch(/data-go="2027-02-13"[^>]*aria-label="Sat 13 Feb 2027: no events"/);
+    expect(f.list).not.toContain("d-2027-02-13");
+  });
+
+  test("a far month's chip counts the events on its days, again and continues rows too, so it never reads 0", () => {
+    const market = ev({ title_pt: "Market", title_en: "Market", kind: "recurring", start_date: "2026-12-27", dates: ["2026-12-27", "2027-01-03", "2027-01-10"], recurrence: "Sundays" });
+    const strip = drawn(farData([market])).strip!;
+    expect(strip).toContain('aria-label="January 2027: 1 event"');
+    expect(strip).not.toContain('<span class="n">0</span>');
+    const run = ev({ title_pt: "Year run", title_en: "Year run", kind: "multi_day", start_date: "2026-12-30", end_date: "2027-01-02" });
+    expect(drawn(farData([run])).strip).toContain('aria-label="January 2027: 1 event"');
+  });
+
+  test("an undated event whose month, or the day it gave, is past leaves the undated list", () => {
+    const events = [
+      ev({ title_pt: "Oct tbc", title_en: "Oct tbc", date_tbc: true, start_date: "2026-10" }), ev({ title_pt: "Day gone", title_en: "Day gone", date_tbc: true, start_date: "2026-11-01" }),
+      ev({ title_pt: "Nov tbc", title_en: "Nov tbc", date_tbc: true, start_date: "2026-11" }), ev({ title_pt: "Day ahead", title_en: "Day ahead", date_tbc: true, start_date: "2026-11-05" }),
+      ev({ title_pt: "Nodate", title_en: "Nodate", date_tbc: true, start_date: null }),
+    ];
+    const h = drawn(farData(events), { today: "2026-11-05" });
+    for (const t of ["Nov tbc", "Day ahead", "Nodate"]) expect(h.tbc).toContain(t);
+    for (const t of ["Oct tbc", "Day gone"]) expect(h.tbc).not.toContain(t);
+    expect(h.tbc).toContain("Date to be confirmed <small>3</small>");
+    expect(h.strip).toContain('Date tbc <span class="n">3</span>');
+    expect(h["result-line"]).toContain("3 of 3 events");
+  });
+
+  test("the undated chip and rail link count what the Date to be confirmed band counts, and leave when it is 0", () => {
+    const events = [ev({ title_pt: "Dated", title_en: "Dated", start_date: "2026-10-30" }), ev({ title_pt: "Nodate", title_en: "Nodate", date_tbc: true, start_date: null }), ev({ title_pt: "Nov tbc", title_en: "Nov tbc", date_tbc: true, start_date: "2026-11" })];
+    const all = drawn(farData(events));
+    expect(all.strip).toContain('Date tbc <span class="n">2</span>');
+    expect(all.rail).toContain("2 events with no day yet");
+    // Free filters both undated events out (€8): the band says 0, so the chip and the link are not drawn
+    const w = drawn(farData(events), { toggles: ["free"] });
+    expect(w.tbc).toContain("Date to be confirmed <small>0</small>");
+    expect(w.strip).not.toContain("Date tbc");
+    expect(w.rail).not.toContain("ahead-link");
+  });
+
+  test("the dated hidden line counts what the agenda above hides, a regular kept by its recurrence text included", () => {
+    const events = [
+      ev({ title_pt: "Sunday text", title_en: "Sunday text", kind: "recurring", start_date: "2026-10-27", dates: ["2026-10-27", "2026-11-03"], recurrence: "Tuesdays, and some Sundays" }),
+      ev({ title_pt: "Tuesday only", title_en: "Tuesday only", kind: "recurring", start_date: "2026-10-27", dates: ["2026-10-27", "2026-11-03"], recurrence: "Tuesdays" }),
+      ev({ title_pt: "Weekday one", title_en: "Weekday one", start_date: "2026-10-28" }), ev({ title_pt: "Sat one", title_en: "Sat one", start_date: "2026-10-24" }),
+    ];
+    const h = drawn(farData(events), { toggles: ["weekend"] });
+    expect(h.blocks).toContain("Sunday text");
+    expect(h.blocks).not.toContain("Tuesday only");
+    expect(h["result-line"]).toContain("2 of 4 events match");
+    expect(h.tbc).toContain("2 more events in the agenda above hidden by your filters");
+  });
+
+  test("a grid whose days are all past has no tab stop, and no past day is one", () => {
+    const events = [ev({ title_pt: "Dec one", title_en: "Dec one", start_date: "2026-12-12" })];
+    const rail = drawn(farData(events, "2026-11-30"), { today: "2026-11-05" }).rail!;
+    expect(rail.match(/tabindex="0"/g)?.length).toBe(2);   // November and December; October is behind us
+    expect(rail).toMatch(/data-go="2026-11-05" tabindex="0"/);
+    expect(rail).not.toMatch(/past"[^>]*tabindex="0"/);
   });
 
   test("the unfiltered counts are worked out once, from one filter factory", () => {
