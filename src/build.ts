@@ -216,10 +216,18 @@ async function collect(work: string, given: string): Promise<boolean> {
 /** What one reader reads: a whole group, or (with READ_SPLIT_CHARS) a piece of one. */
 type Unit = { id: string; group: string; file: string; sources: string[]; piece: boolean };
 
+/** "S to E", and where the coming weeks end when the window has a Further ahead part (window.near_end before its end). */
+export function windowSentence(window: Json): string {
+  const ahead = typeof window.near_end === "string" && window.near_end < window.end;
+  return ahead
+    ? `The window is ${window.start} to ${window.end}; the coming weeks end at ${window.near_end} (window.near_end).`
+    : `The window is ${window.start} to ${window.end}.`;
+}
+
 function readerPrompt(work: string, window: Json, unit: Unit): string {
   const refs = join(work, "references");
   return [
-    `Read ${refs}/reading.md first and follow it. The window is ${window.start} to ${window.end}.`,
+    `Read ${refs}/reading.md first and follow it. ${windowSentence(window)}`,
     `Then read ${refs}/sources.md, ${refs}/towns.md and ${refs}/events-schema.json (the format your events follow),`,
     `then your group file ${unit.file}, and write your candidates file`,
     `${work}/rio-maior-candidates/${unit.id}.json as reading.md describes (use Write to create it).`,
@@ -271,7 +279,7 @@ function unitsOf(work: string, index: Json): Unit[] {
 async function editorRound(work: string, window: Json, renderOutput: string): Promise<void> {
   const prompt = [
     `Read ${work}/references/editing.md first and follow it.`,
-    `The window is ${window.start} to ${window.end}. The merge report is ${work}/merge-report.txt.`,
+    `${windowSentence(window)} The merge report is ${work}/merge-report.txt.`,
     `The events file, the only file you may edit, is ${work}/rio-maior-events.json.`,
     `The readers' candidates (for hints) are in ${work}/rio-maior-candidates/, the references in ${work}/references/.`,
     "Work only from these files.",
@@ -325,7 +333,12 @@ async function finalize(work: string): Promise<boolean> {
   const stats = join(work, "finalize-stats.json");
   if (parses(events)) summary.editor_events = JSON.parse(readFileSync(events, "utf8")).events?.length ?? null;
   summary.finalize_input = "editor";
-  if (parses(events) && (await cli("merge", "--finalize", events, "--stats", stats)).code === 0) return true;
+  if (parses(events)) {
+    // its report names the far races it left out of the editor's file: printed, so the run's log keeps them
+    const edited = await cli("merge", "--finalize", events, "--stats", stats);
+    console.log(edited.stdout.trim());
+    if (edited.code === 0) return true;
+  }
   console.error("finalizing the editor's file did not work; falling back to the merge output");
   summary.finalize_input = "merge";
   copyFileSync(raw, events);

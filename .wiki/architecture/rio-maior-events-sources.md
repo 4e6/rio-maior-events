@@ -9,7 +9,7 @@ sources:
   - resource: references/sources.md
   - resource: tools/probe_*.ts
   - resource: .github/workflows/probe.yml
-sources_digest: 78b99f63b668b49f
+sources_digest: 0e9d983af99af507
 ---
 
 # What this page is for
@@ -58,7 +58,7 @@ browser; the page should show dated cards for the coming weeks.
   UTC is converted. By hand: the calendar's endpoint must be POSTed, so check
   the municipality's own agenda page instead.
 - **Portugal Running.** The one race calendar ([why](#why)). Breaks if the site starts
-  refusing scripts, as GoTrail and Running.life did. Each month's list is cut
+  refusing scripts, as GoTrail and Running.life did, or reformats its cards (the collector then keeps the cards it cannot read and counts them in the source's note, which always gives the dated and dropped counts: 30/15, 33/13 and 49/7 for Santarém, Leiria and Lisboa on 2026-11-03, with no card unread; merge still holds the races to the coming weeks). Only the coming weeks are read (`horizon: near`). Each month's list is cut
   behind a "Mostrar mais" the collector cannot press, so a month can hold more
   races than the text shows; the readers say so in their coverage lines.
 - **Joomla agendas (Alcanena, Entroncamento, Vila Nova da Barquinha, Torres

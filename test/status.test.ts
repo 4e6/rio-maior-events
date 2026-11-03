@@ -82,8 +82,13 @@ describe("status data", () => {
 
   test("totals and the result line come from counts", () => {
     const d = buildStatus(input());
-    expect(d.totals).toMatchObject({ candidates: 4, after_merge: 4, editor_file: 4, after_finalize: 3, finalize_dropped: 1, on_page: 3, hints: 2 });
+    expect(d.totals).toMatchObject({ candidates: 4, after_merge: 4, editor_file: 4, after_finalize: 3, finalize_dropped: 1, finalize_races: null, on_page: 3, hints: 2 });
     expect(d.result.line).toBe("Deployed: 3 events. Editor ok, finalized.");
+    // the far races finalize left out add up with the rest: 4 in the editor's file, 1 dropped, 1 race, 2 after
+    const races = buildStatus(input({ finalizeStats: { events: 2, dropped: 1, collapsed: 0, races: 1 } }));
+    expect(races.totals).toMatchObject({ editor_file: 4, finalize_dropped: 1, finalize_races: 1, after_finalize: 2 });
+    expect(renderStatus(races, "", "")).toContain("2 (1 dropped by the checks, 0 duplicates collapsed, 1 far races left out)");
+    expect(renderStatus(d, "", "")).toContain("3 (1 dropped by the checks, 0 duplicates collapsed)</dd>");
     const raw = buildStatus(input({ summary: { ...input().summary, finalize_input: "merge" } }));
     expect(raw.result.line).toContain("merge's raw output");
     expect(raw.result.degraded).toBe(true);

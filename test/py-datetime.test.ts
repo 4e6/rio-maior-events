@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { defaultEnd, localIsoNow, lisbonToday, lisbonTime, parseIsoDate, parseIsoDatetime, parseRfc822 } from "../src/py/datetime";
+import { aheadEnd, defaultEnd, localIsoNow, lisbonToday, lisbonTime, parseIsoDate, parseIsoDatetime, parseRfc822 } from "../src/py/datetime";
 
 const vectors = JSON.parse(readFileSync(join(import.meta.dir, "vectors", "py-datetime.json"), "utf8"));
 const utc = (y: number, mo: number, d: number, h = 0, mi = 0) => Date.UTC(y, mo - 1, d, h, mi);
@@ -51,6 +51,19 @@ describe("default window", () => {
       expect(days).toBeGreaterThanOrEqual(28);
       expect(days).toBeLessThan(35);
     }
+  });
+
+  test("test_ahead_end_is_the_same_day_six_months_on_clamped_to_the_month", () => {
+    const cases = [
+      ["2026-11-02", "2027-05-02"],
+      ["2026-08-31", "2027-02-28"],
+      ["2027-08-31", "2028-02-29"],
+      ["2026-12-28", "2027-06-28"],
+      ["2026-12-31", "2027-06-30"],
+      ["2026-07-15", "2027-01-15"],
+    ];
+    for (const [start, end] of cases) expect([start, aheadEnd(start!)]).toEqual([start, end]);
+    expect(() => aheadEnd("2026-02-30")).toThrow(RangeError);
   });
 
   test("test_today_is_lisbon_today", () => {

@@ -219,6 +219,57 @@ function readGroup(candidates: string, group: string, stamp: unknown, problems: 
   return null;
 }
 
+/** Whether an event or hint starts after `nearEnd`: by day, or by the month/day prefix its start_date has (as checkEvent compares a date_tbc one). */
+export function startsAfter(e: Doc, nearEnd: string): boolean {
+  const start = e.start_date;
+  if (typeof start !== "string" || !(render.realDate(start) || render.realMonth(start))) return false;
+  return start > nearEnd.slice(0, start.length);
+}
+
+/**
+ * Where a candidate starts against `nearEnd`: "within" (on or before it), "after", or "unknown" when merge cannot
+ * tell: not an object, no real start_date, or only a month (date_tbc "YYYY-MM") that is near_end's own month and runs
+ * past it. The race cut drops "unknown" as well as "after" (fail closed): an invalid date is otherwise only reported,
+ * and the editor's repair of it is held to near_end again only by finalize's name match (farRaces), which a race
+ * citing a name no source row has escapes.
+ */
+export function placeStart(e: unknown, nearEnd: string): "within" | "after" | "unknown" {
+  if (!isDict(e) || typeof e.start_date !== "string") return "unknown";
+  const start: string = e.start_date;
+  if (render.realDate(start)) return start > nearEnd ? "after" : "within";
+  if (!render.realMonth(start)) return "unknown";
+  const month = nearEnd.slice(0, 7);
+  if (start !== month) return start > month ? "after" : "within";
+  // the month runs past near_end unless near_end is its last day
+  const next = new Date(Date.UTC(+nearEnd.slice(0, 4), +nearEnd.slice(5, 7) - 1, +nearEnd.slice(8, 10) + 1));
+  return next.getUTCDate() === 1 ? "within" : "unknown";
+}
+
+/** The most dates a recurring event keeps that begin after the coming weeks (it is Further ahead from its first date on). */
+export const FAR_RECURRING_DATES = 4;
+
+/**
+ * A recurring event lists its dates only up to near_end, with the rest in `recurrence`: a weekly market over six
+ * months would otherwise carry about 26 dates into the readers' output and the editor's input. One that starts after
+ * near_end keeps its first FAR_RECURRING_DATES distinct dates. Trimmed only when `recurrence` has text to hold the
+ * rest: without it the page shows the dates themselves, and a cut list would end the event at near_end with nothing
+ * saying it goes on. Not trimmed either when a date is not a string (left for the check to report). Returns whether
+ * it trimmed. start_date and end_date are left as they are: the page places a recurring event by its dates,
+ * render.checkEvent ties neither to them, and the kept dates are the earliest, so the span the event states (to
+ * end_date, with the rest in `recurrence`) still holds.
+ */
+export function trimRecurring(e: Doc, nearEnd: string): boolean {
+  if (e.kind !== "recurring" || e.date_tbc === true || !Array.isArray(e.dates)) return false;
+  if (!render.textOk(e.recurrence)) return false;
+  if (!e.dates.every((d: unknown) => typeof d === "string")) return false;
+  const dates = [...new Set<string>(e.dates)].sort();
+  const near = dates.filter((d) => d <= nearEnd);
+  const kept = near.length ? near : dates.slice(0, FAR_RECURRING_DATES);
+  if (kept.length === dates.length) return false;
+  e.dates = kept;
+  return true;
+}
+
 export type MergeOptions = {
   /** A folder written by split.ts: the candidates files are then one per piece, not one per group. */
   split?: string;
@@ -244,6 +295,11 @@ export function merge(
   if (!(isDict(groups) && Array.isArray(sources) && isDict(window) && truthy(stamp))) {
     return [null, ["index: needs collected_at, window, groups and sources"]];
   }
+
+  // The coming weeks end at window.near_end (the window end when there is none, or a bad one: nothing is left out then).
+  const nearDay = render.realDate(window.near_end), endDay = render.realDate(window.end);
+  const nearEnd = nearDay && endDay && nearDay < endDay ? nearDay : null;
+  const horizonNear = new Set<unknown>(sources.filter((s: unknown) => isDict(s) && s.horizon === "near").map((s: Doc) => s.name));
 
   let events: Doc[] = [];
   let origins: string[] = [];
@@ -321,13 +377,71 @@ export function merge(
       o = !truthy(o.ok) && truthy(o.error) ? o : { error: NOT_READ };
     }
     if (!entry.ok && truthy(o.error)) entry.error = o.error;
+    // for finalize's race backstop (farRaces): the index row's label, the name readers write on an event, and its horizon
+    if (isDict(s) && render.textOk(s.label)) entry.label = s.label;
+    if (isDict(s) && s.horizon === "near") entry.horizon = "near";
     checked.push(entry);
+  }
+
+  // What the coming weeks hold, deterministically, before anything else sees the candidates.
+  const cut = { hints: 0, races: [] as string[], unplaced: [] as string[], recurring: 0, units: [] as string[] };
+  let keptHints = hints;
+  if (nearEnd) {
+    // Races. This is where the rule that Portugal Running's races stop at the coming weeks is enforced: a candidate from a
+    // unit whose sources are ALL horizon "near" and that starts after near_end is left out, by the unit it came from (not by
+    // any source name or label the reader wrote). The collector's card filter only saves reading cost and noise, and
+    // this still holds when the site changes its card layout and the filter finds nothing to cut. The same race
+    // from its town's own unit is a separate candidate and stays. It fails closed: a candidate it cannot place before
+    // near_end is left out too, and so is a far one from a unit whose sources it cannot tell (reported, never silent).
+    // manual.json is a person's own hand-written list, not a reader's unit, and is not cut.
+    const sourceNames = new Set<unknown>(sources.filter(isDict).map((s: Doc) => s.name));
+    const nearOnly = new Map<string, boolean>();
+    const isNearOnly = (unit: string): boolean => {
+      if (!nearOnly.has(unit)) {
+        const listed = unitSources.get(unit);
+        // a piece always lists its sources (split.ts); a group without a list falls back to the index rows of that group
+        const names: unknown[] = Array.isArray(listed) ? listed : sources.filter((s: Doc) => isDict(s) && s.group === unit).map((s: Doc) => s.name);
+        const unknown = names.filter((n) => !sourceNames.has(n));
+        const near = names.filter((n) => horizonNear.has(n));
+        let held = names.length > 0 && near.length === names.length;
+        if (!names.length || unknown.length) {
+          held = true;
+          cut.units.push(`${unit}: ${names.length ? `lists sources not in the index (${unknown.map(pyStr).join(", ")})` : "lists no sources"}; ` +
+            "held to the coming weeks as if all were horizon near");
+        } else if (near.length && !held) {
+          cut.units.push(`${unit}: mixes horizon-near sources (${near.map(pyStr).join(", ")}) with others; its candidates are not held to the coming weeks`);
+        }
+        nearOnly.set(unit, held);
+      }
+      return nearOnly.get(unit)!;
+    };
+    const keepEvents: Doc[] = [];
+    const keepOrigins: string[] = [];
+    events.forEach((e, i) => {
+      const place = origins[i] !== "manual" && isNearOnly(origins[i]!) ? placeStart(e, nearEnd) : "within";
+      if (place === "after") {
+        cut.races.push(describe(e));
+        return;
+      }
+      if (place === "unknown") {
+        cut.unplaced.push(isDict(e) ? describe(e) : `not an object: ${pyRepr(e)}`);
+        return;
+      }
+      keepEvents.push(e);
+      keepOrigins.push(origins[i]!);
+    });
+    events = keepEvents;
+    origins = keepOrigins;
+    // Hints stay on the coming weeks: the yearly table in sources.md is a hand-kept list.
+    keptHints = hints.filter(([, h]) => !startsAfter(h, nearEnd));
+    cut.hints = hints.length - keptHints.length;
+    for (const e of events) if (isDict(e) && trimRecurring(e, nearEnd)) cut.recurring++;
   }
 
   const townMinutes = opts.towns ?? loadTowns();
   for (const e of events) if (isDict(e) && e.drive_min === null) fillDrive(e, townMinutes);
   const wStart = render.realDate(window.start), wEnd = render.realDate(window.end);
-  const candidateCount = events.length;
+  const candidateCount = events.length + cut.races.length + cut.unplaced.length;
   const collapsed = collapseDuplicates(events, origins, wStart && wEnd && wStart <= wEnd ? [wStart, wEnd] : null, true);
   events = collapsed.events;
   opts.onStats?.({ candidates: candidateCount, collapsed: collapsed.collapsed, events: events.length });
@@ -345,8 +459,19 @@ export function merge(
     lines.push(`already merged: ${collapsed.collapsed} listing(s) with the same title, date and town (the events below are one each):`);
     for (const t of collapsed.titles) lines.push(`  ${t}`);
   }
+  if (cut.races.length) {
+    lines.push(`races left out (after the coming weeks, ${nearEnd}): ${cut.races.length}`);
+    for (const t of cut.races) lines.push(`  ${t}`);
+  }
+  if (cut.unplaced.length) {
+    lines.push(`races left out (no start_date that places them on or before ${nearEnd}: none that is real, or only its month): ${cut.unplaced.length}`);
+    for (const t of cut.unplaced) lines.push(`  ${t}`);
+  }
+  for (const t of cut.units) lines.push(`near-end attribution: ${t}`);
+  if (cut.recurring) lines.push(`recurring events with their dates cut to the coming weeks (the rest is in recurrence): ${cut.recurring}`);
+  if (cut.hints) lines.push(`hints left out (expected after the coming weeks, ${nearEnd}): ${cut.hints}`);
   lines.push("hints:");
-  for (const [group, h] of hints) lines.push(`  [${group}] ${describe(h)} | ${truthy(h.caveat) ? pyStr(h.caveat) : ""}`);
+  for (const [group, h] of keptHints) lines.push(`  [${group}] ${describe(h)} | ${truthy(h.caveat) ? pyStr(h.caveat) : ""}`);
   lines.push("coverage:");
   for (const [group, text] of coverage) lines.push(`  ${group}: ${text}`);
   lines.push("problems:");
@@ -438,10 +563,53 @@ export function collapseDuplicates(
   return { events: out, origins: outOrigins, collapsed: events.length - out.length, titles };
 }
 
-type Stats = { events: number; dropped: number; collapsed: number };
+/** `races`: events left out by farRaces (after the coming weeks, every source horizon near); not in `dropped`. */
+type Stats = { events: number; dropped: number; collapsed: number; races: number; races_guard_off?: number };
 
-/** merge.finalize_document: [events file fixed so render.check passes, stats] or [null, problems]. */
-export function finalizeDocument(doc: unknown): [Doc, Stats] | [null, string[]] {
+/** A source name or label as finalize matches it: its words, accents, case and punctuation folded ("-" for "–"). */
+const sourceKey = (text: unknown): string => typeof text === "string" ? (normalise(text).match(/[a-z0-9]+/g) ?? []).join(" ") : "";
+
+/**
+ * finalize's race backstop, the last one: whether an event is a race the coming weeks hold that the editor (or anything
+ * after merge) put back. Merge leaves those out by the unit a candidate came from; finalize has only the file, so it
+ * goes by the names on the event: every one of its `sources[].name` is the name or the label of a `sources_checked`
+ * row with horizon "near" (and of no other row), and placeStart does not put it on or before near_end (it fails closed,
+ * as merge's does). Weaker than merge's unit attribution, but in the safe direction: a race its town's source lists too
+ * cites that source and stays, and so does an event naming a source no row has. Null (nothing is cut) when the window
+ * has no near_end before its end or no row carries a horizon: an old file, or one whose sources_checked lost it.
+ */
+export function farRaces(doc: Doc): ((e: Doc) => boolean) | null {
+  const w = doc.window;
+  const ne = isDict(w) ? render.realDate(w.near_end) : null, we = isDict(w) ? render.realDate(w.end) : null;
+  if (!(ne && we && ne < we) || !Array.isArray(doc.sources_checked)) return null;
+  const near = new Set<string>(), other = new Set<string>();
+  for (const s of doc.sources_checked) {
+    if (!isDict(s)) continue;
+    for (const k of [sourceKey(s.name), sourceKey(s.label)]) if (k) (s.horizon === "near" ? near : other).add(k);
+  }
+  for (const k of other) near.delete(k);
+  if (!near.size) return null;
+  return (e) => Array.isArray(e.sources) && e.sources.length > 0 &&
+    e.sources.every((s: unknown) => isDict(s) && near.has(sourceKey(s.name))) && placeStart(e, ne) !== "within";
+}
+
+/**
+ * Whether the race backstop could not run on this file though it should have: a fresh merge writes a horizon "near"
+ * row, with a label, for Portugal Running whenever the window has a near_end before its end, so a file with such a
+ * window and no near row, or none with a label, lost them after merge (the editor stripped them). A file without a
+ * near_end is an old one, not a damaged one: false.
+ */
+export function raceGuardOff(doc: Doc): boolean {
+  const w = doc.window;
+  const ne = isDict(w) ? render.realDate(w.near_end) : null, we = isDict(w) ? render.realDate(w.end) : null;
+  if (!(ne && we && ne < we)) return false;
+  const rows = Array.isArray(doc.sources_checked) ? doc.sources_checked : [];
+  const near = rows.filter((s: unknown) => isDict(s) && s.horizon === "near");
+  return !near.some((s: Doc) => sourceKey(s.label) !== "");
+}
+
+/** merge.finalize_document: [events file fixed so render.check passes, stats, report lines] or [null, problems]. */
+export function finalizeDocument(doc: unknown): [Doc, Stats, string[]] | [null, string[]] {
   if (!isDict(doc) || !Array.isArray(doc.events)) return [null, ["the file must be a JSON object with an events list"]];
   let window: [string, string] | null = null;
   const w = doc.window;
@@ -451,14 +619,29 @@ export function finalizeDocument(doc: unknown): [Doc, Stats] | [null, string[]] 
   }
 
   const dropped: string[] = [];
+  const races: string[] = [];
+  const isFarRace = farRaces(doc);
   const valid: Doc[] = [];
   for (const e of doc.events) {
-    if (isDict(e) && !render.checkEvent(e, window).length) valid.push(e);
-    else {
+    if (isDict(e) && !render.checkEvent(e, window).length) {
+      if (isFarRace?.(e)) races.push(describe(e));
+      else valid.push(e);
+    } else {
       const title = isDict(e) ? e.title_pt ?? null : null;
       const start = isDict(e) ? e.start_date ?? null : null;
       dropped.push(`${render.textOk(title) ? title : "untitled"} (${pyStr(start)})`);
     }
+  }
+  const report: string[] = [];
+  if (races.length) {
+    report.push(`races left out (every source horizon near, and not on or before the coming weeks' end, ${pyStr((w as Doc).near_end)}): ${races.length}`);
+    for (const t of races) report.push(`  ${t}`);
+  }
+
+  const guardOff = raceGuardOff(doc);
+  if (guardOff) {
+    report.push("warning: the race backstop could not run: the window has a near_end but sources_checked has no horizon \"near\" row with a label " +
+      "(the editor stripped them?), so far races the editor re-added were not checked");
   }
 
   const kept = collapseDuplicates(valid, [], window).events;
@@ -480,7 +663,9 @@ export function finalizeDocument(doc: unknown): [Doc, Stats] | [null, string[]] 
   out.note = note;
   const problems = render.check(out);
   if (problems.length) return [null, problems];
-  return [out, { events: kept.length, dropped: dropped.length, collapsed }];
+  const stats: Stats = { events: kept.length, dropped: dropped.length, collapsed, races: races.length };
+  if (guardOff) stats.races_guard_off = 1;
+  return [out, stats, report];
 }
 
 /** The counts file is only for the status page: a failed write is a warning, never a failed merge. */
@@ -501,7 +686,7 @@ export function finalize(path: string, statsPath?: string): number {
     console.log(`cannot read ${path}: ${(err as Error).message}`);
     return 2;
   }
-  const [out, result] = finalizeDocument(doc);
+  const [out, result, report] = finalizeDocument(doc);
   if (out === null) {
     console.log(`cannot finalize ${path}:`);
     for (const line of result.slice(0, render.MAX_PROBLEMS)) console.log("  " + line);
@@ -516,7 +701,8 @@ export function finalize(path: string, statsPath?: string): number {
     return 2;
   }
   if (statsPath) writeStats(statsPath, result);
-  console.log(`finalized ${path}: ${result.events} events, ${result.dropped} dropped, ${result.collapsed} duplicates collapsed`);
+  console.log(`finalized ${path}: ${result.events} events, ${result.dropped} dropped, ${result.collapsed} duplicates collapsed, ${result.races} far races left out`);
+  for (const line of report!) console.log(line);
   return 0;
 }
 

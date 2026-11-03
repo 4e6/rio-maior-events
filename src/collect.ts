@@ -8,11 +8,11 @@ import type { Adapter, Config, Detail, Page, ParseResult, Request, Source, Sourc
 import { classifyFailure, classifyFollowFailure, ProxyError, retriesThroughProxy, triggersFallback } from "./net-errors.ts";
 import { fetchFollow, fetchPage, garbled, ProxyGateway, toPage } from "./net.ts";
 import type { FetchResult, Fetcher, ProxyStats } from "./net.ts";
-import { defaultEnd, lisbonToday, localIsoNow, parseIsoDate } from "./py/datetime.ts";
+import { aheadEnd, defaultEnd, lisbonToday, localIsoNow, parseIsoDate } from "./py/datetime.ts";
 import { cpLen } from "./py/str.ts";
 import { cleanUrl, hostOf, sameSite } from "./url.ts";
 
-export { defaultEnd, lisbonToday };
+export { aheadEnd, defaultEnd, lisbonToday };
 
 export const MAX_WORKERS = 8;
 export const SOURCES_PATH = join(import.meta.dir, "..", "sources.json");
@@ -70,6 +70,23 @@ export interface CollectDeps {
   signal?: AbortSignal;
   /** The fallback proxy: a host whose direct request is refused (net-errors.triggersFallback) goes through it. Default: none. */
   proxy?: ProxyFetchers | null;
+  /** The last dated day (window.near_end): where a source with `horizon: "near"` stops. Default: nearEndOf(window). */
+  nearEnd?: string;
+}
+
+/**
+ * window.near_end, the one place it is derived: the old default end (the first Sunday at least 28 days on), or the window
+ * end when that comes first (an earlier --to ends the dated part too, so render's cap on the dated span holds).
+ * main, collectAll, windowFor and writeOutput all default to it, so a caller that omits it cannot diverge.
+ */
+export function nearEndOf(window: Window): string {
+  const dated = defaultEnd(window[0]);
+  return window[1] > dated ? dated : window[1];
+}
+
+/** The window an adapter is given for this source: a `horizon: "near"` row stops at the near end, the others get the whole window. */
+export function windowFor(source: Source, window: Window, nearEnd: string = nearEndOf(window)): Window {
+  return source.horizon === "near" && nearEnd < window[1] ? [window[0], nearEnd] : window;
 }
 
 const abortError = (): Error => Object.assign(new Error("interrupted"), { name: "AbortError" });
@@ -100,6 +117,7 @@ export async function collectAll(sources: Source[], window: Window, hosts: Confi
   const fetch = deps.fetch ?? fetchPage;
   const followFetch = deps.followFetch ?? (deps.fetch === undefined ? fetchFollow : fetch);
   const adapters = deps.adapters ?? ADAPTERS;
+  const nearEnd = deps.nearEnd ?? nearEndOf(window);
   const report = deps.report ?? ((line: string) => console.log(line));
   const clock = deps.clock ?? defaultClock;
   const sleep = deps.sleep ?? defaultSleep;
@@ -112,7 +130,7 @@ export async function collectAll(sources: Source[], window: Window, hosts: Confi
   for (const source of sources) {
     let requests: Request[];
     try {
-      requests = planRequests(source, window, adapters);
+      requests = planRequests(source, windowFor(source, window, nearEnd), adapters);
     } catch (err) {
       const result = newResult(source, { pages: null, status: null, error: `${errName(err)}: ${errMessage(err)}` });
       results.set(source.name, result);
@@ -131,13 +149,13 @@ export async function collectAll(sources: Source[], window: Window, hosts: Confi
     await runHost(host, entries.map(([s, r]) => [s.name, r] as [string, Request[]]), {
       fetch, sleep, clock, delay: delayOf(host), signal, followFetch, proxy: deps.proxy, random: deps.random,
       onDone(name, outcome) {
-        const [result, follow] = parseOutcome(byName.get(name)!, outcome, window, parseDeps.adapters);
+        const [result, follow] = parseOutcome(byName.get(name)!, outcome, windowFor(byName.get(name)!, window, nearEnd), parseDeps.adapters);
         results.set(name, result);
         report(summaryLine(result));
         return follow;
       },
       onFollowed(name, pages, viaProxy) {
-        const details = buildDetails(byName.get(name)!, pages, window, parseDeps.adapters, parseDeps.defaultDetails);
+        const details = buildDetails(byName.get(name)!, pages, windowFor(byName.get(name)!, window, nearEnd), parseDeps.adapters, parseDeps.defaultDetails);
         const result = results.get(name)!;
         result.details = details;
         if (viaProxy) result.via = "proxy";
@@ -443,8 +461,8 @@ export function writeOutput(outDir: string, collectedAt: string, window: Window,
   extra: { nearEnd?: string; collect_s?: number; proxy?: ProxyStats } = {}): unknown {
   mkdirSync(outDir, { recursive: true });
   const groupOf = new Map(sources.map((s) => [s.name, s.group] as const));
-  // near_end (extra.nearEnd, default the window end): the last dated day; the page lists what starts after it under Further ahead.
-  const span = { start: window[0], near_end: extra.nearEnd ?? window[1], end: window[1] };
+  // near_end (extra.nearEnd, default nearEndOf): the last dated day; the page lists what starts after it under Further ahead.
+  const span = { start: window[0], near_end: extra.nearEnd ?? nearEndOf(window), end: window[1] };
   const index: { collected_at: string; collect_s?: number; proxy?: unknown; window: typeof span; groups: Record<string, { file: string; sources: string[] }>; sources: unknown[] } =
     { collected_at: collectedAt, window: span, groups: {}, sources: [] };
   if (extra.collect_s !== undefined) index.collect_s = extra.collect_s;
@@ -464,6 +482,9 @@ export function writeOutput(outDir: string, collectedAt: string, window: Window,
       status: result.status, error: result.error, refused: result.refused === true, via: result.via === "proxy" ? "proxy" : "direct", note: result.note,
       items: result.items.length, past: result.past.length,
       chars: cpLen(result.text || ""), details: result.details.length,
+      // which sources only reach the dated weeks: merge holds an event only they list to those weeks, and the label
+      // (the name readers write on an event) lets finalize match a race the editor adds back to these rows
+      horizon: source.horizon ?? null, label: source.label ?? null,
     });
   });
   writeFileSync(join(outDir, "index.json"), dumps(index));
@@ -574,7 +595,7 @@ export async function main(argv: string[], deps: MainDeps = {}): Promise<number>
   };
   try {
     start = args.start ? parse(args.start) : (deps.today ?? (deps.lisbonToday ?? lisbonToday)());
-    end = args.end ? parse(args.end) : defaultEnd(start);
+    end = args.end ? parse(args.end) : aheadEnd(start);
   } catch (e) {
     err(`bad date: ${errMessage(e)}`);
     return 2;
@@ -584,8 +605,8 @@ export async function main(argv: string[], deps: MainDeps = {}): Promise<number>
     return 2;
   }
   const window: Window = [start, end];
-  // The dated part is the default window; a later --to only adds Further ahead, so render's cap on the dated span holds.
-  const nearEnd = end > defaultEnd(start) ? defaultEnd(start) : end;
+  // --to is the far end, and the default far end is the same day six months on; the dated part ends at nearEndOf.
+  const nearEnd = nearEndOf(window);
 
   const controller = new AbortController();
   const stop = () => controller.abort();
@@ -599,7 +620,7 @@ export async function main(argv: string[], deps: MainDeps = {}): Promise<number>
   const collectStart = Date.now();
   try {
     results = await collectAll(chosen, window, config.hosts, config.default_delay ?? 1.5,
-      { ...deps, proxy, signal: controller.signal, report: deps.report ?? out });
+      { ...deps, nearEnd, proxy, signal: controller.signal, report: deps.report ?? out });
   } catch (e) {
     if (controller.signal.aborted) {
       err("interrupted; nothing written");

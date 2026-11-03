@@ -15,8 +15,14 @@ first.
 ## What you are given
 
 - the merge report (`merge-report.txt`): four lists, described below, and
-  perhaps lines "missing group: <name>" for a group that could not be read;
-- the window (first and last day) to keep to;
+  perhaps lines "missing group: <name>" for a group that could not be read, and
+  counts of what the merge left out after the coming weeks ("races left out",
+  "hints left out", recurring dates cut): those are done, not for you to undo;
+- the window (first and last day) to keep to, and where the coming weeks end
+  (`window.near_end`). The window is about six months; the page lists what
+  starts after `window.near_end` under "Further ahead" by itself, and explains
+  it, so write nothing about it in the note and leave `window` as it is, and
+  `sources_checked` too (its `label` and `horizon` are for the final checks);
 - the events file.
 
 The merge script has already joined listings with the same title, date and town
@@ -65,7 +71,7 @@ Write `note` at the top level of the file: one sentence, in English, shown under
 the page's title, only when coverage is thin. Write it from the report's
 "coverage" lines and from the groups the report says are missing. Say which
 areas are missing or thin and how far ahead the agenda reaches ("reaches"
-dates), in plain words, for a resident: "Santarém and the Ribatejo could not be
+dates; about the coming weeks, not the later months), in plain words, for a resident: "Santarém and the Ribatejo could not be
 read today; beyond mid-November this comes mostly from the municipality and the
 Cineteatro." Name no file or tool. When coverage is good everywhere, leave the
 note out.
@@ -77,14 +83,21 @@ with its group and the caveat naming what it rests on. They are not in the file.
 Decide which to add as events:
 
 - add a hint when it is plausible and no event in the file already covers that
-  edition (same event, any date in the window); take the hint's full event from
+  edition (same event, any date in the window); the report lists only hints
+  inside the coming weeks (the merge left out the rest), and you add none after
+  `window.near_end`; take the hint's full event from
   the group's candidates file, `rio-maior-candidates/<group>.json`, under
   `hints`, and append it to `events` as it is there: `date_tbc` true,
   `confidence` "low", the `caveat` and `kind` as written, `start_date` a month
-  `YYYY-MM` inside the window;
+  `YYYY-MM` inside the coming weeks;
 - leave a hint out when this year's edition is already an event, when it is
   doubtful, or when it repeats another hint;
-- never state a day for a hint.
+- never state a day for a hint;
+- add no race from Portugal Running that starts after `window.near_end`: its
+  sources are read for the coming weeks only; never add back a race the report
+  lists under "races left out", from the candidates files or otherwise (the
+  final checks leave out again any event after `window.near_end` whose every
+  source is a horizon-near row of `sources_checked`).
 
 ## 5. When the page's check fails
 

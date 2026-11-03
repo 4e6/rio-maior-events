@@ -11,7 +11,7 @@ sources:
   - resource: test/**
   - resource: .github/workflows/**
   - resource: certs/**
-sources_digest: cdafeb6c05b9748a
+sources_digest: 407ddfcd1b66ca53
 ---
 
 # What it is
@@ -30,7 +30,22 @@ and each has its own traps.
   repeatable and testable. It runs the sources and writes a folder:
   `index.json` (each source with its counts and whether its site refused it) and one file per reading group, each source with the events its
   adapter found and the page's visible text, capped at 30,000 characters (or
-  the source's own cap). It parses no HTML layout: layouts change, and a model
+  the source's own cap). The window is six months: `start` to the same day six
+  months on (`aheadEnd`, clamped to a shorter month's last day, so the last month is
+  partial), with `window.near_end` the old default end (the first Sunday at least 28
+  days on). A source row with `"horizon": "near"` (the three Portugal Running rows)
+  is given the near window, and `index.sources[]` carries its `horizon`. Their text
+  also passes `options.card_dates: "portugalrunning"`: each card dated after
+  `near_end` is dropped before the cap and before the event pages are picked, so the filter
+  costs no detail slot and `follow` caps are unchanged. A card is dated by its header only
+  (the line after its link marker: year, weekday, day, month; the weekday must match) and
+  is dropped only in the shape every card of the three pages had on 2026-11-03 ("Tipo",
+  "Local", an optional count and "Adiciona à tua lista"), ending at its own last line, so it
+  can only keep too much, never lose the guide table, month names or FAQ after it. That filter
+  is a saving in reading cost and noise; the source's note always gives its counts ("30 dated
+  race cards, 15 after … left out"), says "no dated race cards found" when nothing is dated,
+  and counts the blocks that look like cards but could not be read, which is a partial layout
+  change; the source never fails over it. The rule is merge's (below). It parses no HTML layout: layouts change, and a model
   reads changed text better than a regex does. Only data a site publishes as
   data (JSON-LD, JSON, a framework's embedded list) is read by field.
   It undoes gzip and deflate itself (by header or by the gzip magic bytes) and
@@ -45,7 +60,42 @@ and each has its own traps.
 - **`src/merge.ts` joins.** It checks that every group has a current candidates
   file, writes `rio-maior-events.json` and prints possible duplicates, coverage,
   yearly-event hints and what `src/render.ts`'s check finds wrong, each problem
-  with the group it came from. The editor (`claude -p` run by `src/build.ts`) settles those and writes the `note`; if it fails, `merge --finalize` writes one. Both take `--stats FILE` and write their counts there (candidates, collapsed, events, dropped), for the status page to report; that write is best effort, a warning on stderr and never a failed merge.
+  with the group it came from. Before the join it holds the six-month window to the
+  coming weeks where that is the rule, deterministically and with a count in the report:
+  a candidate from a unit whose sources are all `horizon: "near"` (by merge's own
+  unit attribution, never by the source names a reader wrote; the town's own unit
+  lists the same race separately and keeps it) that starts after `near_end` is left
+  out (the backstop that makes the Portugal Running rule hold when the card filter
+  reads nothing, as with the undated guide table). It fails closed, each case on a report line of its own:
+  such a candidate whose start it cannot place on or before `near_end` (no real `start_date`,
+  not an object, or only a month that runs past `near_end`, like the guide table's "Dezembro") is left out
+  too, since the editor's repair of a bad date is held to `near_end` again only by finalize's name
+  match (below), which a race citing a name no source row has escapes; a unit whose
+  sources it cannot tell (none listed, or one not in the index) is held as if all were near; a
+  unit mixing near and other sources is named, not held. `manual.json`, a person's own list, is not
+  cut. A hint after `near_end` is left out (a hint's `start_date` is a month alone, so
+  one in `near_end`'s own month stays; the yearly table stays a coming-weeks list); a recurring event's `dates` are cut
+  to `near_end` (a far one keeps its first four distinct dates; start and end dates stay, since the page
+  places a recurring event by its dates), because a weekly market over six
+  months would carry about 26 dates, but only when `recurrence` has text to say how it goes on: without
+  it the page shows the dates themselves, and a cut list would end the event at `near_end`. The editor (`claude -p` run by `src/build.ts`) settles those and writes the `note`; if it fails, `merge --finalize` writes one. Both take `--stats FILE` and write their counts there (candidates, collapsed, events, dropped, and finalize's `races`), for the status page to report; that write is best effort, a warning on stderr and never a failed merge.
+- **`merge --finalize` holds the races again.** The editor can read every candidates file, so it
+  could put a far race back. Finalize has only the events file, so it matches by name, not by unit:
+  merge copies each index row's `label` (the name readers write on an event, which `collect` now
+  writes into `index.json`) and `horizon: "near"` into `sources_checked`, and finalize leaves out an
+  event whose every `sources[].name` is the name or label of a horizon-near row (folded for case,
+  accents and punctuation, and of no other row) and that `placeStart` does not put on or before
+  `near_end` (fail closed, as in merge). Each is named on finalize's output, which `src/build.ts`
+  prints on both paths, and counted as `races` beside `dropped`; the note does not name them. It is
+  weaker than merge's unit attribution but fails safe: a race its town's source lists too cites
+  that source and stays, and so does one naming a source no row has. A file without a horizon on
+  any row (one from before this, or one whose editor stripped `sources_checked`), or a window with
+  no `near_end` before its end, cuts nothing. When the window does have a `near_end` before its end but no
+  horizon-near row carries a label (a fresh merge always writes both, so the editor stripped them), the guard
+  is off: finalize prints one `warning: the race backstop could not run` line and adds `races_guard_off: 1` to
+  `--stats` (absent otherwise; `status.json` carries it as `totals.finalize_races_guard_off`), never failing the build. Finalize cannot tell where an event came from, so a
+  far `manual.json` race citing only horizon-near rows, which merge keeps, is cut here. A far hint
+  the editor adds from a town group is held by `editing.md` alone.
 - **`src/render.ts` checks and draws.** It validates the file in plain code
   (exit 2 lists each problem with its event), makes each event's id, and inlines
   `assets/page.css`, `assets/page.js` and the events as JSON into one HTML file.
@@ -307,9 +357,14 @@ dark.
   "Show all" button, so a printed filtered page still says events were left out); a range
   that crosses a year boundary names the year in the Further ahead heading and the rail link; the result line's
   denominator counts only events not yet over. `collect` writes `near_end` into
-  `index.json` (the default end, so a `--to` beyond it adds only Further ahead; without `--to`
-  it equals `end` and collected data is unchanged) and the page
-  data and `status.json`'s `window` carry it through; nothing else reads it yet.
+  `index.json` (the default end of the old window; `--to` is the far end, and an
+  earlier `--to` ends both) and the page
+  data and `status.json`'s `window` carry it through (additive; ops-watch reads neither
+  `window` nor `reaches`). The readers and the editor are told where the coming weeks
+  end; reading.md keeps a far event only when its year is stated or its weekday matches
+  the inferred year, and keeps the 50-minute big-events rule at any date.
+  The far end is the same day six months on, not the end of that month ([decision
+  0005](../decisions/0005-six-months-ahead-races-held-to-the-coming-weeks.md)).
 - **.ics times are floating local times**, meaning Portugal's: no `TZID` and no
   `VTIMEZONE`. Do not "fix" them to UTC. All-day and multi-day events use
   `VALUE=DATE` with an exclusive end. The link is a `data:` URL, since a
@@ -363,7 +418,7 @@ dark.
 
 `test/` holds offline unit tests (`bun test`), run in CI: the runner (fake clock,
 result order), the adapters on small hand-written fixtures and on saved pages,
-`src/merge.ts`, the proxy fallback (`test/proxy.test.ts`: a local CONNECT proxy and HTTPS origin with throwaway fixture certificates, and a fake proxy fetcher beside the direct one), and the renderer's validation, ids,
+`src/merge.ts` (including the near-end cuts), the card filter on hand-written fixtures, the proxy fallback (`test/proxy.test.ts`: a local CONNECT proxy and HTTPS origin with throwaway fixture certificates, and a fake proxy fetcher beside the direct one), and the renderer's validation, ids,
 escaping, byte-stable sample and its rules for `page.js`. A live run is not in
 CI: the sources change and some throttle. No eval measures the model's reading.
 The gap: `page.js` behaviour (bands, filters, `.ics`) is checked in headless
