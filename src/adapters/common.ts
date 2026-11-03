@@ -639,8 +639,11 @@ export const TITLE_NOT_FOUND = "[title not found in the page text: the start of 
 const QUOTE2 = "\"“”„‟«»″";
 const QUOTE1 = "'‘’‚‛′´`";
 const DASHES = "‐‑‒–—―−-"; // the hyphen last, so it is a literal in a class
+// Whitespace on one line: any but a line break, so a match never joins the end of one line (a menu item) to the next.
+const SPACES = "[^\\S\\n\\r\\u2028\\u2029]+";
 
-/** A RegExp for `needle` whatever its quotes, dashes, ellipsis and spaces; the case and everything else as given. */
+/** A RegExp for `needle` whatever its quotes, dashes, ellipsis and spaces; the case and everything else as given,
+ *  and all of it on one line. */
 function typesetPattern(needle: string, flags: string): RegExp {
   let source = "";
   const chars = Array.from(needle);
@@ -654,67 +657,88 @@ function typesetPattern(needle: string, flags: string): RegExp {
       if (ch === ".") i += 2;
     } else if (/\s/u.test(ch)) {
       while (i + 1 < chars.length && /\s/u.test(chars[i + 1]!)) i++;
-      source += "\\s+";
+      source += SPACES;
     } else source += ch.replace(/[\\^$.*+?()[\]{}|/]/g, "\\$&");
   }
   return new RegExp(source, flags);
 }
 
-/** Where `needle` is first found in `text` from `from`, and the match's length; null if nowhere. */
-type Finder = (text: string, needle: string, from: number) => [at: number, length: number] | null;
-const exactly: Finder = (text, needle, from) => {
-  const at = text.indexOf(needle, from);
-  return at >= 0 ? [at, needle.length] : null;
-};
-const asTypeset: Finder = (text, needle, from) => {
-  const pattern = typesetPattern(needle, "gu");
-  pattern.lastIndex = from;
-  const m = pattern.exec(text);
-  return m ? [m.index, m[0].length] : null;
-};
+/** One way of looking for one needle: where it is first found in `text` from `from`, and the match's length (null if
+ *  nowhere), and whether a line starts with it. Built once per needle, so a search loop compiles no RegExp. */
+type Finder = { typeset: boolean; find: (text: string, from: number) => [at: number, length: number] | null; starts: (line: string) => boolean };
+function exactly(needle: string): Finder {
+  return {
+    typeset: false,
+    find: (text, from) => {
+      const at = text.indexOf(needle, from);
+      return at >= 0 ? [at, needle.length] : null;
+    },
+    starts: (line) => line.startsWith(needle),
+  };
+}
+function asTypeset(needle: string): Finder {
+  const anywhere = typesetPattern(needle, "gu");
+  const atStart = typesetPattern(needle, "uy");
+  return {
+    typeset: true,
+    find: (text, from) => {
+      anywhere.lastIndex = from;
+      const m = anywhere.exec(text);
+      return m ? [m.index, m[0].length] : null;
+    },
+    starts: (line) => {
+      atStart.lastIndex = 0;
+      return atStart.test(line);
+    },
+  };
+}
 
 /** About EXCERPT_CAP characters of text from the first mention of the title after the <title> line (or of its
- *  part before " - ", " | ", " ‹ ") that does not lead into a mini calendar. The title is looked for exactly first;
- *  only when neither needle is there is it looked for again as typeset (`typesetPattern`: quotes, dashes, ellipsis,
- *  spaces), so a page the exact search reads gives the excerpt it always gave. With no title on the page the
- *  excerpt is the start of the text after the <title> line; with a title found neither way it is that start after
- *  a TITLE_NOT_FOUND line, so a menu is never passed off as the event's text. A first line that starts with the
- *  title and is followed by a line that starts with the title's first 20 characters is dropped, so the title is
- *  not said twice. */
+ *  part before " - ", " | ", " ‹ ") that does not lead into a mini calendar. The needles are tried in this order:
+ *  the whole title as typed, the whole title as typeset (`typesetPattern`: quotes, dashes, ellipsis, spaces on one
+ *  line), its part as typed, its part as typeset; so a short part that is also a menu item never wins over the whole
+ *  title typeset differently. With no title on the page, or a category word for one (`placeholder`), the excerpt is
+ *  the start of the text after the <title> line; with a real title found no way it is that start after a
+ *  TITLE_NOT_FOUND line, the marker counted in the cap, so a menu is never passed off as the event's text. A first
+ *  line that starts with the title and is followed by a line that starts with the title's first 20 characters is
+ *  dropped, so the title is not said twice. */
 function excerpt(text: string, title: string, head: string): string | null {
   let start = 0;
   if (head && text.startsWith(head)) start = head.length;
   const needles = [title];
   const part = title.split(/ - | \| | ‹ /)[0]!;
   if (part !== title) needles.push(part);
-  let finder: Finder | null = null;
-  search: for (const find of [exactly, asTypeset]) {
-    for (const needle of needles) {
-      const first = needle ? find(text, needle, start) : null;
-      if (first) {
-        let found: [number, number] | null = first;
-        while (found && inCalendar(text, found[0])) found = find(text, needle, found[0] + found[1]);
-        start = (found ?? first)[0];
-        finder = find;
-        break search;
-      }
+  let hit: Finder | null = null;
+  for (const needle of needles) {
+    if (!needle) continue;
+    for (const finder of [exactly(needle), asTypeset(needle)]) {
+      const first = finder.find(text, start);
+      if (!first) continue;
+      let found: [number, number] | null = first;
+      while (found && inCalendar(text, found[0])) found = finder.find(text, found[0] + found[1]);
+      start = (found ?? first)[0];
+      hit = finder;
+      break;
     }
+    if (hit) break;
   }
   let chunk = pyStrip(text.slice(start));
   const lines = chunk.split("\n");
-  const startsWith = (line: string, needle: string): boolean =>
-    finder === asTypeset ? typesetPattern(needle, "uy").test(line) : line.startsWith(needle);
-  if (title && lines.length > 1 && startsWith(lines[0]!, title) && startsWith(lines[1]!, cpSlice(title, 0, 20))) {
-    chunk = pyStrip(chunk.slice(lines[0]!.length + 1));
+  if (title && lines.length > 1) {
+    const typed = hit?.typeset ? [asTypeset(title), asTypeset(cpSlice(title, 0, 20))] : [exactly(title), exactly(cpSlice(title, 0, 20))];
+    if (typed[0]!.starts(lines[0]!) && typed[1]!.starts(lines[1]!)) chunk = pyStrip(chunk.slice(lines[0]!.length + 1));
   }
-  if (cpLen(chunk) > EXCERPT_CAP) {
-    const cps = Array.from(chunk).slice(0, EXCERPT_CAP);
+  const marked = hit === null && !placeholder(title);
+  // The marker's line is part of the budget, so a marked excerpt is no longer than any other.
+  const cap = marked ? EXCERPT_CAP - cpLen(TITLE_NOT_FOUND) - 1 : EXCERPT_CAP;
+  if (cpLen(chunk) > cap) {
+    const cps = Array.from(chunk).slice(0, cap);
     const cut = Math.max(cps.lastIndexOf(" "), cps.lastIndexOf("\n"));
-    chunk = (cut > EXCERPT_CAP >> 1 ? cps.slice(0, cut) : cps).join("");
+    chunk = (cut > cap >> 1 ? cps.slice(0, cut) : cps).join("");
   }
   chunk = pyStrip(chunk);
   if (!chunk) return null;
-  return title && finder === null ? `${TITLE_NOT_FOUND}\n${chunk}` : chunk;
+  return marked ? `${TITLE_NOT_FOUND}\n${chunk}` : chunk;
 }
 
 /** common.extract_detail: an event page's own fields. `page.url` is the final URL. */

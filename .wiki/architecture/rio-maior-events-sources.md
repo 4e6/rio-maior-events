@@ -9,7 +9,7 @@ sources:
   - resource: references/sources.md
   - resource: tools/probe_*.ts
   - resource: .github/workflows/probe.yml
-sources_digest: f5eac59479af553a
+sources_digest: 8bd67a5fd98cb0e9
 ---
 
 # What this page is for
@@ -91,7 +91,13 @@ browser; the page should show dated cards for the coming weeks.
   change. The culture site (Santarém Acontece) is read as well because it has
   the theatre, libraries and workshops the feed lacks, and it answers when
   the council host does not; its own RSS has ten items with no venue or end
-  date, so the programme page is read as text instead. Breaks when the feed's
+  date, so the programme page is read as text instead. Its programme page has
+  no paging and lists about seven weeks: on 2026-11-03, 21 cards to Saturday 19
+  December in 39,458 characters of text, which the old cap of 31,700 cut at 11
+  December. Its cap is 44,000: that page plus about 11 % for a busier stretch,
+  and a bound on its reader piece (it is over `READ_SPLIT_CHARS` alone, so a piece
+  of its own of at most about 45,000 characters, near the 40,848 of
+  cm-tvedras-musica's piece in the same collection). Breaks when the feed's
   field names change or the culture page's cards move.
 - **Porto de Mós home page.** Chosen over the agenda page the site links to,
   which holds a 2020 listing. Breaks when the home page's agenda block moves.
@@ -198,7 +204,7 @@ need a browser.
 
 None open.
 
-- **`excerpt()` returned the page's menu (fixed 2026-11-03).** `excerpt()` in `src/adapters/common.ts` finds the page's `og:title` in the text with `indexOf`; when the title there differed from the text by a quote (straight against curly), nothing matched and the excerpt fell back, unmarked, to the start of the page, which is the site's menu. It hit 2 of the 8 Benavente event pages sampled. Now, only when the exact search finds neither the title nor its part before a separator, the title is looked for again as typeset: any straight or curly quote, a hyphen or any dash, three dots or an ellipsis, and any run of spaces (a no-break space too) match each other; the case still has to match. A page the exact search reads gives the same excerpt as before. A title found neither way gives the page's start after a `TITLE_NOT_FOUND` line, which `references/reading.md` explains to the readers; a page with no title at all still gives its start unmarked. `excerpt()` runs for every followed event page through `extractDetail`: by `defaultDetails` for each adapter without its own `details` (`text` and `municipal_rss`: the `text` sources with `links` and `follow`, and cm-nazare, cm-arruda, cm-mgrande), and in `nextjs` only as the fallback when its own page parsing throws.
+- **`excerpt()` returned the page's menu (fixed 2026-11-03).** `excerpt()` in `src/adapters/common.ts` finds the page's `og:title` in the text with `indexOf`; when the title there differed from the text by a quote (straight against curly), nothing matched and the excerpt fell back, unmarked, to the start of the page, which is the site's menu. It hit 2 of the 8 Benavente event pages sampled. Now the title is looked for as typed, then as typeset: any straight or curly quote, a hyphen or any dash, three dots or an ellipsis, and any run of spaces on one line (a no-break space or a tab too, never a line break, so the end of one menu item and the next are not a title) match each other; the case still has to match. Only then is its part before a separator tried, the same two ways, so a short part that is also a menu item ("Fado" of "Fado - Ana Moura") never wins over the whole title typeset differently. That order changes the excerpt only where the part was found as typed and the whole title only as typeset; on the 33 followed event pages measured on 2026-11-03 (12 fetched that day from agenda-obidos, cm-nazare and cm-torresnovas, 21 saved earlier) every excerpt is byte for byte what it was, and none is marked. A title found no way gives the page's start after a `TITLE_NOT_FOUND` line, which `references/reading.md` explains to the readers, the marker counted in the 800 characters; a page with no title, or a category word for one (nulled as `title`, like Nazaré's "CINEMA"), still gives its start unmarked. `excerpt()` runs for every followed event page through `extractDetail`: by `defaultDetails` for each adapter without its own `details` (`text` and `municipal_rss`: the `text` sources with `links` and `follow`, and cm-nazare, cm-arruda, cm-mgrande), and in `nextjs` only as the fallback when its own page parsing throws.
 
 # Why
 

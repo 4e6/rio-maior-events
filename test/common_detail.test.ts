@@ -235,6 +235,48 @@ describe("Excerpt", () => {
     expect(found.excerpt!.startsWith(`${TITLE_NOT_FOUND}\nInício\nMunicípio`)).toBe(true);
   });
 
+  test("test_a_marked_excerpt_keeps_to_the_cap_with_its_marker", () => {
+    const html = wordpress("Noite de Fado", "Outra Coisa").replace("</main>", `<p>${"A noite canta. ".repeat(100)}</p></main>`);
+    const excerpt = extractDetail(bare(html, "text/html")).excerpt!;
+    expect(excerpt.startsWith(`${TITLE_NOT_FOUND}\nInício\nMunicípio`)).toBe(true);
+    expect(excerpt.length).toBeLessThanOrEqual(EXCERPT_CAP);
+    expect(excerpt.length).toBeGreaterThan(EXCERPT_CAP - 100);
+    expect(["A", "noite", "canta."]).toContain(excerpt.split(/\s+/).at(-1)!);
+  });
+
+  test("test_a_category_word_for_a_title_is_no_title_and_gives_no_marker", () => {
+    // The title is nulled as a placeholder, so the excerpt does not say a title was missed: there was none.
+    const found = extractDetail(bare(wordpress("Concerto", "Uma Noite no Largo"), "text/html"));
+    expect(found.title).toBeNull();
+    expect(found.excerpt).toBe("Início\nMunicípio\nAgenda\nContactos\nUma Noite no Largo\nSáb 24 out, 21h30, no Cineteatro.");
+  });
+
+  // The same page with a menu of its own (the menu's items are what can be mistaken for the title).
+  const withMenu = (ogTitle: string, heading: string, items: string[]) =>
+    wordpress(ogTitle, heading).replace(/<ul>.*?<\/ul>/, `<ul>${items.map((i) => `<li>${i}</li>`).join("")}</ul>`);
+
+  test("test_the_whole_title_typeset_is_tried_before_its_part_as_typed", () => {
+    // "Fado", the part before " - ", is a menu item; the whole title is in the heading with an en dash.
+    const found = extractDetail(bare(withMenu("Fado - Ana Moura", "Fado &#8211; Ana Moura", ["Início", "Fado", "Jazz", "Teatro"]), "text/html"));
+    expect(found.excerpt).toBe("Fado – Ana Moura\nSáb 24 out, 21h30, no Cineteatro.");
+  });
+
+  test("test_the_part_is_still_tried_when_the_whole_title_is_nowhere", () => {
+    const found = extractDetail(bare(withMenu("Fado - Ana Moura", "Fado", ["Início", "Jazz", "Teatro"]), "text/html"));
+    expect(found.excerpt).toBe("Fado\nSáb 24 out, 21h30, no Cineteatro.");
+  });
+
+  test("test_a_typeset_match_stays_on_one_line", () => {
+    // "Noite de" ends one menu item and "Fado" is the next: not the title.
+    let found = extractDetail(bare(withMenu("Noite de Fado", "Outra Coisa", ["Início", "Noite de", "Fado", "Agenda"]), "text/html"));
+    expect(found.excerpt).toBe(`${TITLE_NOT_FOUND}\nInício\nNoite de\nFado\nAgenda\nOutra Coisa\nSáb 24 out, 21h30, no Cineteatro.`);
+    // a no-break space, a tab or a run of spaces on the line still match
+    found = extractDetail(bare(withMenu("Noite de Fado", "Noite&nbsp;de&#9;&#9;Fado", ["Início", "Noite de", "Fado"]), "text/html"));
+    expect(found.excerpt!.startsWith("Noite")).toBe(true);
+    expect(found.excerpt!.endsWith("\nSáb 24 out, 21h30, no Cineteatro.")).toBe(true);
+    expect(found.excerpt).not.toContain(TITLE_NOT_FOUND);
+  });
+
   test("test_a_page_with_no_text_has_no_excerpt", () => {
     expect(extractDetail(bare("<html><head></head><body></body></html>")).excerpt).toBeNull();
   });

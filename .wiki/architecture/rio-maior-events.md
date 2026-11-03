@@ -11,7 +11,7 @@ sources:
   - resource: test/**
   - resource: .github/workflows/**
   - resource: certs/**
-sources_digest: d5d72721c8028361
+sources_digest: 29ac7a5c223eea89
 ---
 
 # What it is
@@ -203,9 +203,10 @@ and each has its own traps.
   `extractDetail` in `adapters/common.ts`: title, start, end and venue from JSON-LD, an
   `atc_*` calendar widget or an inline iCal link, plus an 800-character
   excerpt, which skips a title mention that leads into a mini calendar; the
-  title is looked for exactly, then as typeset (quotes, dashes, an ellipsis,
-  spaces), and a title found neither way marks the excerpt with a
-  `TITLE_NOT_FOUND` line, because the page's start is usually its menu). Only
+  whole title is looked for exactly, then as typeset (quotes, dashes, an
+  ellipsis, spaces on one line), and only then its part before a separator, and
+  a real title found no way marks the excerpt with a `TITLE_NOT_FOUND` line
+  inside the 800 characters, because the page's start is usually its menu). Only
   https pages of the source's own host (a leading `www.` is ignored, as in a
   marker), only up to `follow` in `sources.json` (default 0); a redirect to another host or to http is refused before it is
   requested. A failed event page leaves the source ok, a refusal ends only that

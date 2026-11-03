@@ -43,6 +43,22 @@ describe("cutSources", () => {
     expect(names(cutSources(list, 1000))).toEqual([["a"], ["big"], ["c"]]);
   });
 
+  test("ribatejo as collected, santaremcultura at its whole cap: its own piece, its text whole, the rest as before", () => {
+    // The sizes of ribatejo's sources in the six-month collection of 2026-11-03 (READ_SPLIT_CHARS is 30000 in
+    // build.yml), with santaremcultura's text filled to the cap sources.json gives it: the largest it can be.
+    const row = JSON.parse(readFileSync(join(import.meta.dir, "..", "sources.json"), "utf8"))
+      .sources.find((s: Doc) => s.name === "santaremcultura");
+    const santaremcultura = { ...source("santaremcultura", "Santarém", 0), text: "Cartão. ".repeat(row.cap).slice(0, row.cap) };
+    const list = [source("cm-santarem", "Santarém", 24453), santaremcultura, source("cm-cartaxo", "Cartaxo", 4556),
+      source("cm-alcanena", "Alcanena", 13903), source("cm-almeirim", "Almeirim", 4693), source("cm-chamusca", "Chamusca", 6756),
+      source("fnc-golega", "Golegã", 11647)];
+    const cut = cutSources(list, 30000);
+    expect(names(cut)).toEqual([["cm-santarem"], ["santaremcultura"], ["cm-cartaxo", "cm-alcanena", "cm-almeirim", "cm-chamusca"], ["fnc-golega"]]);
+    expect(cut[1]![0]!.text).toHaveLength(row.cap);
+    // the one piece over the limit stays within a few hundred characters of the cap
+    expect(JSON.stringify(cut[1]![0], null, 1).length).toBeLessThan(row.cap + 500);
+  });
+
   test("sources without a town are never grouped", () => {
     const list = [source("a", null, 600), source("b", null, 600)];
     expect(names(cutSources(list, 1000))).toEqual([["a"], ["b"]]);
