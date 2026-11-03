@@ -67,6 +67,7 @@ describe("Follows", () => {
       "cm-entroncamento": ["/index.php/agenda/cinema/heart-of-the-beast-ciclo-de-cinema"],
       "cm-peniche": ["/visitar/agenda-de-eventos/evento-36/burlas-contra-idosos-acoes-de-sensibilizacao-2026"],
       "cm-vnbarquinha": ["/index.php/viver/agenda/eventos-literarios/clube-de-leitura"],
+      "cm-benavente": ["/index.php/events/cinema-digital-verity/", "/index.php/events/torneio-concelhio-de-sueca-4/"],
     };
     const menus = ["/", "/agenda", "/agenda/", "/index.php/agenda", "/pt/agenda", "/pt/agenda/a-decorrer",
       "/programacao", "/index.php/programacao", "/index.php/programacao/calendario-de-eventos",
@@ -74,7 +75,8 @@ describe("Follows", () => {
       "/index.php/tags/cinema/30", "/index.php/agenda/cinema", "/menu/1342/programacao",
       "/agenda/categoria/37", "/pages/1336", "/pages/364", "/eventos/", "/visitar/agenda-de-eventos",
       "/visitar/agenda-de-eventos/ambiente-saude-e-bem-estar", "/informacoes/eventos",
-      "/index.php/viver/agenda", "/index.php/agenda/entroncamento/view-map?tmpl=component"];
+      "/index.php/viver/agenda", "/index.php/agenda/entroncamento/view-map?tmpl=component",
+      "/index.php/agenda/", "/index.php/events/", "/index.php/events/feed/"];
     for (const [name, paths] of Object.entries(examples)) {
       const pattern = new RegExp(byName.get(name)!.links!);
       for (const path of paths) expect(pattern.test(path), `${name} ${path}`).toBe(true);

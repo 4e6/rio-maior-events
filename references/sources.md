@@ -27,6 +27,7 @@ The source list is `sources.json`; the sections below describe how to read each 
 - Nazaré and Peniche
 - Chamusca
 - Feeds of one platform: cm-nazare, cm-batalha, cm-chamusca, cm-arruda, cm-mgrande
+- Benavente
 - JSON sources: ourem, cm-cadaval
 - Next.js municipal sites: cm-bombarral, cm-lourinha, cm-alenquer, cm-sobral
 - Known yearly events
@@ -201,6 +202,17 @@ The five municipal sites share a platform that publishes each agenda as an RSS f
   - The feed covers only the current month: events from the 1st until the first Monday run are on no page, and the run before sees only the previous month. At 55 minutes that is the accepted cost.
   - Items that started earlier and still run (two long runs, from August and October) are dropped by the window.
   - Trap: titles are press headlines ("... ATUA NO TEATRO STEPHENS A 14 DE NOVEMBRO"); take the real title from the text.
+
+## Benavente
+
+`cm-benavente` `https://www.cm-benavente.pt/index.php/agenda/`, the municipal agenda: a WordPress site with the Modern Events Calendar. It covers Benavente, Samora Correia and the villages. At about 50 minutes (Samora Correia, where most venues are, 55) include only a big event: the Feira de Benavente (September), the Festa da Amizade / Sardinha Assada (late June), the Semana Taurina of Samora Correia (late April), a named concert. Not the cinema, a workshop, a story hour or a card tournament.
+
+- The page has a list of the coming events first: day, month, year, a marker, title, venue, address. The current month's grid follows ("Events for 6 Novembro", time, marker, title, venue), from the Monday before the 1st to the end of the month. The page reaches the end of the current month plus whatever the coming list shows (nothing later is published yet); say so in the coverage line.
+- `items` come from the page's schema.org data. Their times are the clock as written: a summer event labelled `21:30` with `+00:00` after it is 21:30 in Portugal, so keep 21:30 and do not convert. The site's clock is set to UTC+0, so the `+00:00` is a label, not UTC. (In November Lisbon is UTC, so the trap only bites from April to October.) Nothing in the script checks this; only the format of a time is checked.
+- Trap: the month grid repeats an ongoing exhibition once per day: one item with its real start (the first, from the coming list) and about 19 grid copies, each with that day as `start`. It is ONE event: give one `ongoing` event with `start_date` from the first item, never one event per grid day (events merge on title, start date and town, so copies would not collapse). The items keep the page order, the coming list first.
+- Trap: every item has `price` "0", which does not mean free; take the price from the event page.
+- Markers on the events (`/index.php/events/<name>/`); 6 event pages are fetched, in page order (the coming list first). A page gives start, end and venue, and an excerpt with the price. Some excerpts begin with the site's menu when the title has quotes; then the item's own fields are what count.
+- The grid also has days before the collection day; the window drops what is past.
 
 ## JSON sources: ourem, cm-cadaval
 

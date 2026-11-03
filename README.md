@@ -26,12 +26,12 @@ when it opens.
 
 ## Where the events come from
 
-About 35 list pages a run, each read once, then up to about 210 event pages of the sites whose cards lack a time or a venue (a few minutes in all). The event page is cited as the source where there is one:
+About 36 list pages a run, each read once, then up to about 210 event pages of the sites whose cards lack a time or a venue (a few minutes in all). The event page is cited as the source where there is one:
 
 - **Municipal agendas** of Rio Maior, Santarém, Caldas da Rainha, Torres Novas,
   Cartaxo, Torres Vedras, Alcobaça, Óbidos, Porto de Mós, Alcanena,
   Entroncamento, Vila Nova da Barquinha, Almeirim, Batalha, Nazaré, Peniche,
-  Chamusca, Ourém, Cadaval, Bombarral, Lourinhã, Alenquer, Arruda dos Vinhos, Sobral de Monte Agraço and Marinha Grande, and Leiria's
+  Chamusca, Ourém, Cadaval, Bombarral, Lourinhã, Alenquer, Arruda dos Vinhos, Sobral de Monte Agraço, Marinha Grande and Benavente, and Leiria's
   agenda site, and Santarém's culture programme.
 - **Theatres and cinemas**: the Cineteatro de Rio Maior, Teatro Virgínia
   (Torres Novas), Teatro-Cine (Torres Vedras), Cine-Teatro de Alcobaça and the
@@ -39,7 +39,7 @@ About 35 list pages a run, each read once, then up to about 210 event pages of t
 - **The race calendar** of Portugal Running, for road races and trails.
 
 Gaps: Facebook and Instagram are not read, and the Cineteatro now announces
-mostly there. Azambuja, Alpiarça, Salvaterra de Magos, Golegã, Tomar, Constância and Benavente have no
+mostly there. Azambuja, Alpiarça, Salvaterra de Magos, Golegã, Tomar and Constância have no
 source. Only the first page of a long list is read (Lourinhã and Alenquer have a
 second page; Leiria's list runs to 128). No municipal app or digital street
 screens were found online.

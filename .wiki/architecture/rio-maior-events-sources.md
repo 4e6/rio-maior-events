@@ -9,7 +9,7 @@ sources:
   - resource: references/sources.md
   - resource: tools/probe_*.ts
   - resource: .github/workflows/probe.yml
-sources_digest: 239cd461c6324dac
+sources_digest: dbe4d1b749b54d7e
 ---
 
 # What this page is for
@@ -30,6 +30,7 @@ visible text read by eye. The two JSON sources and the three Next.js sites were
 first decoded offline from the saved responses; then `src/collect.ts` itself was run
 on 2026-10-20 and read all 32 sources ok in 14.7 s (Viral Agenda, left out, see [Not reachable](#not-reachable)).
 On 2026-11-03 the same was done for the three sources added then (Arruda dos Vinhos, Sobral de Monte Agraço, Marinha Grande): one plain GET per page and `robots.txt` once per host, and `src/collect.ts` itself run on them from a home address with no proxy, 3 ok, 22, 8 and 8 items, and 21 event pages read (8, 8 and 5). Whether they answer a GitHub runner directly was settled by the `probe` workflow, run on this branch on 2026-11-03 ([run 41654979471](https://github.com/4e6/rio-maior-events/actions/runs/41654979471)): Arruda dos Vinhos 200, 22 items, 8 details; Sobral de Monte Agraço 200, 8 items, 8 details; Marinha Grande 200, 8 items, 5 details, all answering the runner directly.
+On 2026-11-03 the same was done for Benavente: one plain GET per page and `robots.txt` once (Yoast's `User-agent: *` with an empty `Disallow`, no `Crawl-delay`), and `src/cli/collect.ts` itself run on it from a home address with no proxy: ok, 25 items (6 distinct events; the rest are copies of one exhibition), 10,661 characters of text, 6 event pages read. Whether a GitHub runner answers it directly is for the `probe` run on this branch; pending.
 Drive times in `towns.md` are estimates. A source is only as checked as that: a
 layout that changed since is the usual reason a run reports one failed or empty.
 
@@ -121,6 +122,16 @@ browser; the page should show dated cards for the coming weeks.
   month only, so events from the 1st until the first Monday run are on no page, and
   the run before sees only the previous month. At 50 and 55 minutes, where only a big
   event is kept, that is the accepted cost.
+- **Benavente.** A Modern Events Calendar site, read as a page: its feed is not valid
+  XML (a newline before the `<?xml` declaration) and labels wall-clock times `+0000`,
+  and its REST list (`mec/v1/events`) is empty. The site's clock is set to UTC+0, so
+  every offset on it is a label, not UTC. The page's JSON-LD has one block per grid
+  day, which repeats a run of days (one exhibition gave 19 copies of 25 items), and
+  every item has `price` "0". Hand check: open the agenda page and see a coming list
+  above the month grid. What breaks it: a change of the MEC skin (the carousel or
+  the monthly view), or the site's WAF (a `cookiesession1` session cookie, possibly a
+  FortiWeb-style front; the name is evidence, not proof) starting to refuse. Its payoff is
+  a few big events a year; most weeks it keeps none.
 - **Supplementary agendas.** As before: plain text, expect gaps.
 
 # Event links and event pages
@@ -153,6 +164,7 @@ pages of 2026-10-20 and live on 2026-10-21: 33 sources ok (Eventbrite, one of th
 - **Portugal Running, three districts (8 each):** the start time.
 - **Teatro-Cine Torres Vedras, Cine-Teatro Alcobaça, Peniche (8):** event pages fetched; the research of 2026-10-20 found a time on the Teatro-Cine's pages (21h00) and Cine-Teatro Alcobaça's (20h30); Peniche's was not sampled.
 - **Arruda dos Vinhos (8), Sobral de Monte Agraço (10), Marinha Grande (5):** Arruda's pages give start, end and venue; Sobral's give the time from `schedule`; Marinha Grande's give no structured data, so the excerpt (venue and time in prose) is what they add, which is why it is 5, not 8.
+- **Benavente (6):** start, end and venue from each page's JSON-LD (wall clock); the excerpt gives the price. Some excerpts are the menu: `excerpt()` looks for the page's `og:title` in the text, and a straight quote there against a curly one in the text makes it fall back to the page start (known, in `src/adapters/common.ts`, not fixed here).
 - **Nazaré (8):** the pages give the venue (live 2026-10-21: "cineteatro") and
   an excerpt with a line of detail ("Jovens pianistas"); the titles stay
   generic.
@@ -174,7 +186,6 @@ covered several.
 | Salvaterra de Magos | cm-salvaterrademagos.pt | the home page links an agenda news post whose address changes |
 | Tomar | cm-tomar.pt | about 55 minutes, like Sobral de Monte Agraço and Marinha Grande; readable from home on 2026-11-03 (page 1 of 3, dates in the text), but not added; readable from a home address (page 1 of 3, dates in the text) but left out of this change as a scope decision; adding it would be a row in `sources.json` followed by a `probe` run (the probe only reads `sources.json`, so it cannot test Tomar before a row exists), and it stays out unless that shows a runner reads it directly |
 | Constância | none | stale: the newest agenda entry is December 2025 (2026-11-03) |
-| Benavente | none | would need a reader of its own |
 | Médio Tejo (region) | agenda.mediotejo.pt | built by script, empty to a plain request |
 | Rio Maior, Santarém, Caldas da Rainha, Óbidos, Alcobaça, Torres Novas, Cartaxo, Porto de Mós, Bombarral | Viral Agenda (viralagenda.com), nine municipality pages | refuses the collector's HTTP client with a 403 whatever the User-Agent (an honest one included), though curl and browsers are answered and its robots.txt allows Claude-User with a 15 s crawl delay; not routed around. It would add nightlife and private venues (clubs, a bar, galleries, a theatre), guided walks and municipal events past the first page of a town's own list: about 22 events over two to three weeks on 2026-10-20 |
 | Santarém (regional) | O Mirante | HTTP 500 |
@@ -200,7 +211,7 @@ need a browser.
   owner on 2026-11-03: Peniche, Leiria, Chamusca, Entroncamento (50), Ourém and Vila
   Nova da Barquinha (55) were already sources at that distance; the widening added
   towns there that had none before, Arruda dos Vinhos (50), Sobral de Monte Agraço
-  and Marinha Grande (55), and a town beyond that is still out. A source
+  and Marinha Grande (55) and Benavente (50, queued on 2026-11-03, whose payoff is a few festivals a year), and a town beyond that is still out. A source
   that needs a browser or a login is out, because the collector does not do
   either ([where it bends](rio-maior-events.md#what-reaches-the-network-and-where-it-is-careful)).
 - **Own site before an aggregator.** A municipality's own listing is the
