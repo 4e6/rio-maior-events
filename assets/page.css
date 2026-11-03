@@ -288,7 +288,21 @@ footer.foot p { margin: 0; }
 .plain h1 { font-family: var(--font-serif); font-size: var(--fs-2xl); }
 .plain li { margin: var(--s2) 0; }
 
+/* Further ahead: the months after the dated agenda */
+.band.ahead { border-top: 1px solid var(--line); padding-top: var(--s4); }
+.ahead-intro { font-size: var(--fs-sm); color: var(--text-muted); margin: 0 0 var(--s3); max-width: 60ch; }
+.ahead-month .day-h small { font-weight: 400; color: var(--text-muted); }
+.far-tag { display: inline-block; font-size: var(--fs-xs); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--accent); border: 1px solid var(--accent-line); border-radius: var(--r-pill); padding: 0 7px; margin-left: 6px; vertical-align: 2px; }
+.hidden-line { font-size: var(--fs-sm); color: var(--text-muted); margin: var(--s3) 0 0; display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); }
+.ahead-link { display: grid; gap: 2px; margin-top: var(--s3); padding: var(--s2) var(--s3); min-height: var(--tap); border: 1px solid var(--line); border-radius: var(--r-md); color: var(--text); text-decoration: none; font-size: var(--fs-sm); }
+.ahead-link span { color: var(--text-muted); }
+.ahead-link:hover, .ahead-chip:hover { border-color: var(--accent-line); }
+.ahead-chip { flex: none; align-self: center; display: inline-flex; align-items: center; gap: 4px; min-height: var(--tap); padding: 0 var(--s3); margin-left: var(--s2); border: 1px solid var(--line); border-radius: var(--r-pill); color: var(--text); text-decoration: none; font-size: var(--fs-sm); white-space: nowrap; }
+#ahead { scroll-margin-top: calc(var(--sticky-top, 0px) + var(--s2)); }
+.grid-note { margin: var(--s2) 0 0; max-width: 308px; font-size: var(--fs-xs); color: var(--text-muted); }
+#ahead:focus { outline: none; }
+
 @media print {
-  .strip-wrap, .rail, .filters, .star, .theme-btn { display: none !important; }
+  .strip-wrap, .rail, .filters, .star, .theme-btn, .linkish, .ahead-chip { display: none !important; }
   .card-more { display: block !important; }
 }

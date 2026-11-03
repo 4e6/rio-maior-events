@@ -2,7 +2,8 @@
   "generated_at": "2026-10-20T08:15:00+01:00",
   "window": {
     "start": "2026-10-20",
-    "end": "2026-11-30"
+    "near_end": "2026-11-22",
+    "end": "2027-04-20"
   },
   "origin": "Rio Maior",
   "note": "Sample page with invented events. Past mid-November, a real agenda comes mostly from the municipality and the Cineteatro.",
@@ -571,6 +572,116 @@
         {
           "name": "Óbidos — Eventos",
           "url": "https://example.org/obidos#natal"
+        }
+      ],
+      "confidence": "low",
+      "caveat": "Dates not yet announced"
+    },
+    {
+      "title_pt": "Concerto de Natal (exemplo)",
+      "title_en": "Christmas concert (sample)",
+      "category": "music",
+      "kind": "single",
+      "start_date": "2026-12-12",
+      "end_date": null,
+      "start_time": "21:30",
+      "dates": null,
+      "recurrence": null,
+      "date_tbc": false,
+      "venue": "Igreja da Misericórdia",
+      "town": "Santarém",
+      "drive_min": 30,
+      "price": null,
+      "kids": false,
+      "description_en": "Sample entry. A choir in the church; listed weeks ahead by the venue.",
+      "sources": [
+        {
+          "name": "Santarém — Agenda",
+          "url": "https://example.org/santarem#natal"
+        }
+      ],
+      "confidence": "high",
+      "caveat": null
+    },
+    {
+      "title_pt": "Presépios do Ribatejo (exemplo)",
+      "title_en": "Ribatejo nativity scenes (sample)",
+      "category": "exhibition",
+      "kind": "ongoing",
+      "start_date": "2026-12-01",
+      "end_date": "2027-01-06",
+      "start_time": null,
+      "dates": null,
+      "recurrence": null,
+      "date_tbc": false,
+      "venue": "Biblioteca Municipal",
+      "town": "Rio Maior",
+      "drive_min": 3,
+      "price": {
+        "free": true,
+        "text": "Free"
+      },
+      "kids": true,
+      "description_en": "Sample entry. Starts after the dated weeks, so it is listed under Further ahead, not under Ongoing.",
+      "sources": [
+        {
+          "name": "Município de Rio Maior — Agenda",
+          "url": "https://example.org/rio-maior/presepios"
+        }
+      ],
+      "confidence": "high",
+      "caveat": null
+    },
+    {
+      "title_pt": "Festival do Chocolate (exemplo)",
+      "title_en": "Chocolate festival (sample)",
+      "category": "festival",
+      "kind": "multi_day",
+      "start_date": "2027-02-25",
+      "end_date": "2027-02-26",
+      "start_time": "10:00",
+      "dates": null,
+      "recurrence": null,
+      "date_tbc": false,
+      "venue": null,
+      "town": "Óbidos",
+      "drive_min": 55,
+      "price": {
+        "free": false,
+        "text": "€5"
+      },
+      "kids": true,
+      "description_en": "Sample entry. A big event: 55 minutes away, kept only because it is large.",
+      "sources": [
+        {
+          "name": "Óbidos — Eventos",
+          "url": "https://example.org/obidos#chocolate"
+        }
+      ],
+      "confidence": "high",
+      "caveat": null
+    },
+    {
+      "title_pt": "Feira de Primavera (exemplo)",
+      "title_en": "Spring fair (sample)",
+      "category": "market",
+      "kind": "single",
+      "start_date": "2027-03",
+      "end_date": null,
+      "start_time": null,
+      "dates": null,
+      "recurrence": null,
+      "date_tbc": true,
+      "venue": null,
+      "town": "Caldas da Rainha",
+      "drive_min": 40,
+      "price": null,
+      "kids": false,
+      "description_en": "Sample entry. Announced for March; exact dates not yet published.",
+      "sources": [
+        {
+          "name": "Caldas da Rainha — Agenda",
+          "url": "https://example.org/caldas#primavera"
         }
       ],
       "confidence": "low",

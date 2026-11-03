@@ -9,7 +9,7 @@ import { ADAPTERS } from "../src/adapters/index.ts";
 import { AdapterError } from "../src/adapters/types.ts";
 import type { Adapter, Page, ParseResult, Request, Source } from "../src/adapters/types.ts";
 import {
-  collectAll, defaultEnd, followRequests, lisbonToday, loadConfig, main, runHost, type Outcome,
+  collectAll, defaultEnd, followRequests, lisbonToday, loadConfig, main, runHost, writeOutput, type Outcome,
 } from "../src/collect.ts";
 import type { CollectDeps, MainDeps } from "../src/collect.ts";
 import { HttpError, NetworkError, RedirectRefused, TimeoutError, garbled } from "../src/net.ts";
@@ -585,7 +585,7 @@ describe("Main", () => {
     const r = await runMain(["--only", "cineteatro", "mcr-caldas", "cm-peniche", "--from", "2026-10-20"]);
     expect(r.code).toBe(0);
     const index = r.read("index.json");
-    expect(index.window).toEqual({ start: "2026-10-20", end: "2026-11-22" });
+    expect(index.window).toEqual({ start: "2026-10-20", near_end: "2026-11-22", end: "2026-11-22" });
     expect(index.groups).toEqual({
       "rio-maior": { file: "rio-maior.json", sources: ["cineteatro"] },
       "oeste-norte": { file: "oeste-norte.json", sources: ["mcr-caldas", "cm-peniche"] },
@@ -665,15 +665,38 @@ describe("Main", () => {
   });
 
   test("test_from_defaults_to_today_and_to_to_the_rule", async () => {
-    expect(await window([], "2026-10-21")).toEqual({ start: "2026-10-21", end: "2026-11-22" });
+    expect(await window([], "2026-10-21")).toEqual({ start: "2026-10-21", near_end: "2026-11-22", end: "2026-11-22" });
   });
 
   test("test_an_explicit_to_is_kept", async () => {
-    expect(await window(["--to", "2026-11-03"], "2026-10-21")).toEqual({ start: "2026-10-21", end: "2026-11-03" });
+    expect(await window(["--to", "2026-11-03"], "2026-10-21")).toEqual({ start: "2026-10-21", near_end: "2026-11-03", end: "2026-11-03" });
   });
 
   test("test_an_explicit_from_gets_the_rule_not_today", async () => {
-    expect(await window(["--from", "2026-10-25"], "2026-01-01")).toEqual({ start: "2026-10-25", end: "2026-11-22" });
+    expect(await window(["--from", "2026-10-25"], "2026-01-01")).toEqual({ start: "2026-10-25", near_end: "2026-11-22", end: "2026-11-22" });
+  });
+
+  test("a --to later than the default end keeps the default as near_end and the --to as end", async () => {
+    expect(await window(["--to", "2027-04-20"], "2026-10-21")).toEqual({ start: "2026-10-21", near_end: "2026-11-22", end: "2027-04-20" });
+    expect(await window(["--to", "2026-11-22"], "2026-10-21")).toEqual({ start: "2026-10-21", near_end: "2026-11-22", end: "2026-11-22" });
+  });
+
+  test("writeOutput without a near end writes the window end", () => {
+    const dir = mkdtempSync(join(tmpdir(), "collect-"));
+    const source = { name: "a", group: "g", town: "T", adapter: "text", url: "https://a.example/" } as unknown as Source;
+    const result = { name: "a", url: source.url, town: "T", adapter: "text", ok: true, status: 200, error: null, note: null, items: [], past: [], text: null, truncated: false, details: [] };
+    writeOutput(dir, "2026-10-20T08:00:00+01:00", ["2026-10-20", "2026-11-22"], ["g"], [source], [result as any]);
+    expect(JSON.parse(readFileSync(join(dir, "index.json"), "utf8")).window).toEqual({ start: "2026-10-20", near_end: "2026-11-22", end: "2026-11-22" });
+  });
+
+  test("writeOutput writes the near end it is given, into the index and every group file", () => {
+    const dir = mkdtempSync(join(tmpdir(), "collect-"));
+    const source = { name: "a", group: "g", town: "T", adapter: "text", url: "https://a.example/" } as unknown as Source;
+    const result = { name: "a", url: source.url, town: "T", adapter: "text", ok: true, status: 200, error: null, note: null, items: [], past: [], text: null, truncated: false, details: [] };
+    writeOutput(dir, "2026-10-20T08:00:00+01:00", ["2026-10-20", "2027-04-20"], ["g"], [source], [result as any], { nearEnd: "2026-11-22" });
+    const want = { start: "2026-10-20", near_end: "2026-11-22", end: "2027-04-20" };
+    expect(JSON.parse(readFileSync(join(dir, "index.json"), "utf8")).window).toEqual(want);
+    expect(JSON.parse(readFileSync(join(dir, "g.json"), "utf8")).window).toEqual(want);
   });
 
   test("test_today_is_lisbon_today", () => {
@@ -686,7 +709,7 @@ describe("Main", () => {
   test("test_main_without_today_asks_lisbon_for_it", async () => {
     let asked = 0;
     const r = await runMain(["--only", "cineteatro"], { lisbonToday: () => { asked++; return "2026-10-21"; } });
-    expect(r.read("index.json").window).toEqual({ start: "2026-10-21", end: "2026-11-22" });
+    expect(r.read("index.json").window).toEqual({ start: "2026-10-21", near_end: "2026-11-22", end: "2026-11-22" });
     expect(asked).toBe(1);
   });
 

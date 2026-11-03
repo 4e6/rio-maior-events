@@ -164,6 +164,15 @@ describe("status data", () => {
 describe("status page", () => {
   const html = (over: Partial<StatusInput> = {}) => renderStatus(buildStatus(input(over)), "/*css*/", "/*status*/");
 
+  test("window.near_end passes through, and the header names Further ahead only when there is one", () => {
+    const base = input();
+    const near = { ...base.index, window: { start: "2026-10-20", near_end: "2026-11-22", end: "2027-04-20" } };
+    expect(buildStatus(input({ index: near })).window).toEqual(near.window);
+    expect(html({ index: near })).toContain("window 2026-10-20 to 2026-11-22, further ahead to 2027-04-20");
+    const same = { ...base.index, window: { start: "2026-10-20", near_end: "2026-11-22", end: "2026-11-22" } };
+    expect(html({ index: same })).toContain("window 2026-10-20 to 2026-11-22<");
+  });
+
   test("a source read through the fallback proxy gets a pill, and the run shows the bytes used", () => {
     const base = input();
     const index = { ...base.index, proxy: { bytes: 3 * 1048576, max_bytes: 30 * 1048576, dead: null, hosts: { "a1.example.org": 1 }, retries: 3, host_retries: { "a1.example.org": 3, "b.example.org": 0 } },

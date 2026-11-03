@@ -11,11 +11,12 @@
       "type": "object",
       "properties": {
         "start": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
-        "end": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" }
+        "end": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+        "near_end": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" }
       },
       "required": ["start", "end"],
       "additionalProperties": false,
-      "description": "The first and last day the agenda covers. `end` is not before `start`."
+      "description": "The first and last day the agenda covers. `end` is not before `start`. `near_end`, when present, is the last day of the dated weeks: `start <= near_end <= end`, and events after it are listed under Further ahead. Absent means the whole window is dated. Required once the window is longer than 60 days, so a page cannot lose it silently."
     },
     "origin": {
       "type": "string",
