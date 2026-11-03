@@ -76,7 +76,7 @@ events, month-only or with a full date, mark nothing.
   the rail (not while the keyboard is in it). Greyed past days are not stops. A jump
   holds its day until the user takes over the scroll or the jump's scroll ends, and the
   foot of the page marks the last day in view.
-- **The page grows** by about 18 KB of script (`page.js` 36 KB to 54 KB, inlined in
+- **The page grows** by about 11 KB of script (`page.js` 43,175 to 54,371 bytes in this change, inlined in
   every page); the far cards existed before, in a list, and the longer list is drawn in
   the browser.
 - **A far month's chip counts the events on its days**, "again" and "continues" rows

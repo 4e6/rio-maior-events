@@ -11,7 +11,7 @@ sources:
   - resource: test/**
   - resource: .github/workflows/**
   - resource: certs/**
-sources_digest: bcf477935cddcd9d
+sources_digest: f0de00c4a66ea50b
 ---
 
 # What it is
@@ -358,11 +358,14 @@ dark.
     through `near_end`'s month, worked out once in `page.js` with no filters (the
     placement rules live there, and a grid that grew and shrank as you typed would be
     worse than a quiet March). Days outside the window are greyed and not buttons;
-    days from `near_end` to `window.end` are live, empty or dotted. Two notes: under
-    `near_end`'s month "After 6 Dec, only what the sources already list; few list this
-    far ahead", and under the last grid "No dated events after March, other than long
+    days from `near_end` to `window.end` are live, empty or dotted. Up to two notes, never
+    both under one grid: under the last grid "No dated events after March, other than long
     runs and regulars; the agenda runs to 3 May" (not "nothing listed": an ongoing run
-    can reach past the last grid), so a missing month reads as "not covered". A month
+    can reach past the last grid; drawn when the agenda runs past that month), and under
+    `near_end`'s month, when it is not the last grid, "After 6 Dec, only what the sources
+    already list; few list this far ahead". When `near_end`'s month is the last grid, the
+    end note alone is drawn: it already says nothing dated follows. A missing month
+    reads as "not covered". A month
     with only undated events gets no grid.
   - *List.* After the near bands, one band per month with a marked day (an `h2`, the
     first carrying `id="ahead"`; with no far band, an old link to `#ahead` goes to
@@ -374,7 +377,8 @@ dark.
   - *Date to be confirmed* is the one separate list, after every day: every `date_tbc`
     event, near or far, by the month or day the source gave ("December, day tbc"),
     with a deterministic order, until its month (or the day it gave) is behind the
-    reader. A rail link and a strip chip go to it.
+    reader. A rail link and a strip chip go to it, counting what the band counts under the
+    filters and left out when that is 0, as a month chip is.
   - *Phone.* The strip stays on the coming weeks (34 buttons, not 180); each far month
     with a day block is a chip after it ("Dec 12 · Jan 4 · Feb 3 · Mar 1 · Date tbc
     2"), counting the events on that month's days as a day button does, "again" and

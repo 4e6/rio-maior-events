@@ -1460,11 +1460,11 @@ footer.foot p { margin: 0; }
   function hiddenLine(n, where) {
     return n > 0 ? '<p class="hidden-line">' + n + (n === 1 ? " more event " : " more events ") + where + ' hidden by your filters. <button type="button" class="linkish" data-clear>Show all</button></p>' : "";
   }
-  var tbcAll = 0, farShown = [];   // for the strip chips and the rail link: the far months drawn now, and the undated list
+  var tbcShown = 0, farShown = [];   // for the strip chips and the rail link: the far months drawn now, and the undated list
   function renderAll() {
     var S = sections(F), all = unfiltered();
     var dated = S.dated, ongoing = S.ongoing, regulars = S.regulars, tbc = S.tbc;
-    tbcAll = all.tbc.length;
+    tbcShown = tbc.length;   // the band's own count: a chip never reads more than the band it opens, and at 0 the chip and link are left out, as a month chip is
 
     /* day -> entries */
     var byDay = {}; dayCounts = {};
@@ -1607,7 +1607,7 @@ footer.foot p { margin: 0; }
     }
     /* the strip stays on the coming weeks (half a year would be ~180 buttons); the far days are a chip away */
     farShown.forEach(function (x) { s += '<a class="ahead-chip" href="#band-' + x.m + '" data-month="' + x.m + '" aria-label="' + MONTHS[+x.m.slice(5, 7) - 1] + " " + x.m.slice(0, 4) + ": " + x.n + (x.n === 1 ? " event" : " events") + '">' + MO[+x.m.slice(5, 7) - 1] + ' <span class="n">' + x.n + "</span></a>"; });
-    if (tbcAll) s += '<a class="ahead-chip" href="#band-tbc">Date tbc <span class="n">' + tbcAll + "</span> ›</a>";
+    if (tbcShown) s += '<a class="ahead-chip" href="#band-tbc">Date tbc <span class="n">' + tbcShown + "</span> ›</a>";
     document.getElementById("strip").innerHTML = s;
 
     /* desktop: one grid per month in the window */
@@ -1635,7 +1635,7 @@ footer.foot p { margin: 0; }
       cur = add(cur, 32).slice(0, 7) + "-01";
     }
     r += '<div class="legend"><span><span class="mk"><span class="dots"><span class="dot"></span></span></span>one event (up to 3 shown)</span><span><span class="mk"><span class="dots"><span class="dot star">' + STAR + '</span></span></span>a day with one of your picks</span>' + (inWindow ? '<span><span class="mk"><span class="today"><span class="num">' + parse(realToday).getDate() + '</span></span></span>today</span>' : "") + '</div>';
-    if (tbcAll) r += '<a class="ahead-link" href="#band-tbc"><b>Date to be confirmed</b><span>' + tbcAll + (tbcAll === 1 ? " event" : " events") + " with no day yet</span></a>";
+    if (tbcShown) r += '<a class="ahead-link" href="#band-tbc"><b>Date to be confirmed</b><span>' + tbcShown + (tbcShown === 1 ? " event" : " events") + " with no day yet</span></a>";
     document.getElementById("rail").innerHTML = r;
   }
   /* Keyboard: each month grid is one tab stop, so seven grids cost seven stops rather than ~200. The stop is the active

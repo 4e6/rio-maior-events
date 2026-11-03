@@ -770,6 +770,18 @@ describe("Status link, as the page draws it", () => {
     expect(h["result-line"]).toContain("3 of 3 events");
   });
 
+  test("the undated chip and rail link count what the Date to be confirmed band counts, and leave when it is 0", () => {
+    const events = [ev({ title_pt: "Dated", title_en: "Dated", start_date: "2026-10-30" }), ev({ title_pt: "Nodate", title_en: "Nodate", date_tbc: true, start_date: null }), ev({ title_pt: "Nov tbc", title_en: "Nov tbc", date_tbc: true, start_date: "2026-11" })];
+    const all = drawn(farData(events));
+    expect(all.strip).toContain('Date tbc <span class="n">2</span>');
+    expect(all.rail).toContain("2 events with no day yet");
+    // Free filters both undated events out (€8): the band says 0, so the chip and the link are not drawn
+    const w = drawn(farData(events), { toggles: ["free"] });
+    expect(w.tbc).toContain("Date to be confirmed <small>0</small>");
+    expect(w.strip).not.toContain("Date tbc");
+    expect(w.rail).not.toContain("ahead-link");
+  });
+
   test("the dated hidden line counts what the agenda above hides, a regular kept by its recurrence text included", () => {
     const events = [
       ev({ title_pt: "Sunday text", title_en: "Sunday text", kind: "recurring", start_date: "2026-10-27", dates: ["2026-10-27", "2026-11-03"], recurrence: "Tuesdays, and some Sundays" }),
