@@ -7,7 +7,7 @@
     "rio-maior": "Rio Maior: the municipality, and the Cineteatro",
     "oeste-norte": "Northern Oeste and the Leiria coast: Caldas da Rainha, Óbidos, Bombarral, Peniche, Nazaré, Alcobaça, Porto de Mós, Batalha, Leiria, Marinha Grande",
     "oeste-sul": "Southern Oeste: Cadaval, Lourinhã, Torres Vedras, Alenquer, Arruda dos Vinhos, Sobral de Monte Agraço",
-    "ribatejo": "Ribatejo: Santarém, Cartaxo, Almeirim, Alcanena, Chamusca",
+    "ribatejo": "Ribatejo: Santarém, Cartaxo, Almeirim, Alcanena, Chamusca, Golegã",
     "medio-tejo": "Médio Tejo: Torres Novas, Entroncamento, Ourém, Vila Nova da Barquinha",
     "regional": "Regional listings: Portugal Running"
   },
@@ -38,6 +38,7 @@
     {"name": "cm-nazare", "label": "Município de Nazaré", "adapter": "municipal_rss", "town": "Nazaré", "group": "oeste-norte", "url": "https://www.cm-nazare.pt/pages/visitar%2Ftodos-os-eventos.rss", "options": {"page": "https://www.cm-nazare.pt/visitar/todos-os-eventos"}, "follow": 8},
     {"name": "cm-peniche", "label": "Município de Peniche", "adapter": "text", "town": "Peniche", "group": "oeste-norte", "url": "https://www.cm-peniche.pt/visitar/agenda-de-eventos", "cap": 4000, "links": "^/visitar/agenda-de-eventos/evento-\\d+/[^/?]+$", "follow": 8},
     {"name": "cm-chamusca", "label": "Município da Chamusca", "adapter": "municipal_rss", "town": "Chamusca", "group": "ribatejo", "url": "https://www.cm-chamusca.pt/pages/informacoes%2Fcomunicacao-institucional%2Feventos.rss", "options": {"page": "https://www.cm-chamusca.pt/informacoes/comunicacao-institucional/eventos"}},
+    {"name": "fnc-golega", "label": "Feira Nacional do Cavalo (Golegã)", "adapter": "text", "town": "Golegã", "group": "ribatejo", "url": "https://feiranacionaldocavalo.com/?p=497"},
     {"name": "cm-vnbarquinha", "label": "Município de Vila Nova da Barquinha", "adapter": "text", "town": "Vila Nova da Barquinha", "group": "medio-tejo", "url": "https://www.cm-vnbarquinha.pt/index.php/viver/agenda", "links": "^/index\\.php/viver/agenda/[^/?]+/[^/?]+$", "follow": 10, "options": {"mini_calendar": true}},
     {"name": "ourem", "label": "Município de Ourém", "adapter": "events_calendar", "town": "Ourém", "group": "medio-tejo", "url": "https://www.ourem.pt/wp-json/tribe/events/v1/events?per_page=50", "options": {"window_params": ["start_date", "end_date"]}},
     {"name": "cm-cadaval", "label": "Município do Cadaval", "adapter": "cadaval_api", "town": "Cadaval", "group": "oeste-sul", "url": "https://api.cm-cadaval.pt.stage.vf-portal.com/website/Events/1?page=1&lang=pt", "options": {"site": "https://www.cm-cadaval.pt"}},
