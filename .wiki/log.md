@@ -1,7 +1,7 @@
 # Wiki Update Log
 
 ## 2026-11-03
-* **Benavente left out**: it refuses a GitHub runner (two timeouts) and the proxy answered 502 once, so it is not a source; the verified reading approach is kept in `references/sources.md`, and the shared `excerpt()` menu-fallback defect is recorded as a known issue ([sources](/architecture/rio-maior-events-sources.md)).
+* **Benavente left out**: it did not answer a GitHub runner in two probes (20 s timeouts) and the proxy answered 502 once, so it is not a source; the verified reading approach is kept in `references/sources.md` ([sources](/architecture/rio-maior-events-sources.md)). Recorded separately from that decision: the `excerpt()` menu-fallback defect is a pipeline-wide known issue, affecting every adapter that reads followed event pages through `extractDetail` (`text`, `municipal_rss` by default, `nextjs` as a fallback).
 * **More municipalities**: Arruda dos Vinhos, Sobral de Monte Agraço and Marinha Grande join as sources, read for their big events only (the 50-minute rule of `towns.md`), the range widened by the owner from about 45 to about 55 minutes for such towns; Alpiarça stays out because its events category is stale ([sources](/architecture/rio-maior-events-sources.md), [architecture](/architecture/rio-maior-events.md)).
 * **Proxy retries**: a proxied request that times out or is reset is attempted up to three times, at most three retries a host, counted in `index.json`'s `proxy` and `status.json` ([architecture](/architecture/rio-maior-events.md), [decision](/decisions/0004-a-residential-proxy-for-the-sites-that-refuse-github-runners.md)).
 
