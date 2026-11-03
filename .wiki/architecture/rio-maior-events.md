@@ -11,7 +11,7 @@ sources:
   - resource: test/**
   - resource: .github/workflows/**
   - resource: certs/**
-sources_digest: 4f7843c66ba84f0f
+sources_digest: 5c9f51bcf1b77b79
 ---
 
 # What it is
@@ -110,9 +110,16 @@ and each has its own traps.
   ends the retries ("proxy budget reached", not a refusal). A host spends at most
   3 retries in a run (`MAX_HOST_RETRIES`); past that a timeout fails as before.
   Only the last error is classified, so the skip-the-rest-of-the-host rule is
-  unchanged. Worst case: about +75 s a host (3 retries of 20 s plus 5 s of wait;
-  the 20 s timeout is per hop, not per request), so a worker running four hosts
-  adds about 285 s to a ~133 s collect: some 7 minutes against the step's 15.
+  unchanged. Only a request without a body (a GET or a follow) is retried: a POST
+  keeps its single proxied attempt, since resending a body is not known to be
+  idempotent. A retry is counted and waited for only when it will be attempted:
+  a dead or spent proxy (`available()` false) ends the loop first.
+  `PROXY_ATTEMPTS` is derived from `PROXY_BACKOFF_S` (its length plus one).
+  Worst case: about +71 s a host. Three retries are three more 20 s timeouts (60 s;
+  the timeout is per hop, not per request), and the waits are 2 s and 5 s on one
+  request plus 2 s on another (the backoff restarts for each request), 9 s, or
+  about 11 s with the full 25 % jitter. So a worker running four hosts adds about
+  285 s to a ~133 s collect: some 7 minutes against the step's 15.
   The proxied request is the same request: the same
   User-Agent and headers, timeout and redirect rules, and HTTPS through CONNECT
   with TLS verified end to end against the same CA list. Every proxied request

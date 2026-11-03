@@ -39,10 +39,11 @@ export interface ProxyFetchers {
   noteRetry?: (host: string) => void;
 }
 
-/** Attempts per proxied request: the first and up to two retries, after waits of 2 s and then 5 s (each plus 0-25 %
- *  jitter, and never less than the host's crawl delay). */
-export const PROXY_ATTEMPTS = 3;
+/** The wait before each retry of one proxied request: 2 s then 5 s (each plus 0-25 % jitter, and never less than the
+ *  host's crawl delay). */
 export const PROXY_BACKOFF_S = [2, 5];
+/** Attempts per proxied request: the first and one retry per backoff entry, derived so the two cannot drift. */
+export const PROXY_ATTEMPTS = PROXY_BACKOFF_S.length + 1;
 /** Retries one host may spend in a run, so a bad exit cannot push the collect step toward its timeout. */
 export const MAX_HOST_RETRIES = 3;
 
@@ -220,11 +221,16 @@ export async function runHost(host: string, jobs: [name: string, requests: Reque
   let hostRetries = 0;
   const STOPPED = Symbol("stopped");
   const proxiedWithRetry = async (fetcher: Fetcher, request: Request, follow: boolean): Promise<FetchResult> => {
+    const body = follow ? null : request.data;
     for (let attempt = 1; ; attempt++) {
       try {
-        return await fetcher(request.url, follow ? null : request.data, signal);
+        return await fetcher(request.url, body, signal);
       } catch (err) {
-        if (attempt >= PROXY_ATTEMPTS || hostRetries >= MAX_HOST_RETRIES || !retriesThroughProxy(err)) throw err;
+        // Only a request without a body is retried (a GET or a follow): resending a body (a POST) is not known to be
+        // idempotent, so it keeps its single proxied attempt. A dead or spent proxy ends the retries before one is
+        // counted or waited for.
+        if (body != null || attempt >= PROXY_ATTEMPTS || hostRetries >= MAX_HOST_RETRIES || !retriesThroughProxy(err)) throw err;
+        if (proxy?.available?.() === false) throw err;
         if (signal?.aborted) throw STOPPED;
         hostRetries++;
         proxy?.noteRetry?.(host);

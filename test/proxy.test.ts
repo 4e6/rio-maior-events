@@ -10,7 +10,7 @@ import { join } from "node:path";
 import { gzipSync } from "node:zlib";
 import { ADAPTERS } from "../src/adapters/index.ts";
 import type { Page, Request } from "../src/adapters/types.ts";
-import { MAX_HOST_RETRIES, collectAll, main, runHost } from "../src/collect.ts";
+import { MAX_HOST_RETRIES, PROXY_ATTEMPTS, collectAll, main, runHost } from "../src/collect.ts";
 import type { MainDeps, ProxyFetchers } from "../src/collect.ts";
 import { HttpError, NetworkError, ProxyError, RedirectRefused, TimeoutError, retriesThroughProxy, triggersFallback } from "../src/net-errors.ts";
 import { PROXY_REQUEST_BYTES, PROXY_TUNNEL_BYTES, ProxyGateway, fetchWith } from "../src/net.ts";
@@ -468,6 +468,57 @@ describe("retrying a proxied request", () => {
     expect(g.noted).toHaveLength(3);
     expect(Object.values(r.outcomes).map((o) => o.error)).toEqual([null, null, "TimeoutError: timed out after 20 s"]);
     expect(g.log.filter((l) => l.startsWith("proxy"))).toHaveLength(6);
+  });
+
+  test("the cap boundary: exactly MAX_HOST_RETRIES retries are spent, the next timeout on the host is not retried", async () => {
+    // each source takes its retries one request at a time until the host's budget is gone; PROXY_ATTEMPTS bounds one request
+    const perRequest = PROXY_ATTEMPTS - 1;
+    const names: string[] = [], errs: unknown[] = [];
+    for (let left = MAX_HOST_RETRIES, i = 0; left > 0; i++) {
+      const n = Math.min(left, perRequest);
+      names.push("s" + i);
+      for (let k = 0; k < n; k++) errs.push(timeout());
+      errs.push(null); // succeeds after n retries
+      left -= n;
+    }
+    names.push("last");
+    errs.push(timeout()); // the next timeout: no budget left
+    const g = flaky(errs);
+    const r = await run(g, names);
+    expect(g.noted).toHaveLength(MAX_HOST_RETRIES);
+    expect(r.outcomes.last!.error).toBe("TimeoutError: timed out after 20 s");
+    expect(g.log.filter((l) => l.startsWith("proxy ") && l.endsWith("/last"))).toHaveLength(1);
+  });
+
+  test("a request with a body (a POST) keeps its single proxied attempt", async () => {
+    const log: string[] = [];
+    const proxyFetch: Fetcher = async (url) => { log.push(url); throw timeout(); };
+    const noted: string[] = [];
+    const { c, sleep, clock } = clockDeps();
+    const outcomes = await runHost("h.example", [["a", [{ url: "https://h.example/a", data: new Uint8Array([1, 2]) }]]], {
+      fetch: async () => { throw http(403); }, sleep, clock, delay: 0, random: () => 0,
+      proxy: { fetch: proxyFetch, followFetch: proxyFetch, noteRetry: (h) => noted.push(h) },
+    });
+    expect(log).toHaveLength(1);
+    expect(c.sleeps).toEqual([]);
+    expect(noted).toEqual([]);
+    expect(outcomes.a!.error).toBe("TimeoutError: timed out after 20 s");
+  });
+
+  test("a timeout when the proxy has become unavailable is not retried: no wait, no retry counted", async () => {
+    let dead = false;
+    const log: string[] = [];
+    const noted: string[] = [];
+    const proxyFetch: Fetcher = async (url) => { log.push(url); dead = true; throw timeout(); }; // the attempt spends the budget
+    const { c, sleep, clock } = clockDeps();
+    const outcomes = await runHost("h.example", jobs("a"), {
+      fetch: async () => { throw http(403); }, sleep, clock, delay: 0, random: () => 0,
+      proxy: { fetch: proxyFetch, followFetch: proxyFetch, available: () => !dead, noteRetry: (h) => noted.push(h) },
+    });
+    expect(log).toHaveLength(1);
+    expect(c.sleeps).toEqual([]);
+    expect(noted).toEqual([]);
+    expect(outcomes.a!.error).toBe("TimeoutError: timed out after 20 s");
   });
 
   test("follows are retried the same way", async () => {
