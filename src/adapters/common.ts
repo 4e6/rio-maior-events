@@ -614,6 +614,8 @@ function pageTitle(page: string): [string, string] {
     const value = content ? pyStrip(unescape(content[2] || content[3] || "")) : "";
     if (value) return [value, line || ""];
   }
+  // Not the set `excerpt()` cuts a title at (` - | ‹ – —`): this one has no hyphen or en dash, so a `<title>` such as
+  // "Fado - Ana Moura" stays whole here. Widening it would change the title of every page with no og:title.
   if (line) return [pyStrip(line.split(/ \| | ‹ | — /)[0]!), line];
   return ["", ""];
 }
@@ -694,7 +696,7 @@ function asTypeset(needle: string): Finder {
 }
 
 /** About EXCERPT_CAP characters of text from the first mention of the title after the <title> line (or of its
- *  part before " - ", " | ", " ‹ ") that does not lead into a mini calendar. The needles are tried in this order:
+ *  part before " - ", " | ", " ‹ ", " – ", " — ") that does not lead into a mini calendar. The needles are tried in this order:
  *  the whole title as typed, the whole title as typeset (`typesetPattern`: quotes, dashes, ellipsis, spaces on one
  *  line), its part as typed, its part as typeset; so a short part that is also a menu item never wins over the whole
  *  title typeset differently. With no title on the page, or a category word for one (`placeholder`), the excerpt is
@@ -706,7 +708,7 @@ function excerpt(text: string, title: string, head: string): string | null {
   let start = 0;
   if (head && text.startsWith(head)) start = head.length;
   const needles = [title];
-  const part = title.split(/ - | \| | ‹ /)[0]!;
+  const part = title.split(/ - | \| | ‹ | – | — /)[0]!;
   if (part !== title) needles.push(part);
   let hit: Finder | null = null;
   for (const needle of needles) {

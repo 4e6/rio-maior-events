@@ -277,6 +277,23 @@ describe("Excerpt", () => {
     expect(found.excerpt).not.toContain(TITLE_NOT_FOUND);
   });
 
+  test("test_a_title_with_an_en_dash_is_cut_at_it_like_portugal_runnings", () => {
+    // Hand-written after the shape of a Portugal Running event page: the og:title carries " – Guia e Inscrições",
+    // the heading is only the part before it, and the menu comes first.
+    const items = ["Calendário", "Notícias", "Backyard", "Contactos"];
+    const found = extractDetail(bare(withMenu("Backyard Trilho dos Cágados 2027 – Guia e Inscrições", "Backyard Trilho dos Cágados 2027", items), "text/html"));
+    expect(found.excerpt).toBe("Backyard Trilho dos Cágados 2027\nSáb 24 out, 21h30, no Cineteatro.");
+    expect(found.excerpt).not.toContain(TITLE_NOT_FOUND);
+    // an em dash too
+    const em = extractDetail(bare(withMenu("Backyard Trilho dos Cágados 2027 — Guia", "Backyard Trilho dos Cágados 2027", items), "text/html"));
+    expect(em.excerpt!.startsWith("Backyard Trilho dos Cágados 2027\n")).toBe(true);
+  });
+
+  test("test_a_title_that_really_differs_from_the_heading_stays_marked", () => {
+    const found = extractDetail(bare(withMenu("Backyard Trilho dos Cágados 2027 – Guia e Inscrições", "Outra Prova 2027", ["Calendário", "Notícias"]), "text/html"));
+    expect(found.excerpt!.startsWith(`${TITLE_NOT_FOUND}\nCalendário\nNotícias`)).toBe(true);
+  });
+
   test("test_a_page_with_no_text_has_no_excerpt", () => {
     expect(extractDetail(bare("<html><head></head><body></body></html>")).excerpt).toBeNull();
   });
