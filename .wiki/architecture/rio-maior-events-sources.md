@@ -9,7 +9,7 @@ sources:
   - resource: references/sources.md
   - resource: tools/probe_*.ts
   - resource: .github/workflows/probe.yml
-sources_digest: c1011f15dbbcefa4
+sources_digest: 3bf668c1cc25db96
 ---
 
 # What this page is for
@@ -196,7 +196,9 @@ need a browser.
 
 # Known issues
 
-- **`excerpt()` can return the page's menu.** In `src/adapters/common.ts`, `excerpt()` finds the page's `og:title` in the text with `indexOf`; when the title there differs from the text by a quote (straight against curly), nothing matches and the excerpt falls back to the start of the page, which is the site's menu. It hit 2 of the 8 Benavente event pages sampled. `excerpt()` is called only by `extractDetail`, which runs for every followed event page: through `defaultDetails` for each adapter without its own `details` (today `text` and `municipal_rss`, so the `text` sources with `links` and the `municipal_rss` ones with `follow`: cm-nazare, cm-arruda, cm-mgrande), and in `nextjs` (cm-bombarral, cm-lourinha, cm-alenquer, cm-sobral) only as the fallback when its own page parsing throws. Not fixed.
+None open.
+
+- **`excerpt()` returned the page's menu (fixed 2026-11-03).** `excerpt()` in `src/adapters/common.ts` finds the page's `og:title` in the text with `indexOf`; when the title there differed from the text by a quote (straight against curly), nothing matched and the excerpt fell back, unmarked, to the start of the page, which is the site's menu. It hit 2 of the 8 Benavente event pages sampled. Now, only when the exact search finds neither the title nor its part before a separator, the title is looked for again as typeset: any straight or curly quote, a hyphen or any dash, three dots or an ellipsis, and any run of spaces (a no-break space too) match each other; the case still has to match. A page the exact search reads gives the same excerpt as before. A title found neither way gives the page's start after a `TITLE_NOT_FOUND` line, which `references/reading.md` explains to the readers; a page with no title at all still gives its start unmarked. `excerpt()` runs for every followed event page through `extractDetail`: by `defaultDetails` for each adapter without its own `details` (`text` and `municipal_rss`: the `text` sources with `links` and `follow`, and cm-nazare, cm-arruda, cm-mgrande), and in `nextjs` only as the fallback when its own page parsing throws.
 
 # Why
 
