@@ -1,6 +1,6 @@
 // Port of scripts/adapters/text.py. Owned by T8.
 import type { Adapter, Item, Page, ParseResult, Request, Source, Window } from "./types.ts";
-import { AdapterError, MIN_TEXT, TEXT_CAP, decode, extractJsonldEvents, miniCalendarItems, visibleTextLinks } from "./common.ts";
+import { AdapterError, MIN_TEXT, TEXT_CAP, capWithMarks, decode, dropCardsAfter, extractJsonldEvents, miniCalendarItems, visibleTextLinks } from "./common.ts";
 import { cpLen } from "../py/str.ts";
 
 /** text.parse: visible text plus JSON-LD events; `follow` from source.links markers. */
@@ -10,9 +10,20 @@ export const text: Adapter = {
     const items: Item[] = extractJsonldEvents(page, window);
     // A Joomla mini calendar: the day of each linked event is read from its cell, not from the text.
     const links = source.links ? new RegExp(source.links) : null;
-    const { text: body, truncated, urls } = visibleTextLinks(page, source.cap ?? TEXT_CAP, pages[0]!.url, links);
+    const cap = source.cap ?? TEXT_CAP;
+    let { text: body, truncated, urls } = visibleTextLinks(page, source.options?.card_dates ? Infinity : cap, pages[0]!.url, links);
+    let cardNote: string | null = null;
+    if (source.options?.card_dates === "portugalrunning") {
+      // Cards dated after the window end go before the cap and before `follow` is built. A cost and noise saver; the rule
+      // that these races stop at the coming weeks is merge's, which holds when the layout changes and nothing is dated.
+      const cut = dropCardsAfter(body, window[1]);
+      ({ text: body, truncated, urls } = capWithMarks(cut.text, cut.marks, cap));
+      if (cut.dated === 0) cardNote = "no dated race cards found (layout may have changed)";
+    } else if (source.options?.card_dates) {
+      throw new AdapterError(`unknown card_dates: ${String(source.options.card_dates)}`);
+    }
     if (!items.length && cpLen(body) < MIN_TEXT) throw new AdapterError("no events or text found (layout may have changed)");
-    const parsed: ParseResult = { items, text: body, truncated, past: [], note: null };
+    const parsed: ParseResult = { items, text: body, truncated, past: [], note: cardNote };
     if (source.options?.mini_calendar) {
       const calendar = miniCalendarItems(page, pages[0]!.url, window);
       items.push(...calendar.items);

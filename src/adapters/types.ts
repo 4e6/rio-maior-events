@@ -37,7 +37,9 @@ export interface Source {
   cap?: number;
   /** How many event pages to fetch at most (default 0: none). */
   follow?: number;
-  /** Per-adapter options: text {mini_calendar}, riomaior_calendar {categories}, events_calendar {window_params},
+  /** "near": the source is read only for the dated weeks (to window.near_end), not the whole window. Absent: the whole window. */
+  horizon?: "near";
+  /** Per-adapter options: text {mini_calendar, card_dates}, riomaior_calendar {categories}, events_calendar {window_params},
    *  cadaval_api {site}, municipal_rss {page}. */
   options?: Record<string, any>;
 }

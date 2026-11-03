@@ -98,9 +98,24 @@ no `id`, and no `window` or `sources_checked`: those come from the merge.
   to something (inscrições) rather than the event itself; sessions only for
   seniors or for schools; past events, far-away and online ones, and anything
   outside the window.
+- The window is about six months. Its first weeks, to `window.near_end` ("the
+  coming weeks"), are listed in full; what starts after `window.near_end` is
+  shown on the page under "Further ahead", and only as far as the sources
+  already list it. So list a later event when a source gives it, and do not go
+  looking for more. Races from Portugal Running reach only the coming weeks:
+  the script cut the cards after `window.near_end`, and the merge step leaves
+  out any race that only those sources list after it, so write no such race,
+  not even one named in a guide table without a date.
 - 50 minutes or more (towns.md) keep only a big event: a named festival, a
   national or international concert or race, a major venue's headline show;
-  not a local workshop or screening.
+  not a local workshop or screening. The same rule at any date: a local
+  workshop of a 50-minute town is dropped in March as it is next week.
+- A date that gives no year ("15 jan", "sáb 27 fev") after `window.near_end`:
+  keep the event only when the source states the year, or gives a weekday that
+  matches the year you infer (27 Feb is a Saturday in 2027, so "sáb 27 fev" is
+  2027). Otherwise drop it: with the window reaching May, a page that is stale
+  would turn last season's "15 jan" into an event of next January. Within the
+  coming weeks the year is inferred from `collected_at` as before.
 - An event that started earlier on the collection day: keep it if it is still
   running or has a later session today, otherwise drop it.
 - One event per real event. Merge the same event from several sources of this
@@ -135,7 +150,11 @@ MARATONA" over "50ª Meia Maratona Internacional da Nazaré".
   source shows no end, `end_date` is the last day the source shows, with
   `confidence: "low"` and a caveat saying the end is not stated;
   `recurring` for a pattern such as a weekly market, with `recurrence` in words
-  and `dates` where they are known. A workshop that runs all year on set days
+  and `dates` where they are known, listed only up to `window.near_end` (a
+  weekly market over six months would be about 26 dates): the rest is in
+  `recurrence` ("every Saturday"). A recurring event that starts after
+  `window.near_end` lists at most its first four dates; the merge step cuts any
+  longer list to that. A workshop that runs all year on set days
   or on request (Óbidos's, for example) is one `recurring` event with its
   recurrence in words, not one event per date. Dated performances (a play on two or three
   dates) are never `recurring`: write one `single` per date. A run of four or
@@ -206,14 +225,16 @@ item (title and date) or the entry in sources.md's known yearly list.
 - One sighting is all a hint rests on, so it is `confidence: "low"`.
 - Never when this year's edition is already in `past` or in `events`, and never
   when a source of this group dates it.
-- A yearly event qualifies when its usual dates overlap the window, not merely
-  its month. A vague usual time means: "early" is the 1st to the 10th, "mid" the
+- A yearly event qualifies when its usual dates overlap the coming weeks
+  (`window.start` to `window.near_end`), not merely its month, and not the later
+  months of the window: the table in sources.md is a hand-kept list, and the
+  merge step leaves out a hint dated after `window.near_end`. A vague usual time means: "early" is the 1st to the 10th, "mid" the
   10th to the 20th, "late" the 21st to the end of the month, and a bare month
   the whole month ("mid October" is 10 to 20 October). `start_date` is then `YYYY-MM` of the expected month, and must fall
-  inside the window. If the usual dates are outside the window, write no hint.
+  inside the coming weeks. If the usual dates are outside them, write no hint.
   When the usual dates span two months (late September to early October) and
   the window starts on 1 October, `start_date` is the expected month that falls
-  inside the window: `YYYY-10`.
+  inside the coming weeks: `YYYY-10`.
 - `kids` on a hint is true only when the yearly event is aimed at children.
 - Do not state a day; say it is expected.
 
@@ -221,7 +242,9 @@ item (title and date) or the entry in sources.md's known yearly list.
 
 `coverage` is one line, in plain words: which sources of this group were thin or
 failed, and how far ahead the group reaches: "reaches <date>", the last date on which
-a listed event of the group starts or takes place within the window (most agendas show the current month only), such as
+a listed event of the group starts or takes place within the window (most agendas show the current month only; with a six-month window it can be months out), such as
 "cm-riomaior and cineteatro ok; cm-alcanena failed (403); reaches 2026-11-30".
+Say too whether the group lists anything after `window.near_end` ("lists events
+to March" or "nothing after the coming weeks").
 Name a source that gave only its first page. The main reader writes the page's
 note from these lines.

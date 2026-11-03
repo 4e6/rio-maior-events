@@ -9,7 +9,7 @@ import { ADAPTERS } from "../src/adapters/index.ts";
 import { AdapterError } from "../src/adapters/types.ts";
 import type { Adapter, Page, ParseResult, Request, Source } from "../src/adapters/types.ts";
 import {
-  collectAll, defaultEnd, followRequests, lisbonToday, loadConfig, main, runHost, writeOutput, type Outcome,
+  collectAll, defaultEnd, windowFor, followRequests, lisbonToday, loadConfig, main, runHost, writeOutput, type Outcome,
 } from "../src/collect.ts";
 import type { CollectDeps, MainDeps } from "../src/collect.ts";
 import { HttpError, NetworkError, RedirectRefused, TimeoutError, garbled } from "../src/net.ts";
@@ -536,6 +536,46 @@ describe("FollowContract", () => {
   });
 });
 
+describe("Horizon", () => {
+  const seen: Record<string, string[]> = {};
+  const recorder: Adapter = {
+    requests(source, window) { (seen[source.name] ??= []).push("requests " + window.join(" ")); return [{ url: source.url, data: null }]; },
+    parse(source, _pages, window) {
+      (seen[source.name] ??= []).push("parse " + window.join(" "));
+      return { items: [], past: [], text: "evento ".repeat(60), truncated: false, note: null, follow: [{ url: source.url.replace("/page", "/e1"), data: null }] };
+    },
+    details(source, _pages, window) { (seen[source.name] ??= []).push("details " + window.join(" ")); return []; },
+  };
+  const list = sources("far-1", "near-1").map((s) => (s.name === "near-1" ? { ...s, horizon: "near" as const, follow: 1 } : { ...s, follow: 1 }));
+
+  test("a horizon near source is given the near window at requests, parse and details; the others the whole one", async () => {
+    await collectAll(list, ["2026-10-20", "2027-04-20"], {}, 0, {
+      fetch: async () => ok(), sleep: noSleep, clock: () => 0.0, maxWorkers: 2, report: () => {}, defaultDetails: fakeDefaultDetails,
+      adapters: withText(recorder), nearEnd: "2026-11-22",
+    });
+    expect(seen["near-1"]).toEqual(["requests 2026-10-20 2026-11-22", "parse 2026-10-20 2026-11-22", "details 2026-10-20 2026-11-22"]);
+    expect(seen["far-1"]).toEqual(["requests 2026-10-20 2027-04-20", "parse 2026-10-20 2027-04-20", "details 2026-10-20 2027-04-20"]);
+  });
+
+  test("without a near end every source gets the whole window", () => {
+    expect(windowFor(list[1]!, ["2026-10-20", "2027-04-20"])).toEqual(["2026-10-20", "2027-04-20"]);
+    expect(windowFor(list[1]!, ["2026-10-20", "2027-04-20"], "2026-11-22")).toEqual(["2026-10-20", "2026-11-22"]);
+    expect(windowFor(list[0]!, ["2026-10-20", "2027-04-20"], "2026-11-22")).toEqual(["2026-10-20", "2027-04-20"]);
+  });
+
+  test("index.json says which sources are horizon near, and null for the rest", async () => {
+    const dir = join(mkdtempSync(join(tmpdir(), "collect-")), "out");
+    const config = { default_delay: 0, groups: { g: "g" }, sources: list };
+    const code = await main([dir, "--from", "2026-10-20"], {
+      config, fetch: async () => ok(), sleep: noSleep, clock: () => 0.0, maxWorkers: 2, out: () => {}, err: () => {}, adapters: withText(recorder), defaultDetails: fakeDefaultDetails,
+    });
+    expect(code).toBe(0);
+    const index = JSON.parse(readFileSync(join(dir, "index.json"), "utf8"));
+    expect(index.sources.map((s: any) => [s.name, s.horizon])).toEqual([["far-1", null], ["near-1", "near"]]);
+    expect(seen["near-1"]!.at(-1)).toBe("details 2026-10-20 2026-11-22");
+  });
+});
+
 /** main() with the buffers a test reads. */
 async function runMain(args: string[], deps: Partial<MainDeps> = {}) {
   const dir = join(mkdtempSync(join(tmpdir(), "collect-")), "collected");
@@ -585,7 +625,7 @@ describe("Main", () => {
     const r = await runMain(["--only", "cineteatro", "mcr-caldas", "cm-peniche", "--from", "2026-10-20"]);
     expect(r.code).toBe(0);
     const index = r.read("index.json");
-    expect(index.window).toEqual({ start: "2026-10-20", near_end: "2026-11-22", end: "2026-11-22" });
+    expect(index.window).toEqual({ start: "2026-10-20", near_end: "2026-11-22", end: "2027-04-20" });
     expect(index.groups).toEqual({
       "rio-maior": { file: "rio-maior.json", sources: ["cineteatro"] },
       "oeste-norte": { file: "oeste-norte.json", sources: ["mcr-caldas", "cm-peniche"] },
@@ -594,11 +634,11 @@ describe("Main", () => {
     expect(index.sources[0]).toEqual({
       name: "cineteatro", group: "rio-maior", town: "Rio Maior", adapter: "text",
       url: "https://www.cineteatrorm.pt/pt/agenda/", ok: true, status: 200, error: null, refused: false, via: "direct",
-      note: null, items: 0, past: 0, chars: "evento ".repeat(60).length - 1, details: 0,
+      note: null, items: 0, past: 0, chars: "evento ".repeat(60).length - 1, details: 0, horizon: null,
     });
     expect(Object.keys(index)).toEqual(["collected_at", "window", "groups", "sources", "collect_s"]);
     expect(Object.keys(index.sources[0])).toEqual(["name", "group", "town", "adapter", "url", "ok", "status", "error", "refused", "via",
-      "note", "items", "past", "chars", "details"]);
+      "note", "items", "past", "chars", "details", "horizon"]);
     const group = r.read("oeste-norte.json");
     expect(Object.keys(group)).toEqual(["collected_at", "window", "group", "sources"]);
     expect(group.group).toBe("oeste-norte");
@@ -664,8 +704,8 @@ describe("Main", () => {
     }
   });
 
-  test("test_from_defaults_to_today_and_to_to_the_rule", async () => {
-    expect(await window([], "2026-10-21")).toEqual({ start: "2026-10-21", near_end: "2026-11-22", end: "2026-11-22" });
+  test("test_from_defaults_to_today_and_to_to_six_months_on_with_the_old_default_as_near_end", async () => {
+    expect(await window([], "2026-10-21")).toEqual({ start: "2026-10-21", near_end: "2026-11-22", end: "2027-04-21" });
   });
 
   test("test_an_explicit_to_is_kept", async () => {
@@ -673,7 +713,7 @@ describe("Main", () => {
   });
 
   test("test_an_explicit_from_gets_the_rule_not_today", async () => {
-    expect(await window(["--from", "2026-10-25"], "2026-01-01")).toEqual({ start: "2026-10-25", near_end: "2026-11-22", end: "2026-11-22" });
+    expect(await window(["--from", "2026-10-25"], "2026-01-01")).toEqual({ start: "2026-10-25", near_end: "2026-11-22", end: "2027-04-25" });
   });
 
   test("a --to later than the default end keeps the default as near_end and the --to as end", async () => {
@@ -709,7 +749,7 @@ describe("Main", () => {
   test("test_main_without_today_asks_lisbon_for_it", async () => {
     let asked = 0;
     const r = await runMain(["--only", "cineteatro"], { lisbonToday: () => { asked++; return "2026-10-21"; } });
-    expect(r.read("index.json").window).toEqual({ start: "2026-10-21", near_end: "2026-11-22", end: "2026-11-22" });
+    expect(r.read("index.json").window).toEqual({ start: "2026-10-21", near_end: "2026-11-22", end: "2027-04-21" });
     expect(asked).toBe(1);
   });
 
@@ -779,6 +819,20 @@ describe("Config", () => {
     expect(new URL(byName["cm-torresnovas"]!.url).hostname).toBe("cm-torresnovas.pt");
   });
 
+  test("a horizon is near and nothing else; Portugal Running rows have it, with the card filter their text needs", () => {
+    for (const s of list) {
+      if (s.horizon !== undefined) expect([s.name, s.horizon]).toEqual([s.name, "near"]);
+      // the guard, not the selector: a row on this site without the field would be read to the far end
+      if (new URL(s.url).hostname === "www.portugalrunning.com") expect([s.name, s.horizon]).toEqual([s.name, "near"]);
+      // horizon near on a text source with no card filter would cut only its JSON-LD items
+      if (s.horizon && s.adapter === "text") expect([s.name, s.options?.card_dates]).toEqual([s.name, "portugalrunning"]);
+      if (s.options?.card_dates !== undefined) expect([s.name, s.options.card_dates, s.adapter, s.links !== undefined]).toEqual([s.name, "portugalrunning", "text", true]);
+    }
+    expect(list.filter((s) => s.horizon === "near").map((s) => s.name)).toEqual(["portugalrunning-santarem", "portugalrunning-leiria", "portugalrunning-lisboa"]);
+    // the backstop in merge reads the group: `regional` is exactly these rows, so every unit of it is horizon near
+    expect(list.filter((s) => s.group === "regional").every((s) => s.horizon === "near")).toBe(true);
+  });
+
   test("test_hosts_have_delays", () => {
     expect(config.default_delay).toBe(1.5);
     expect(config.hosts!["www.cm-entroncamento.pt"]!.delay).toBe(3);
@@ -815,6 +869,11 @@ describe("SourceList", () => {
       expect(doc).toContain(s.name);
       expect(doc).toContain(s.url.split("?")[0]!);
     }
+  });
+  test("horizon and card_dates are documented", () => {
+    expect(doc).toContain("horizon");
+    expect(doc).toContain("card_dates");
+    expect(doc).toContain("near_end");
   });
   test("test_every_adapter_is_named_in_the_docs", () => {
     for (const name of Object.keys(ADAPTERS)) expect(doc).toContain(name);

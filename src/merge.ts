@@ -219,6 +219,33 @@ function readGroup(candidates: string, group: string, stamp: unknown, problems: 
   return null;
 }
 
+/** Whether an event or hint starts after `nearEnd`: by day, or by the month/day prefix its start_date has (as checkEvent compares a date_tbc one). */
+export function startsAfter(e: Doc, nearEnd: string): boolean {
+  const start = e.start_date;
+  if (typeof start !== "string" || !(render.realDate(start) || render.realMonth(start))) return false;
+  return start > nearEnd.slice(0, start.length);
+}
+
+/** The most dates a recurring event keeps that begin after the coming weeks (it is Further ahead from its first date on). */
+export const FAR_RECURRING_DATES = 4;
+
+/**
+ * A recurring event lists its dates only up to near_end, with the rest in `recurrence`: a weekly market over six
+ * months would otherwise carry about 26 dates into the readers' output and the editor's input. One that starts after
+ * near_end keeps its first FAR_RECURRING_DATES. Not trimmed when that would leave one date and no recurrence text
+ * (the page's check reads that as a single event). Returns whether it trimmed.
+ */
+export function trimRecurring(e: Doc, nearEnd: string): boolean {
+  if (e.kind !== "recurring" || e.date_tbc === true || !Array.isArray(e.dates)) return false;
+  const dates = [...e.dates].filter((d) => typeof d === "string").sort();
+  const near = dates.filter((d) => d <= nearEnd);
+  const kept = near.length ? near : dates.slice(0, FAR_RECURRING_DATES);
+  if (kept.length === dates.length || e.dates.length !== dates.length) return false;
+  if (kept.length < 2 && !render.textOk(e.recurrence)) return false;
+  e.dates = kept;
+  return true;
+}
+
 export type MergeOptions = {
   /** A folder written by split.ts: the candidates files are then one per piece, not one per group. */
   split?: string;
@@ -244,6 +271,11 @@ export function merge(
   if (!(isDict(groups) && Array.isArray(sources) && isDict(window) && truthy(stamp))) {
     return [null, ["index: needs collected_at, window, groups and sources"]];
   }
+
+  // The coming weeks end at window.near_end (the window end when there is none, or a bad one: nothing is left out then).
+  const nearDay = render.realDate(window.near_end), endDay = render.realDate(window.end);
+  const nearEnd = nearDay && endDay && nearDay < endDay ? nearDay : null;
+  const horizonNear = new Set<unknown>(sources.filter((s: unknown) => isDict(s) && s.horizon === "near").map((s: Doc) => s.name));
 
   let events: Doc[] = [];
   let origins: string[] = [];
@@ -324,10 +356,46 @@ export function merge(
     checked.push(entry);
   }
 
+  // What the coming weeks hold, deterministically, before anything else sees the candidates.
+  const cut = { hints: 0, races: [] as string[], recurring: 0 };
+  let keptHints = hints;
+  if (nearEnd) {
+    // Races. This is where the rule that Portugal Running's races stop at the coming weeks is enforced: a candidate from a
+    // unit whose sources are ALL horizon "near" and that starts after near_end is left out, by the unit it came from (not by
+    // any source name or label the reader wrote). The collector's card filter only saves reading cost and noise, and
+    // this still holds when the site changes its card layout and the filter finds nothing to cut. The same race
+    // from its town's own unit is a separate candidate and stays.
+    const nearOnly = new Map<string, boolean>();
+    const isNearOnly = (unit: string): boolean => {
+      if (!nearOnly.has(unit)) {
+        const listed = unitSources.get(unit);
+        const names: unknown[] = Array.isArray(listed) ? listed : sources.filter((s: Doc) => isDict(s) && s.group === unit).map((s: Doc) => s.name);
+        nearOnly.set(unit, names.length > 0 && names.every((n) => horizonNear.has(n)));
+      }
+      return nearOnly.get(unit)!;
+    };
+    const keepEvents: Doc[] = [];
+    const keepOrigins: string[] = [];
+    events.forEach((e, i) => {
+      if (isDict(e) && origins[i] !== "manual" && isNearOnly(origins[i]!) && startsAfter(e, nearEnd)) {
+        cut.races.push(describe(e));
+        return;
+      }
+      keepEvents.push(e);
+      keepOrigins.push(origins[i]!);
+    });
+    events = keepEvents;
+    origins = keepOrigins;
+    // Hints stay on the coming weeks: the yearly table in sources.md is a hand-kept list.
+    keptHints = hints.filter(([, h]) => !startsAfter(h, nearEnd));
+    cut.hints = hints.length - keptHints.length;
+    for (const e of events) if (isDict(e) && trimRecurring(e, nearEnd)) cut.recurring++;
+  }
+
   const townMinutes = opts.towns ?? loadTowns();
   for (const e of events) if (isDict(e) && e.drive_min === null) fillDrive(e, townMinutes);
   const wStart = render.realDate(window.start), wEnd = render.realDate(window.end);
-  const candidateCount = events.length;
+  const candidateCount = events.length + cut.races.length;
   const collapsed = collapseDuplicates(events, origins, wStart && wEnd && wStart <= wEnd ? [wStart, wEnd] : null, true);
   events = collapsed.events;
   opts.onStats?.({ candidates: candidateCount, collapsed: collapsed.collapsed, events: events.length });
@@ -345,8 +413,14 @@ export function merge(
     lines.push(`already merged: ${collapsed.collapsed} listing(s) with the same title, date and town (the events below are one each):`);
     for (const t of collapsed.titles) lines.push(`  ${t}`);
   }
+  if (cut.races.length) {
+    lines.push(`races left out (after the coming weeks, ${nearEnd}): ${cut.races.length}`);
+    for (const t of cut.races) lines.push(`  ${t}`);
+  }
+  if (cut.recurring) lines.push(`recurring events with their dates cut to the coming weeks (the rest is in recurrence): ${cut.recurring}`);
+  if (cut.hints) lines.push(`hints left out (expected after the coming weeks, ${nearEnd}): ${cut.hints}`);
   lines.push("hints:");
-  for (const [group, h] of hints) lines.push(`  [${group}] ${describe(h)} | ${truthy(h.caveat) ? pyStr(h.caveat) : ""}`);
+  for (const [group, h] of keptHints) lines.push(`  [${group}] ${describe(h)} | ${truthy(h.caveat) ? pyStr(h.caveat) : ""}`);
   lines.push("coverage:");
   for (const [group, text] of coverage) lines.push(`  ${group}: ${text}`);
   lines.push("problems:");

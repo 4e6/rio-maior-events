@@ -118,3 +118,86 @@ describe("Parse", () => {
     expect(parsed.text).toContain("Concerto");
   });
 });
+
+// A hand-written page in the shape of Portugal Running's cards (not a saved page: the corpus is private). Fixed dates, no clock.
+describe("card_dates portugalrunning", () => {
+  const source: Source = { name: "pr", label: "PR", adapter: "text", town: "T", group: "regional", url: "https://pr.example/corridas/",
+    links: "^/eventos/[^/?]+/$", follow: 8, horizon: "near", options: { card_dates: "portugalrunning" } };
+  // 2026-11-22 is a Sunday; 2026-11-21 a Saturday; 2026-12-06 a Sunday; 2027-02-27 a Saturday
+  const card = (slug: string, title: string, date: string, tail = "Dia") => {
+    const [year, day, dd, mon] = date.split(" ");
+    return `<div><a href="https://pr.example/eventos/${slug}/"><span>${title} ${year}</span>` +
+      `<span class="blk"><span><em>${day}</em><em>${dd}</em><em>${mon}</em><em>${tail}</em></span></span></a>` +
+      `<p>Tipo Corrida Local Portugal ${slug}</p></div>`;
+  };
+  const page = (...parts: string[]) => `<h1>Corridas</h1><p>${"calendario ".repeat(30)}</p>${parts.join("\n")}`;
+  const parse = (html: string, window: [string, string] = ["2026-10-20", "2026-11-22"], src: Source = source): ParseResult =>
+    text.parse(src, [{ url: src.url, status: 200, body: enc(html), contentType: null }], window);
+
+  test("a card dated after the window end is dropped, with its link; one on the end and an earlier one stay", () => {
+    const parsed = parse(page(
+      card("a", "Trail A", "2026 sab 21 nov"),
+      card("b", "Trail B", "2026 dom 22 nov", "0:00"),
+      card("c", "Trail C", "2026 dom 06 dez"),
+      card("d", "Trail D", "2027 sab 27 fev"),
+    ));
+    expect(parsed.text).toContain("Trail A 2026 sab 21 nov");
+    expect(parsed.text).toContain("Trail B 2026 dom 22 nov 0:00");
+    expect(parsed.text).not.toContain("Trail C");
+    expect(parsed.text).not.toContain("Trail D");
+    expect(parsed.text).not.toContain("/eventos/c/");
+    expect(parsed.follow!.map((r) => r.url)).toEqual(["https://pr.example/eventos/a/", "https://pr.example/eventos/b/"]);
+    expect(parsed.note).toBeNull();
+    expect(parsed.text).toContain("Corridas");
+  });
+
+  test("the year of the card is its own, and a trailing time or the (mon day) suffix still dates it", () => {
+    const html = page(`<div><a href="https://pr.example/eventos/e/"><span>Trail E 2027</span><span><em>sab</em><em>27</em><em>fev</em>(fev 27)<em>0:00</em></span></a></div>`);
+    expect(parse(html).text).not.toContain("Trail E");
+    expect(parse(html, ["2026-10-20", "2027-03-01"]).text).toContain("Trail E 2027 sab 27 fev");
+  });
+
+  test("a card whose weekday does not match its date is kept, and so is an undated block", () => {
+    const parsed = parse(page(
+      card("f", "Trail F", "2026 seg 06 dez"), // 6 Dec 2026 is a Sunday
+      `<div><a href="https://pr.example/eventos/g/"><span>Linhas de Torres 100</span></a><p>Janeiro</p></div>`,
+      card("h", "Trail H", "2026 dom 06 dez"),
+    ));
+    expect(parsed.text).toContain("Trail F");
+    expect(parsed.text).toContain("Linhas de Torres 100");
+    expect(parsed.text).not.toContain("Trail H");
+    expect(parsed.follow!.map((r) => r.url)).toEqual(["https://pr.example/eventos/f/", "https://pr.example/eventos/g/"]);
+  });
+
+  test("a Mostrar mais line ends a card, and the lines after it are kept", () => {
+    const parsed = parse(page(card("a", "Trail A", "2026 dom 06 dez"), `<p>Mostrar mais</p>`, `<h2>Perguntas frequentes</h2><p>${"faq ".repeat(10)}</p>`));
+    expect(parsed.text).not.toContain("Trail A");
+    expect(parsed.text).toContain("Mostrar mais");
+    expect(parsed.text).toContain("Perguntas frequentes");
+  });
+
+  test("the cap is applied after the filter and follow keeps only the links that survive both", () => {
+    const parts = [card("a", "Trail A", "2026 sab 21 nov"), card("far", "Trail Far", "2027 sab 27 fev"), card("b", "Trail B", "2026 dom 22 nov"), card("c", "Trail C", "2026 dom 22 nov")];
+    const uncut = parse(page(...parts));
+    expect(uncut.follow!.map((r) => r.url)).toEqual(["a", "b", "c"].map((s) => `https://pr.example/eventos/${s}/`));
+    // a cap that holds the text up to card b's own marker line: c is cut by the cap, and the dropped card took no room
+    const upToB = uncut.text!.indexOf("<https://pr.example/eventos/b/>") + "<https://pr.example/eventos/b/>".length;
+    const capped = parse(page(...parts), ["2026-10-20", "2026-11-22"], { ...source, cap: upToB });
+    expect(capped.truncated).toBe(true);
+    expect(capped.follow!.map((r) => r.url)).toEqual(["a", "b"].map((s) => `https://pr.example/eventos/${s}/`));
+  });
+
+  test("a page with no dated card keeps everything and says so", () => {
+    const html = page(`<div><a href="https://pr.example/eventos/a/"><span>Trail A</span></a><p>Em breve</p></div>`);
+    const parsed = parse(html);
+    expect(parsed.note).toBe("no dated race cards found (layout may have changed)");
+    expect(parsed.text).toContain("Trail A");
+    expect(parsed.follow!.length).toBe(1);
+  });
+
+  test("a source without card_dates is not date-filtered, and an unknown format fails the source", () => {
+    const plain = { ...source, options: undefined, horizon: undefined };
+    expect(parse(page(card("c", "Trail C", "2026 dom 06 dez")), ["2026-10-20", "2026-11-22"], plain).text).toContain("Trail C");
+    expect(() => parse(page(card("c", "Trail C", "2026 dom 06 dez")), ["2026-10-20", "2026-11-22"], { ...source, options: { card_dates: "other" } })).toThrow(AdapterError);
+  });
+});

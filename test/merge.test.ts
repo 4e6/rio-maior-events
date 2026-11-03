@@ -883,3 +883,114 @@ describe("Split pieces", () => {
     expect(r.stdout).toContain("split");
   });
 });
+
+describe("The coming weeks (window.near_end)", () => {
+  // fixed dates, no clock: the dated weeks end 2026-11-22 and the agenda 2027-04-20
+  beforeEach(() => {
+    tmp = mkdtempSync(join(tmpdir(), "merge-"));
+    col = join(tmp, "collected");
+    cand = join(tmp, "cand");
+    out = join(tmp, "events.json");
+    mkdirSync(col);
+    mkdirSync(cand);
+    write(join(col, "index.json"), {
+      collected_at: STAMP,
+      window: { start: "2026-10-20", near_end: "2026-11-22", end: "2027-04-20" },
+      groups: { regional: { file: "regional.json", sources: ["pr-1", "pr-2"] }, town: { file: "town.json", sources: ["cm-town", "pr-3"] }, mixed: { file: "mixed.json", sources: ["pr-4", "cm-x"] } },
+      sources: [
+        { name: "pr-1", group: "regional", url: "https://example.org/1", ok: true, error: null, horizon: "near" },
+        { name: "pr-2", group: "regional", url: "https://example.org/2", ok: true, error: null, horizon: "near" },
+        { name: "cm-town", group: "town", url: "https://example.org/3", ok: true, error: null, horizon: null },
+        { name: "pr-3", group: "town", url: "https://example.org/4", ok: true, error: null, horizon: "near" },
+        { name: "pr-4", group: "mixed", url: "https://example.org/5", ok: true, error: null, horizon: "near" },
+        { name: "cm-x", group: "mixed", url: "https://example.org/6", ok: true, error: null, horizon: null },
+      ],
+    });
+    for (const g of ["regional", "town", "mixed"]) candFile(g, []);
+  });
+  afterEach(() => rmSync(tmp, { recursive: true, force: true }));
+
+  const titles = () => output().events.map((e: Doc) => e.title_pt);
+
+  test("a race only the horizon-near sources list is left out after near_end, and the report counts it", () => {
+    candFile("regional", [
+      event("Corrida Perto", "2026-11-22", "Santarém", { sources: [{ name: "Some Label", url: "https://example.org/p" }] }),
+      event("Corrida Longe", "2026-12-06", "Santarém", { sources: [{ name: "Some Label", url: "https://example.org/p" }] }),
+      event("Corrida Sem Dia", "2027-01", "Leiria", { date_tbc: true }),
+      event("Corrida Dia Incerto", "2027-01-17", "Leiria", { date_tbc: true }),
+      event("Corrida Mês Certo", "2026-11", "Leiria", { date_tbc: true }),
+    ]);
+    const [code, text] = runMerge();
+    expect(code).toBe(0);
+    expect(titles()).toEqual(["Corrida Perto", "Corrida Mês Certo"]);
+    expect(text).toContain("races left out (after the coming weeks, 2026-11-22): 3");
+    expect(text).toContain("Corrida Longe | 2026-12-06 | Santarém");
+  });
+
+  test("the same race from its town's own unit is kept; a unit with any source that has no horizon is never cut", () => {
+    candFile("regional", [event("Corrida do Ribatejo", "2027-01-17", "Santarém")]);
+    candFile("town", [event("Corrida do Ribatejo", "2027-01-17", "Santarém", { sources: [{ name: "Município", url: "https://example.org/m" }] })]);
+    candFile("mixed", [event("Festa Longe", "2027-02-01", "Rio Maior")]);
+    expect(runMerge()[0]).toBe(0);
+    expect(titles()).toEqual(["Corrida do Ribatejo", "Festa Longe"]);
+    expect(output().events[0].sources[0].name).toBe("Município");
+  });
+
+  test("the unit decides, not the names the reader wrote on the event", () => {
+    // a race from regional that cites a town source (or none that match any row) is still the near-only unit's candidate
+    candFile("regional", [event("Corrida Longe", "2027-03-07", "Leiria", { sources: [{ name: "cm-town", url: "https://example.org/3" }] })]);
+    expect(runMerge()[0]).toBe(0);
+    expect(titles()).toEqual([]);
+  });
+
+  test("hints after the coming weeks are left out and counted; a hint in near_end's month stays", () => {
+    candFile("town", [], { hints: [event("Feira em Dezembro", "2026-12", "Rio Maior", { date_tbc: true }), event("Feira em Novembro", "2026-11", "Rio Maior", { date_tbc: true }), event("Feira Datada", "2027-02-02")] });
+    const [code, text] = runMerge();
+    expect(code).toBe(0);
+    expect(text).toContain("hints left out (expected after the coming weeks, 2026-11-22): 2");
+    const hints = text.split("hints:")[1]!.split("coverage:")[0]!;
+    expect(hints).toContain("Feira em Novembro");
+    expect(hints).not.toContain("Feira em Dezembro");
+    expect(hints).not.toContain("Feira Datada");
+  });
+
+  test("the window is passed through with near_end, and an event further ahead from a normal unit is kept", () => {
+    candFile("town", [event("Concerto de Fevereiro", "2027-02-12")]);
+    expect(runMerge()[0]).toBe(0);
+    expect(output().window).toEqual({ start: "2026-10-20", near_end: "2026-11-22", end: "2027-04-20" });
+    expect(titles()).toEqual(["Concerto de Fevereiro"]);
+    expect(render.check(output())).toEqual([]);
+  });
+
+  test("without a near_end, or with near_end equal to the end, nothing is left out", () => {
+    const index = readJson(join(col, "index.json"));
+    candFile("regional", [event("Corrida Longe", "2027-01-17", "Santarém")]);
+    for (const w of [{ start: "2026-10-20", end: "2027-04-20" }, { start: "2026-10-20", near_end: "2027-04-20", end: "2027-04-20" }]) {
+      write(join(col, "index.json"), { ...index, window: w });
+      runMerge();
+      // a window that long without a near_end fails render's check, which is reported, not cut
+      expect(readJson(out).events.map((e: Doc) => e.title_pt)).toEqual(["Corrida Longe"]);
+    }
+  });
+
+  test("a weekly market lists its dates to near_end only, the rest in recurrence", () => {
+    const weekly = [...Array(26)].map((_, k) => new Date(Date.UTC(2026, 9, 24 + 7 * k)).toISOString().slice(0, 10));
+    candFile("town", [event("Mercado Semanal", weekly[0]!, "Rio Maior", { kind: "recurring", dates: weekly, recurrence: "Every Saturday" })]);
+    const [code, text] = runMerge();
+    expect(code).toBe(0);
+    expect(output().events[0].dates).toEqual(["2026-10-24", "2026-10-31", "2026-11-07", "2026-11-14", "2026-11-21"]);
+    expect(text).toContain("recurring events with their dates cut to the coming weeks (the rest is in recurrence): 1");
+  });
+
+  test("trimRecurring: a far recurring event keeps its first dates; no recurrence and one date left is not trimmed", () => {
+    const far = ["2027-01-09", "2027-01-16", "2027-01-23", "2027-01-30", "2027-02-06", "2027-02-13"];
+    const e = event("Feira Mensal", far[0]!, "Rio Maior", { kind: "recurring", dates: far, recurrence: "Saturdays" });
+    expect(merge.trimRecurring(e, "2026-11-22")).toBe(true);
+    expect(e.dates).toEqual(far.slice(0, merge.FAR_RECURRING_DATES));
+    const odd = event("Dois Dias", "2026-11-14", "Rio Maior", { kind: "recurring", dates: ["2026-11-14", "2027-01-16", "2027-01-23"], recurrence: null });
+    expect(merge.trimRecurring(odd, "2026-11-22")).toBe(false);
+    expect(odd.dates).toHaveLength(3);
+    expect(merge.startsAfter(event("x", "2026-11"), "2026-11-22")).toBe(false);
+    expect(merge.startsAfter(event("x", "2026-12"), "2026-11-22")).toBe(true);
+  });
+});

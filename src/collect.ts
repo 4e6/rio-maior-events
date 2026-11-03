@@ -8,11 +8,11 @@ import type { Adapter, Config, Detail, Page, ParseResult, Request, Source, Sourc
 import { classifyFailure, classifyFollowFailure, ProxyError, retriesThroughProxy, triggersFallback } from "./net-errors.ts";
 import { fetchFollow, fetchPage, garbled, ProxyGateway, toPage } from "./net.ts";
 import type { FetchResult, Fetcher, ProxyStats } from "./net.ts";
-import { defaultEnd, lisbonToday, localIsoNow, parseIsoDate } from "./py/datetime.ts";
+import { aheadEnd, defaultEnd, lisbonToday, localIsoNow, parseIsoDate } from "./py/datetime.ts";
 import { cpLen } from "./py/str.ts";
 import { cleanUrl, hostOf, sameSite } from "./url.ts";
 
-export { defaultEnd, lisbonToday };
+export { aheadEnd, defaultEnd, lisbonToday };
 
 export const MAX_WORKERS = 8;
 export const SOURCES_PATH = join(import.meta.dir, "..", "sources.json");
@@ -70,6 +70,13 @@ export interface CollectDeps {
   signal?: AbortSignal;
   /** The fallback proxy: a host whose direct request is refused (net-errors.triggersFallback) goes through it. Default: none. */
   proxy?: ProxyFetchers | null;
+  /** The last dated day (window.near_end): where a source with `horizon: "near"` stops. Default: the window end. */
+  nearEnd?: string;
+}
+
+/** The window an adapter is given for this source: a `horizon: "near"` row stops at the near end, the others get the whole window. */
+export function windowFor(source: Source, window: Window, nearEnd: string = window[1]): Window {
+  return source.horizon === "near" && nearEnd < window[1] ? [window[0], nearEnd] : window;
 }
 
 const abortError = (): Error => Object.assign(new Error("interrupted"), { name: "AbortError" });
@@ -112,7 +119,7 @@ export async function collectAll(sources: Source[], window: Window, hosts: Confi
   for (const source of sources) {
     let requests: Request[];
     try {
-      requests = planRequests(source, window, adapters);
+      requests = planRequests(source, windowFor(source, window, deps.nearEnd), adapters);
     } catch (err) {
       const result = newResult(source, { pages: null, status: null, error: `${errName(err)}: ${errMessage(err)}` });
       results.set(source.name, result);
@@ -131,13 +138,13 @@ export async function collectAll(sources: Source[], window: Window, hosts: Confi
     await runHost(host, entries.map(([s, r]) => [s.name, r] as [string, Request[]]), {
       fetch, sleep, clock, delay: delayOf(host), signal, followFetch, proxy: deps.proxy, random: deps.random,
       onDone(name, outcome) {
-        const [result, follow] = parseOutcome(byName.get(name)!, outcome, window, parseDeps.adapters);
+        const [result, follow] = parseOutcome(byName.get(name)!, outcome, windowFor(byName.get(name)!, window, deps.nearEnd), parseDeps.adapters);
         results.set(name, result);
         report(summaryLine(result));
         return follow;
       },
       onFollowed(name, pages, viaProxy) {
-        const details = buildDetails(byName.get(name)!, pages, window, parseDeps.adapters, parseDeps.defaultDetails);
+        const details = buildDetails(byName.get(name)!, pages, windowFor(byName.get(name)!, window, deps.nearEnd), parseDeps.adapters, parseDeps.defaultDetails);
         const result = results.get(name)!;
         result.details = details;
         if (viaProxy) result.via = "proxy";
@@ -464,6 +471,8 @@ export function writeOutput(outDir: string, collectedAt: string, window: Window,
       status: result.status, error: result.error, refused: result.refused === true, via: result.via === "proxy" ? "proxy" : "direct", note: result.note,
       items: result.items.length, past: result.past.length,
       chars: cpLen(result.text || ""), details: result.details.length,
+      // which sources only reach the dated weeks: merge holds an event only they list to those weeks
+      horizon: source.horizon ?? null,
     });
   });
   writeFileSync(join(outDir, "index.json"), dumps(index));
@@ -574,7 +583,7 @@ export async function main(argv: string[], deps: MainDeps = {}): Promise<number>
   };
   try {
     start = args.start ? parse(args.start) : (deps.today ?? (deps.lisbonToday ?? lisbonToday)());
-    end = args.end ? parse(args.end) : defaultEnd(start);
+    end = args.end ? parse(args.end) : aheadEnd(start);
   } catch (e) {
     err(`bad date: ${errMessage(e)}`);
     return 2;
@@ -584,7 +593,8 @@ export async function main(argv: string[], deps: MainDeps = {}): Promise<number>
     return 2;
   }
   const window: Window = [start, end];
-  // The dated part is the default window; a later --to only adds Further ahead, so render's cap on the dated span holds.
+  // The dated part is the old default window (the first Sunday 28+ days on); --to is the far end, and the default far end
+  // is the same day six months on. An earlier --to ends the dated part too, so render's cap on the dated span holds.
   const nearEnd = end > defaultEnd(start) ? defaultEnd(start) : end;
 
   const controller = new AbortController();
@@ -599,7 +609,7 @@ export async function main(argv: string[], deps: MainDeps = {}): Promise<number>
   const collectStart = Date.now();
   try {
     results = await collectAll(chosen, window, config.hosts, config.default_delay ?? 1.5,
-      { ...deps, proxy, signal: controller.signal, report: deps.report ?? out });
+      { ...deps, nearEnd, proxy, signal: controller.signal, report: deps.report ?? out });
   } catch (e) {
     if (controller.signal.aborted) {
       err("interrupted; nothing written");

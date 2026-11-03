@@ -177,13 +177,78 @@ export function visibleTextLinks(page: string, cap: number = TEXT_CAP, base?: st
       offset += cpLen(line) + 1;
     }
   }
-  const text = lines.join("\n");
+  return capWithMarks(lines.join("\n"), marks, cap);
+}
+
+/**
+ * Apply the cap to a page's text: the text cut at `cap` code points, and the marked urls that survive the cut
+ * (the whole marker line must fit), in page order and once each. `marks` are [offset in code points, url] of each
+ * marker line. The one rule for `follow`, shared by visibleTextLinks and the card filter so they cannot drift.
+ */
+export function capWithMarks(text: string, marks: [number, string][], cap: number): { text: string; truncated: boolean; urls: string[] } {
   const truncated = cpLen(text) > cap;
   const urls: string[] = [];
   for (const [at, url] of marks) {
     if (at + cpLen(url) + 2 <= cap && !urls.includes(url)) urls.push(url);
   }
   return { text: truncated ? cpSlice(text, 0, cap) : text, truncated, urls };
+}
+
+const MARK_LINE = /^<([^<>\s]+)>$/u;
+const WEEKDAYS = ["dom", "seg", "ter", "qua", "qui", "sex", "sab"];
+const MONTHS_PT = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+
+/**
+ * Portugal Running's card date line: "Trail Fátima 2026 sab 24 out Dia", "... 2026 dom 08 nov 0:00",
+ * "... 2027 sab 27 fev(fev 27)0:00". Year, weekday, day, month; the lookahead takes the "(" and the time that may follow.
+ */
+export const PORTUGALRUNNING_CARD_DATE = /(?:^|\s)(\d{4}) (dom|seg|ter|qua|qui|sex|s[aá]b) (\d{1,2}) (jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)(?=[\s(]|$)/u;
+
+/** The ISO day a card line states, or null (no date on it, or a date that is not real or whose weekday does not match). */
+export function portugalrunningCardDate(line: string): string | null {
+  const m = PORTUGALRUNNING_CARD_DATE.exec(line);
+  if (!m) return null;
+  const year = +m[1]!, month = MONTHS_PT.indexOf(m[4]!), day = +m[3]!;
+  const at = new Date(Date.UTC(year, month, day));
+  if (at.getUTCMonth() !== month || at.getUTCDate() !== day) return null;
+  if (WEEKDAYS[at.getUTCDay()] !== m[2]!.replace("á", "a")) return null;
+  return `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+/**
+ * Drop the cards dated after `end` from a page's text (card_dates "portugalrunning"). A card is a marker line plus the
+ * lines after it, up to the next marker or a line that is exactly "Mostrar mais". A card is dropped only when its date is
+ * real, its weekday matches and it is after `end`; an undated block, a card with a mismatched weekday and every line
+ * outside a card is kept. `dated` counts the cards whose date was read.
+ *
+ * This is a saving in reading cost and noise, not the rule: the rule that races stay within the coming weeks is merge's
+ * (a race only the horizon-near sources list is left out there), which holds when this reads nothing.
+ */
+export function dropCardsAfter(text: string, end: string): { text: string; marks: [number, string][]; cards: number; dated: number; dropped: number } {
+  const lines = text.split("\n");
+  const kept: string[] = [];
+  let cards = 0, dated = 0, dropped = 0;
+  let i = 0;
+  while (i < lines.length) {
+    if (!MARK_LINE.test(lines[i]!)) { kept.push(lines[i]!); i++; continue; }
+    let j = i + 1;
+    while (j < lines.length && !MARK_LINE.test(lines[j]!) && lines[j] !== "Mostrar mais") j++;
+    let date: string | null = null;
+    for (let k = i + 1; k < j && date === null; k++) date = portugalrunningCardDate(lines[k]!);
+    cards++;
+    if (date !== null) dated++;
+    if (date !== null && date > end) dropped++;
+    else kept.push(...lines.slice(i, j));
+    i = j;
+  }
+  const marks: [number, string][] = [];
+  let offset = 0;
+  for (const line of kept) {
+    const m = MARK_LINE.exec(line);
+    if (m) marks.push([offset, m[1]!]);
+    offset += cpLen(line) + 1;
+  }
+  return { text: kept.join("\n"), marks, cards, dated, dropped };
 }
 
 /** common.visible_text: (text, truncated). */

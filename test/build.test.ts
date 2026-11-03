@@ -3,6 +3,8 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, write
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
+import { windowSentence } from "../src/build.ts";
+
 const ROOT = resolve(import.meta.dir, "..");
 const FAKE = join(import.meta.dir, "fake-claude.ts");
 const COLLECTED = join(import.meta.dir, "fixtures", "collected");
@@ -417,5 +419,14 @@ describe("scheduled build", () => {
       const r = await build({ readers: { "ribatejo-1": "garbage" } }, opts);
       expect(r.summary.pieces_failed).toEqual(["ribatejo-1"]);
     });
+  });
+});
+
+describe("The window in the prompts", () => {
+  test("a window with a Further ahead part names where the coming weeks end; one without says the plain thing", () => {
+    expect(windowSentence({ start: "2026-10-20", near_end: "2026-11-22", end: "2027-04-20" }))
+      .toBe("The window is 2026-10-20 to 2027-04-20; the coming weeks end at 2026-11-22 (window.near_end).");
+    expect(windowSentence({ start: "2026-10-20", end: "2026-11-15" })).toBe("The window is 2026-10-20 to 2026-11-15.");
+    expect(windowSentence({ start: "2026-10-20", near_end: "2026-11-15", end: "2026-11-15" })).toBe("The window is 2026-10-20 to 2026-11-15.");
   });
 });
