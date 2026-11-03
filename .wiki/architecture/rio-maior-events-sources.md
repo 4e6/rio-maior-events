@@ -9,7 +9,7 @@ sources:
   - resource: references/sources.md
   - resource: tools/probe_*.ts
   - resource: .github/workflows/probe.yml
-sources_digest: d0d94bc11e7634fd
+sources_digest: 239cd461c6324dac
 ---
 
 # What this page is for
@@ -29,6 +29,7 @@ On 2026-10-20, one plain GET per page (and `robots.txt` once per host), the
 visible text read by eye. The two JSON sources and the three Next.js sites were
 first decoded offline from the saved responses; then `src/collect.ts` itself was run
 on 2026-10-20 and read all 32 sources ok in 14.7 s (Viral Agenda, left out, see [Not reachable](#not-reachable)).
+On 2026-11-03 the same was done for the three sources added then (Arruda dos Vinhos, Sobral de Monte Agraço, Marinha Grande): one plain GET per page and `robots.txt` once per host, and `src/collect.ts` itself run on them from a home address with no proxy, 3 ok, 22, 8 and 8 items, and 21 event pages read (8, 8 and 5). Whether they answer a GitHub runner directly is for the `probe` workflow, which reads `sources.json` and so covers them; that has not been run.
 Drive times in `towns.md` are estimates. A source is only as checked as that: a
 layout that changed since is the usual reason a run reports one failed or empty.
 
@@ -102,16 +103,24 @@ browser; the page should show dated cards for the coming weeks.
   link is inferred from a route of the site; the inferred link answered 200 in the
   live run of 2026-10-20. Both are decoded by field, so a renamed field breaks
   them quietly: a run that reports zero items from either is worth a look.
-- **Next.js sites (Bombarral, Lourinhã, Alenquer).** The events come from data
+- **Next.js sites (Bombarral, Lourinhã, Alenquer, Sobral de Monte Agraço).** The events come from data
   embedded in the page, not from its visible text, which is empty. The decoding
   depends on the framework's embedding format and the name of the list inside
-  it; a framework change breaks all three at once. Only page 1 is read; the source's
+  it; a framework change breaks all four at once. Only page 1 is read; the source's
   `note` in a run says how many pages there are. The list has midnight dates and
   no time, and an event page has no text either, so the adapter's `details`
   reads the page's own payload (`pageData.modules`, the object with a
   `description`): the description holds the time, venue and price, and its UTC
   dates become Lisbon time (follow 10 each, in date order). Its `schedule` field, when it is one clock time or a range, gives the start (and end) a time; any non-empty value is put first in the excerpt as "Horário: ...". A page whose payload
   has another shape is read as any page.
+- **Feeds of one platform (Nazaré, Batalha, Chamusca, Arruda dos Vinhos, Marinha Grande).**
+  The same template as Peniche's page, with an RSS feed at `/pages/<path>.rss`; a
+  platform change breaks five sources. The feeds are cut by date, not by page:
+  Arruda's starts on the collection day, so a multi-day festival that began before
+  Monday is on the page but not in the feed; Marinha Grande's covers the current
+  month only, so events from the 1st until the first Monday run are on no page, and
+  the run before sees only the previous month. At 50 and 55 minutes, where only a big
+  event is kept, that is the accepted cost.
 - **Supplementary agendas.** As before: plain text, expect gaps.
 
 # Event links and event pages
@@ -143,10 +152,11 @@ pages of 2026-10-20 and live on 2026-10-21: 33 sources ok (Eventbrite, one of th
   with no event pages.
 - **Portugal Running, three districts (8 each):** the start time.
 - **Teatro-Cine Torres Vedras, Cine-Teatro Alcobaça, Peniche (8):** event pages fetched; the research of 2026-10-20 found a time on the Teatro-Cine's pages (21h00) and Cine-Teatro Alcobaça's (20h30); Peniche's was not sampled.
+- **Arruda dos Vinhos (8), Sobral de Monte Agraço (10), Marinha Grande (5):** Arruda's pages give start, end and venue; Sobral's give the time from `schedule`; Marinha Grande's give no structured data, so the excerpt (venue and time in prose) is what they add, which is why it is 5, not 8.
 - **Nazaré (8):** the pages give the venue (live 2026-10-21: "cineteatro") and
   an excerpt with a line of detail ("Jovens pianistas"); the titles stay
   generic.
-- **Feeds** (Nazaré, Batalha, Chamusca): `pubDate` is the start. Their `rss` addresses are
+- **Feeds** (Nazaré, Batalha, Chamusca, Arruda dos Vinhos, Marinha Grande): `pubDate` is the start. Their `rss` addresses are
   the platform's `/pages/<path>.rss`. If one stops answering, the agenda page is
   the fallback to read as text.
 
@@ -160,9 +170,11 @@ covered several.
 |---|---|---|
 | Azambuja | cm-azambuja.pt agendas culturais | 404; the agendas are PDFs |
 | Golegã | visitgolega.com/agenda | built by script, nothing to read |
-| Alpiarça | cm-alpiarca.pt | the agenda is a news post whose address changes |
-| Salvaterra de Magos | cm-salvaterrademagos.pt | the home page links an agenda news post whose address changes, the same pattern as Alpiarça |
-| Tomar | none | out of range (about 55 minutes, `towns.md`); no source |
+| Alpiarça | cm-alpiarca.pt | the events category (`/documentos/eventos`) is stale, nine posts from April to September, and current items are in `/noticias`, mixed with news, so a plain reader would need a news filter (checked 2026-11-03) |
+| Salvaterra de Magos | cm-salvaterrademagos.pt | the home page links an agenda news post whose address changes |
+| Tomar | cm-tomar.pt | about 55 minutes, like Sobral de Monte Agraço and Marinha Grande; readable from home on 2026-11-03 (page 1 of 3, dates in the text), but not added; a candidate only if the `probe` shows it answering a GitHub runner directly |
+| Constância | none | stale: the newest agenda entry is December 2025 (2026-11-03) |
+| Benavente | none | would need a reader of its own |
 | Médio Tejo (region) | agenda.mediotejo.pt | built by script, empty to a plain request |
 | Rio Maior, Santarém, Caldas da Rainha, Óbidos, Alcobaça, Torres Novas, Cartaxo, Porto de Mós, Bombarral | Viral Agenda (viralagenda.com), nine municipality pages | refuses the collector's HTTP client with a 403 whatever the User-Agent (an honest one included), though curl and browsers are answered and its robots.txt allows Claude-User with a 15 s crawl delay; not routed around. It would add nightlife and private venues (clubs, a bar, galleries, a theatre), guided walks and municipal events past the first page of a town's own list: about 22 events over two to three weeks on 2026-10-20 |
 | Santarém (regional) | O Mirante | HTTP 500 |
@@ -175,14 +187,18 @@ covered several.
 | Any | Facebook, Instagram | need a login |
 | Torres Vedras | theatre and cinema categories of the municipal agenda | not fetched |
 
-Alpiarça and Salvaterra de Magos have an agenda and only a stable address is
-missing; they are the most likely to be worth a manual re-check. Golegã and the Médio Tejo agenda would
+Salvaterra de Magos has an agenda and only a stable address is
+missing; it is the most likely to be worth a manual re-check. Golegã and the Médio Tejo agenda would
 need a browser.
 
 # Why
 
-- **Every municipality within about 45 minutes that a plain GET can read.** The
-  page is for a person in Rio Maior; a town an hour away is out, and a source
+- **Every municipality within about 45 minutes that a plain GET can read, and for
+  the few at 50 to 55 minutes that an existing adapter reads, their big events only.**
+  The page is for a person in Rio Maior; the readers keep only a big event from a
+  town of 50 minutes or more (`references/reading.md`, `towns.md`). Widened by the
+  owner on 2026-11-03: Arruda dos Vinhos (50), Sobral de Monte Agraço and Marinha
+  Grande (55) joined, and a town beyond that is still out. A source
   that needs a browser or a login is out, because the collector does not do
   either ([where it bends](rio-maior-events.md#what-reaches-the-network-and-where-it-is-careful)).
 - **Own site before an aggregator.** A municipality's own listing is the

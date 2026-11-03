@@ -5,8 +5,8 @@
   },
   "groups": {
     "rio-maior": "Rio Maior: the municipality, and the Cineteatro",
-    "oeste-norte": "Northern Oeste and the Leiria coast: Caldas da Rainha, Óbidos, Bombarral, Peniche, Nazaré, Alcobaça, Porto de Mós, Batalha, Leiria",
-    "oeste-sul": "Southern Oeste: Cadaval, Lourinhã, Torres Vedras, Alenquer",
+    "oeste-norte": "Northern Oeste and the Leiria coast: Caldas da Rainha, Óbidos, Bombarral, Peniche, Nazaré, Alcobaça, Porto de Mós, Batalha, Leiria, Marinha Grande",
+    "oeste-sul": "Southern Oeste: Cadaval, Lourinhã, Torres Vedras, Alenquer, Arruda dos Vinhos, Sobral de Monte Agraço",
     "ribatejo": "Ribatejo: Santarém, Cartaxo, Almeirim, Alcanena, Chamusca",
     "medio-tejo": "Médio Tejo: Torres Novas, Entroncamento, Ourém, Vila Nova da Barquinha",
     "regional": "Regional listings: Portugal Running"
@@ -43,6 +43,9 @@
     {"name": "cm-cadaval", "label": "Município do Cadaval", "adapter": "cadaval_api", "town": "Cadaval", "group": "oeste-sul", "url": "https://api.cm-cadaval.pt.stage.vf-portal.com/website/Events/1?page=1&lang=pt", "options": {"site": "https://www.cm-cadaval.pt"}},
     {"name": "cm-bombarral", "label": "Município do Bombarral", "adapter": "nextjs", "town": "Bombarral", "group": "oeste-norte", "url": "https://www.cm-bombarral.pt/agenda", "follow": 10},
     {"name": "cm-lourinha", "label": "Município da Lourinhã", "adapter": "nextjs", "town": "Lourinhã", "group": "oeste-sul", "url": "https://www.cm-lourinha.pt/agenda", "follow": 10},
-    {"name": "cm-alenquer", "label": "Município de Alenquer", "adapter": "nextjs", "town": "Alenquer", "group": "oeste-sul", "url": "https://www.alenquer.pt/agenda", "follow": 10}
+    {"name": "cm-alenquer", "label": "Município de Alenquer", "adapter": "nextjs", "town": "Alenquer", "group": "oeste-sul", "url": "https://www.alenquer.pt/agenda", "follow": 10},
+    {"name": "cm-arruda", "label": "Município de Arruda dos Vinhos", "adapter": "municipal_rss", "town": "Arruda dos Vinhos", "group": "oeste-sul", "url": "https://www.cm-arruda.pt/pages/comunicar%2Fagenda-de-eventos.rss", "options": {"page": "https://www.cm-arruda.pt/comunicar/agenda-de-eventos"}, "follow": 8},
+    {"name": "cm-sobral", "label": "Município de Sobral de Monte Agraço", "adapter": "nextjs", "town": "Sobral de Monte Agraço", "group": "oeste-sul", "url": "https://www.cm-sobral.pt/agenda", "follow": 10},
+    {"name": "cm-mgrande", "label": "Município da Marinha Grande", "adapter": "municipal_rss", "town": "Marinha Grande", "group": "oeste-norte", "url": "https://www.cm-mgrande.pt/pages/comunicar%2Feventos.rss", "options": {"page": "https://www.cm-mgrande.pt/comunicar/eventos"}, "follow": 5}
   ]
 }

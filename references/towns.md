@@ -14,8 +14,8 @@ The villages in the table were not looked up by road: each has the minutes of th
 nearest listed town, as above (the table is roughly in order of minutes).
 
 The area covered is everything up to about 45 minutes. At 50 minutes
-or more (Peniche, Leiria, Entroncamento, Chamusca, Golegã, Ourém, Vila Nova da
-Barquinha, Tomar), include an event only when it is big (a national festival, a
+or more (Peniche, Leiria, Entroncamento, Chamusca, Golegã, Arruda dos Vinhos,
+Ourém, Vila Nova da Barquinha, Sobral de Monte Agraço, Marinha Grande, Tomar), include an event only when it is big (a national festival, a
 major concert) and say how far it is.
 
 | Town | Municipality | Minutes |
@@ -74,7 +74,10 @@ major concert) and say how far it is.
 | Entroncamento | Entroncamento | 50 |
 | Chamusca | Chamusca | 50 |
 | Golegã | Golegã | 50 |
+| Arruda dos Vinhos | Arruda dos Vinhos | 50 |
 | Ourém | Ourém | 55 |
 | Freixianda | Ourém | 65 |
 | Vila Nova da Barquinha | Vila Nova da Barquinha | 55 |
+| Sobral de Monte Agraço | Sobral de Monte Agraço | 55 |
+| Marinha Grande | Marinha Grande | 55 |
 | Tomar | Tomar | 55 |

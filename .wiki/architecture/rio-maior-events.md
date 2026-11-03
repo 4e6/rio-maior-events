@@ -1,7 +1,7 @@
 ---
 type: Module
 title: Rio Maior events
-description: "A weekly build that gathers leisure events within about 45 minutes of Rio Maior and renders an agenda beside a month calendar. Why a script collects and the model reads; the sources, the page, the payload rules; the Claude token and ops-watch."
+description: "A weekly build that gathers leisure events within about 45 minutes of Rio Maior (big ones to 55) and renders an agenda beside a month calendar. Why a script collects and the model reads; the sources, the payload rules; the Claude token and ops-watch."
 tags: [architecture, network, page]
 sources:
   - resource: src/**
@@ -11,7 +11,7 @@ sources:
   - resource: test/**
   - resource: .github/workflows/**
   - resource: certs/**
-sources_digest: 1d48710575336438
+sources_digest: 7c734752f16049bd
 ---
 
 # What it is
@@ -156,7 +156,7 @@ and each has its own traps.
   https pages of the source's own host (a leading `www.` is ignored, as in a
   marker), only up to `follow` in `sources.json` (default 0); a redirect to another host or to http is refused before it is
   requested. A failed event page leaves the source ok, a refusal ends only that
-  host's event pages. **Why capped:** a run is polite by design and about 180
+  host's event pages. **Why capped:** a run is polite by design and about 210
   more requests at 1.5 s each already make it a few minutes, so the caps are per
   source, favour the nearest events (page order; a feed: nearest dates first)
   and the budget of the collected text (about 120 KB of excerpts) stays inside a
@@ -188,7 +188,7 @@ and each has its own traps.
   human `label` in `sources.json`, copied into the group file for the readers
   to use as the source's name on the page.
 - **Fan-out reading, on a small model in small pieces.** The sources were once
-  read by one model in one pass, and the text of 32 pages does not read well in
+  read by one model in one pass, and the text of 35 pages does not read well in
   one context. The build runs a `claude -p` reader per group (`READ_MODEL`,
   `sonnet` by default) and one retry each. `READ_SPLIT_CHARS` cuts each group's
   sources into pieces (`src/split.ts`, `rio-maior-split/`; a source is never cut,
@@ -229,8 +229,8 @@ The municipal calendar (its times are UTC, which first looked an hour off
 against the Cineteatro; the municipal adapter converts them to Portugal time, the
 summer-time rule written out so no time-zone database is needed), the
 Cineteatro, one race calendar, and the own agenda of every
-municipality within about 45 minutes whose site a plain GET can read: HTML
-pages, two JSON endpoints and three Next.js sites. Per source, how it was
+municipality within about 45 minutes whose site a plain GET can read (and, to about 55 minutes, the big events of the few such towns `towns.md` lists from 50): HTML
+pages, two JSON endpoints and four Next.js sites. Per source, how it was
 verified, how to check it by hand, why it was chosen, and the sites that could
 not be read, by municipality, are on
 [the sources page](rio-maior-events-sources.md); how to read each is
@@ -241,7 +241,7 @@ later weeks rest on few sources; the page says which in its `note`.
 
 # What reaches the network, and where it is careful
 
-A run fetches about 32 list pages and up to about 180 event pages, one POST and the rest GETs, read-only, a few
+A run fetches about 35 list pages and up to about 210 event pages, one POST and the rest GETs, read-only, a few
 minutes. The project was a Claude skill driven by Python scripts and was ported to TypeScript on Bun, run once a week (Mondays; it ran daily, then twice a week, until 2026-10-21) by a
 GitHub Actions workflow; the `claude -p` readers and editor are confined to file tools on named files
 (`src/build.ts`).
