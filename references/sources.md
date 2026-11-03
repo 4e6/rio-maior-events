@@ -31,6 +31,7 @@ The source list is `sources.json`; the sections below describe how to read each 
 - Next.js municipal sites: cm-bombarral, cm-lourinha, cm-alenquer, cm-sobral
 - Known yearly events
 - Not used, and why
+- Not used: Benavente
 
 ## How the collection is organised
 
@@ -259,6 +260,33 @@ From past listings, not from this collection. Use one only as "date to be confir
 - Salvaterra de Magos: the home page links an agenda news post ("Agenda Viver Salvaterra" for the month), whose address changes, so no fixed address can be given.
 - Azambuja: the agenda page answers 404 and its agendas are PDFs.
 - Facebook and Instagram: need a login. The Cineteatro now announces mainly on Facebook, so expect gaps.
+- Benavente: did not answer a GitHub runner in two probes (20 s timeouts); see [Not used: Benavente](#not-used-benavente).
 - Ticketline and riomaiortv.pt: unreachable.
 - Eventbrite (eventbrite.pt): refuses GitHub's runners (405); removed 2026-10-21.
 - Municipal app and digital street screens: none found online.
+
+## Not used: Benavente
+
+Left out on 2026-11-03 (the owner's decision), though a reader for it was built and verified from a home address. `https://www.cm-benavente.pt/index.php/agenda/` did not answer a GitHub runner in two probes (20 s timeouts): the collector and a plain Bun fetch both timed out after 20 s, twice (probe runs 41660030753 and 41660978728). Through the fallback proxy, one probe (run 41662405912) returned `ProxyError: proxy failed: 502` for Benavente while Santarém, Torres Novas, Alcanena, Entroncamento and Vila Nova da Barquinha all returned 200 in the same run. The proxy is never used "to add a source on the grounds that it can now be read" ([decision 0004, Consequences](../.wiki/decisions/0004-a-residential-proxy-for-the-sites-that-refuse-github-runners.md)), so it stays out. The site sets a `cookiesession1` session cookie, which suggests a firewall in front; that is evidence, not proof. Re-try with a `probe` run if the site starts answering a runner.
+
+The site is a WordPress one with the Modern Events Calendar. It covers Benavente, Samora Correia and the villages. Drive time 52 minutes by OSRM (Samora Correia 54), so the 50-minute rule would apply: only a big event (the Feira de Benavente in September, the Festa da Amizade / Sardinha Assada in late June, the Semana Taurina of Samora Correia in late April, a named concert), not the cinema, a workshop, a story hour or a card tournament. Expected yield 5 to 12 events a month, mostly local, of which the rule would keep few.
+
+What was found:
+
+- The plugin's REST list (`mec/v1/events`) is empty.
+- The RSS feed fails the repo's feed reader: it is invalid XML (a newline before the `<?xml` declaration), and it labels wall-clock times `+0000`.
+- The iCal export is 2 MB and mostly sports fixtures.
+- The page itself reads fine with the `text` adapter: a list of the coming events first, then the current month's grid, and a schema.org block per grid day.
+
+The verified row, ready if the site starts answering a runner (it is not in `sources.json`; adding it also needs `"Benavente"` in the `groups` description for `ribatejo` in `sources.json` ("Ribatejo: Santarém, Cartaxo, ..."), a `towns.md` row for Benavente at 50 and one for Samora Correia at 55 (the table's rounded values; OSRM measured 52 and 54), and a case in `test/adapter_text.test.ts`). Read it with `bun src/cli/collect.ts <out> --only cm-benavente` (the CLI entry, which calls `main` in `src/collect.ts`, the library); the `probe` workflow runs `bun src/cli/collect.ts "$RUNNER_TEMP/collected"` over every source:
+
+```json
+{"name": "cm-benavente", "label": "Município de Benavente", "adapter": "text", "town": "Benavente", "group": "ribatejo", "url": "https://www.cm-benavente.pt/index.php/agenda/", "links": "^/index\\.php/events/(?!feed/)[^/?]+/$", "follow": 6}
+```
+
+Traps found when reading it:
+
+- The times are the clock as written: a summer event labelled `21:30` with `+00:00` after it is 21:30 in Portugal, so keep 21:30 and do not convert. The site's clock is set to UTC+0, so the `+00:00` is a label, not UTC. (Lisbon is UTC in winter, so November is safe; the trap bites from the last Sunday of March to the last Sunday of October, when Portugal is on summer time.)
+- The month grid repeats an ongoing exhibition once per day: one item with its real start and about 19 grid copies, each with that day as `start`. It is ONE `ongoing` event with `start_date` from the first item; events merge on title, start date and town, so copies would not collapse. Keep the item order (the coming list first).
+- Every item has `price` "0", which does not mean free; take the price from the event page.
+- Some event-page excerpts begin with the site's menu (a pipeline-wide defect in `excerpt()`, recorded as a known issue in the wiki); then the item's own fields are what count.

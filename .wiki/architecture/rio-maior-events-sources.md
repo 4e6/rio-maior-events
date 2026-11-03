@@ -9,7 +9,7 @@ sources:
   - resource: references/sources.md
   - resource: tools/probe_*.ts
   - resource: .github/workflows/probe.yml
-sources_digest: 239cd461c6324dac
+sources_digest: d12e78d558146df8
 ---
 
 # What this page is for
@@ -30,6 +30,7 @@ visible text read by eye. The two JSON sources and the three Next.js sites were
 first decoded offline from the saved responses; then `src/collect.ts` itself was run
 on 2026-10-20 and read all 32 sources ok in 14.7 s (Viral Agenda, left out, see [Not reachable](#not-reachable)).
 On 2026-11-03 the same was done for the three sources added then (Arruda dos Vinhos, Sobral de Monte Agraço, Marinha Grande): one plain GET per page and `robots.txt` once per host, and `src/collect.ts` itself run on them from a home address with no proxy, 3 ok, 22, 8 and 8 items, and 21 event pages read (8, 8 and 5). Whether they answer a GitHub runner directly was settled by the `probe` workflow, run on this branch on 2026-11-03 ([run 41654979471](https://github.com/4e6/rio-maior-events/actions/runs/41654979471)): Arruda dos Vinhos 200, 22 items, 8 details; Sobral de Monte Agraço 200, 8 items, 8 details; Marinha Grande 200, 8 items, 5 details, all answering the runner directly.
+On 2026-11-03 Benavente was read for the same purpose and left out. From a home address with no proxy `src/cli/collect.ts` read it ok (25 items, 6 distinct events, 6 event pages), but the `probe` workflow showed that Benavente did not answer a GitHub runner in two probes (20 s timeouts): the collector and a plain Bun fetch both timed out after 20 s, in runs [41660030753](https://github.com/4e6/rio-maior-events/actions/runs/41660030753) and [41660978728](https://github.com/4e6/rio-maior-events/actions/runs/41660978728); and in run [41662405912](https://github.com/4e6/rio-maior-events/actions/runs/41662405912) the proxy probe returned `ProxyError: proxy failed: 502` for Benavente while Santarém, Torres Novas, Alcanena, Entroncamento and Vila Nova da Barquinha all returned 200. That is one proxy probe, one sample: a transient exit fault is not excluded. The site sets a `cookiesession1` session cookie, which hints at a firewall in front; that is evidence, not proof. The owner left it out; the proxy is never used "to add a source on the grounds that it can now be read" ([decision 0004, Consequences](/decisions/0004-a-residential-proxy-for-the-sites-that-refuse-github-runners.md)).
 Drive times in `towns.md` are estimates. A source is only as checked as that: a
 layout that changed since is the usual reason a run reports one failed or empty.
 
@@ -174,7 +175,7 @@ covered several.
 | Salvaterra de Magos | cm-salvaterrademagos.pt | the home page links an agenda news post whose address changes |
 | Tomar | cm-tomar.pt | about 55 minutes, like Sobral de Monte Agraço and Marinha Grande; readable from home on 2026-11-03 (page 1 of 3, dates in the text), but not added; readable from a home address (page 1 of 3, dates in the text) but left out of this change as a scope decision; adding it would be a row in `sources.json` followed by a `probe` run (the probe only reads `sources.json`, so it cannot test Tomar before a row exists), and it stays out unless that shows a runner reads it directly |
 | Constância | none | stale: the newest agenda entry is December 2025 (2026-11-03) |
-| Benavente | none | would need a reader of its own |
+| Benavente | cm-benavente.pt/index.php/agenda/ | did not answer GitHub's runner in two probes (20 s timeouts, collector and plain Bun fetch); through the fallback proxy one probe got `ProxyError: proxy failed: 502` from the gateway while five other sites answered 200 (a transient exit fault is not excluded) (2026-11-03). Its feed is invalid XML and its REST list empty, but the `text` adapter reads the page from a home address; the verified row is in `references/sources.md` ("Not used: Benavente") |
 | Médio Tejo (region) | agenda.mediotejo.pt | built by script, empty to a plain request |
 | Rio Maior, Santarém, Caldas da Rainha, Óbidos, Alcobaça, Torres Novas, Cartaxo, Porto de Mós, Bombarral | Viral Agenda (viralagenda.com), nine municipality pages | refuses the collector's HTTP client with a 403 whatever the User-Agent (an honest one included), though curl and browsers are answered and its robots.txt allows Claude-User with a 15 s crawl delay; not routed around. It would add nightlife and private venues (clubs, a bar, galleries, a theatre), guided walks and municipal events past the first page of a town's own list: about 22 events over two to three weeks on 2026-10-20 |
 | Santarém (regional) | O Mirante | HTTP 500 |
@@ -190,6 +191,10 @@ covered several.
 Salvaterra de Magos has an agenda and only a stable address is
 missing; it is the most likely to be worth a manual re-check. Golegã and the Médio Tejo agenda would
 need a browser.
+
+# Known issues
+
+- **`excerpt()` can return the page's menu.** In `src/adapters/common.ts`, `excerpt()` finds the page's `og:title` in the text with `indexOf`; when the title there differs from the text by a quote (straight against curly), nothing matches and the excerpt falls back to the start of the page, which is the site's menu. It hit 2 of the 8 Benavente event pages sampled. `excerpt()` is called only by `extractDetail`, which runs for every followed event page: through `defaultDetails` for each adapter without its own `details` (today `text` and `municipal_rss`, so the `text` sources with `links` and the `municipal_rss` ones with `follow`: cm-nazare, cm-arruda, cm-mgrande), and in `nextjs` (cm-bombarral, cm-lourinha, cm-alenquer, cm-sobral) only as the fallback when its own page parsing throws. Not fixed.
 
 # Why
 
