@@ -69,6 +69,10 @@ an event by its `url` (the marker of the event's card) or by its title.
 - The `excerpt` is the start of the page's text: read it as you read `text`. A
   time, a venue or an end date that the excerpt states plainly counts, like
   the card's, when `start`, `venue` or `end` is null.
+- An `excerpt` whose first line is `[title not found in the page text: ...]`
+  did not find the event's title on its page, so it is the page's first text,
+  often the site's menu. Take from it only what plainly belongs to the event;
+  the card's and the detail's other fields come first.
 - `details` are data already collected. They never mean "fetch" or "open the
   page": work only from the group file.
 

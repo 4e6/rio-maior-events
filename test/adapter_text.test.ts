@@ -112,6 +112,28 @@ describe("Parse", () => {
     expect(sources().filter((s) => s.name === "cm-peniche").map((s) => s.cap)).toEqual([4000]);
   });
 
+  test("santaremcultura's cap holds its whole programme page, the last card included", () => {
+    // Santarém Acontece lists about seven weeks of cards on one page, with no paging: 21 cards and 39,458 characters
+    // of text on 2026-11-03, cut at 31,700 (11 December) by the old cap. A hand-written page of that size and shape:
+    // the venue filter first, then cards with a marker, the date line and a synopsis. Fixed dates, no saved page.
+    const row = sources().find((s) => s.name === "santaremcultura")!;
+    const venues = Array.from({ length: 90 }, (_, i) => `<li>Local ${i + 1} de Santarém</li>`).join("");
+    const card = (n: number) => {
+      const day = new Date(Date.UTC(2026, 9, 17 + n * 3));
+      const date = `${day.getUTCDate()} ${["out", "nov", "dez"][day.getUTCMonth() - 9]}`;
+      return `<div class="card"><p>${date}</p><p>21:30</p><p>Teatro Sá da Bandeira</p>` +
+        `<a href="/index.php/programacao/${1600 + n}-evento-${n}">Evento ${n}</a><p>LER MAIS</p>` +
+        `<p>Evento ${n} | ${date} | 21h30 | Teatro Sá da Bandeira</p><p>Sinopse: ${"Uma noite de música e palavra. ".repeat(55)}</p></div>`;
+    };
+    const cards = Array.from({ length: 21 }, (_, n) => card(n)).join("");
+    const parsed = text.parse(row, [{ url: row.url, status: 200, body: enc(`<html><body><ul>${venues}</ul>${cards}</body></html>`),
+      contentType: "text/html; charset=utf-8" }], ["2026-11-03", "2027-05-03"]);
+    expect(parsed.text!.length).toBeGreaterThan(39458);
+    expect(parsed.truncated).toBe(false);
+    expect(parsed.text).toContain("Evento 20 | 16 dez | 21h30");
+    expect(parsed.follow!.at(-1)!.url).toBe("https://www.santaremcultura.pt/index.php/programacao/1620-evento-20");
+  });
+
   test("test_jsonld_events_come_with_the_text", () => {
     const parsed = parse(fixtureText("page.html"));
     expect(parsed.items.length).toBe(2);

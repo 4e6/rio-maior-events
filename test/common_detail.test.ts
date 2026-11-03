@@ -1,6 +1,6 @@
 // Port of tests/python/test_detail.py: common.extractDetail and the XML guards.
 import { describe, expect, test } from "bun:test";
-import { AdapterError, EXCERPT_CAP, defaultDetails, extractDetail, xmlRoot, type Page } from "../src/adapters/common.ts";
+import { AdapterError, EXCERPT_CAP, TITLE_NOT_FOUND, defaultDetails, extractDetail, xmlRoot, type Page } from "../src/adapters/common.ts";
 import { quote } from "../src/url.ts";
 
 const URL = "https://www.example.pt/agenda/evento/fado";
@@ -164,9 +164,13 @@ describe("Excerpt", () => {
     expect(["A", "noite", "canta."]).toContain(excerpt.split(/\s+/).at(-1)!);
   });
 
-  test("test_matching_is_case_sensitive_and_falls_back_to_the_text_after_the_title_line", () => {
+  test("test_matching_is_case_sensitive_and_falls_back_to_the_text_after_the_title_line_said_so", () => {
     const found = extractDetail(page(og("FADO"), "<p>Inicio</p>" + body()));
-    expect(found.excerpt!.startsWith("Inicio")).toBe(true);
+    expect(found.excerpt!.startsWith(`${TITLE_NOT_FOUND}\nInicio`)).toBe(true);
+  });
+
+  test("test_a_page_with_no_title_falls_back_to_the_start_of_its_text_unmarked", () => {
+    expect(extractDetail(bare("<html><body><p>Inicio</p><p>Fado, 21h30.</p></body></html>")).excerpt).toBe("Inicio\nFado, 21h30.");
   });
 
   test("test_the_part_of_the_title_before_a_separator_is_tried", () => {
@@ -201,6 +205,93 @@ describe("Excerpt", () => {
       "<main><p>Corrida 2026 - Inscricoes Pular para o conteudo</p><h1>Corrida 2026 dom 25 out</h1>" +
       "<p>Tipo Corrida</p></main></body></html>";
     expect(extractDetail(bare(html, "text/html")).excerpt).toBe("Corrida 2026 dom 25 out\nTipo Corrida");
+  });
+
+  // A WordPress page, as Benavente's were: the og:title keeps the title as typed, the heading is typeset (curly quotes,
+  // an en dash, a no-break space, an ellipsis), and the site's menu comes first. Hand-written, not a saved page.
+  const wordpress = (ogTitle: string, heading: string) =>
+    "<!doctype html><html><head><title>Agenda - Município</title>" +
+    `<meta property="og:title" content="${ogTitle}" /></head><body>` +
+    // the menu in a <div>, not a <nav>: chrome tags are dropped already, a theme's menu block is not
+    '<div class="menu"><ul><li>Início</li><li>Município</li><li>Agenda</li><li>Contactos</li></ul></div>' +
+    `<main><h1>${heading}</h1><p>Sáb 24 out, 21h30, no Cineteatro.</p></main></body></html>`;
+
+  test("test_a_title_typeset_differently_in_the_text_is_still_found", () => {
+    const cases: [string, string, string][] = [
+      ["Concerto &quot;Noite de Fado&quot;", "Concerto &#8220;Noite de Fado&#8221;", "Concerto “Noite de Fado”"],
+      ["Rock'n'Roll no Largo", "Rock&#8217;n&#8217;Roll no Largo", "Rock’n’Roll no Largo"],
+      ["Fado - Ana Moura ao vivo", "Fado &#8211; Ana Moura ao vivo", "Fado – Ana Moura ao vivo"],
+      ["Noite de  Fado", "Noite&nbsp;de Fado", "Noite de Fado"],
+      ["E agora...", "E agora&#8230;", "E agora…"],
+    ];
+    for (const [ogTitle, heading, shown] of cases) {
+      const found = extractDetail(bare(wordpress(ogTitle, heading), "text/html"));
+      expect(found.excerpt).toBe(`${shown}\nSáb 24 out, 21h30, no Cineteatro.`);
+    }
+  });
+
+  test("test_a_title_not_found_is_said_so_before_the_start_of_the_text", () => {
+    const found = extractDetail(bare(wordpress("Noite de Fado", "Outra Coisa"), "text/html"));
+    expect(found.excerpt!.startsWith(`${TITLE_NOT_FOUND}\nInício\nMunicípio`)).toBe(true);
+  });
+
+  test("test_a_marked_excerpt_keeps_to_the_cap_with_its_marker", () => {
+    const html = wordpress("Noite de Fado", "Outra Coisa").replace("</main>", `<p>${"A noite canta. ".repeat(100)}</p></main>`);
+    const excerpt = extractDetail(bare(html, "text/html")).excerpt!;
+    expect(excerpt.startsWith(`${TITLE_NOT_FOUND}\nInício\nMunicípio`)).toBe(true);
+    expect(excerpt.length).toBeLessThanOrEqual(EXCERPT_CAP);
+    expect(excerpt.length).toBeGreaterThan(EXCERPT_CAP - 100);
+    expect(["A", "noite", "canta."]).toContain(excerpt.split(/\s+/).at(-1)!);
+  });
+
+  test("test_a_category_word_for_a_title_is_no_title_and_gives_no_marker", () => {
+    // The title is nulled as a placeholder, so the excerpt does not say a title was missed: there was none.
+    const found = extractDetail(bare(wordpress("Concerto", "Uma Noite no Largo"), "text/html"));
+    expect(found.title).toBeNull();
+    expect(found.excerpt).toBe("Início\nMunicípio\nAgenda\nContactos\nUma Noite no Largo\nSáb 24 out, 21h30, no Cineteatro.");
+  });
+
+  // The same page with a menu of its own (the menu's items are what can be mistaken for the title).
+  const withMenu = (ogTitle: string, heading: string, items: string[]) =>
+    wordpress(ogTitle, heading).replace(/<ul>.*?<\/ul>/, `<ul>${items.map((i) => `<li>${i}</li>`).join("")}</ul>`);
+
+  test("test_the_whole_title_typeset_is_tried_before_its_part_as_typed", () => {
+    // "Fado", the part before " - ", is a menu item; the whole title is in the heading with an en dash.
+    const found = extractDetail(bare(withMenu("Fado - Ana Moura", "Fado &#8211; Ana Moura", ["Início", "Fado", "Jazz", "Teatro"]), "text/html"));
+    expect(found.excerpt).toBe("Fado – Ana Moura\nSáb 24 out, 21h30, no Cineteatro.");
+  });
+
+  test("test_the_part_is_still_tried_when_the_whole_title_is_nowhere", () => {
+    const found = extractDetail(bare(withMenu("Fado - Ana Moura", "Fado", ["Início", "Jazz", "Teatro"]), "text/html"));
+    expect(found.excerpt).toBe("Fado\nSáb 24 out, 21h30, no Cineteatro.");
+  });
+
+  test("test_a_typeset_match_stays_on_one_line", () => {
+    // "Noite de" ends one menu item and "Fado" is the next: not the title.
+    let found = extractDetail(bare(withMenu("Noite de Fado", "Outra Coisa", ["Início", "Noite de", "Fado", "Agenda"]), "text/html"));
+    expect(found.excerpt).toBe(`${TITLE_NOT_FOUND}\nInício\nNoite de\nFado\nAgenda\nOutra Coisa\nSáb 24 out, 21h30, no Cineteatro.`);
+    // a no-break space, a tab or a run of spaces on the line still match
+    found = extractDetail(bare(withMenu("Noite de Fado", "Noite&nbsp;de&#9;&#9;Fado", ["Início", "Noite de", "Fado"]), "text/html"));
+    expect(found.excerpt!.startsWith("Noite")).toBe(true);
+    expect(found.excerpt!.endsWith("\nSáb 24 out, 21h30, no Cineteatro.")).toBe(true);
+    expect(found.excerpt).not.toContain(TITLE_NOT_FOUND);
+  });
+
+  test("test_a_title_with_an_en_dash_is_cut_at_it_like_portugal_runnings", () => {
+    // Hand-written after the shape of a Portugal Running event page: the og:title carries " – Guia e Inscrições",
+    // the heading is only the part before it, and the menu comes first.
+    const items = ["Calendário", "Notícias", "Backyard", "Contactos"];
+    const found = extractDetail(bare(withMenu("Backyard Trilho dos Cágados 2027 – Guia e Inscrições", "Backyard Trilho dos Cágados 2027", items), "text/html"));
+    expect(found.excerpt).toBe("Backyard Trilho dos Cágados 2027\nSáb 24 out, 21h30, no Cineteatro.");
+    expect(found.excerpt).not.toContain(TITLE_NOT_FOUND);
+    // an em dash too
+    const em = extractDetail(bare(withMenu("Backyard Trilho dos Cágados 2027 — Guia", "Backyard Trilho dos Cágados 2027", items), "text/html"));
+    expect(em.excerpt!.startsWith("Backyard Trilho dos Cágados 2027\n")).toBe(true);
+  });
+
+  test("test_a_title_that_really_differs_from_the_heading_stays_marked", () => {
+    const found = extractDetail(bare(withMenu("Backyard Trilho dos Cágados 2027 – Guia e Inscrições", "Outra Prova 2027", ["Calendário", "Notícias"]), "text/html"));
+    expect(found.excerpt!.startsWith(`${TITLE_NOT_FOUND}\nCalendário\nNotícias`)).toBe(true);
   });
 
   test("test_a_page_with_no_text_has_no_excerpt", () => {
