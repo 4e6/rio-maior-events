@@ -439,12 +439,12 @@ export function loadConfig(path: string = SOURCES_PATH): Config {
 const dumps = (value: unknown): string => JSON.stringify(value, null, 1) + "\n";
 
 /** collect.write_output: index.json and one <group>.json per group in outDir (JSON.stringify(x, null, 1) + "\n"). */
-export function writeOutput(outDir: string, collectedAt: string, window: Window, nearEnd: string, groups: string[], sources: Source[], results: SourceResult[],
-  extra: { collect_s?: number; proxy?: ProxyStats } = {}): unknown {
+export function writeOutput(outDir: string, collectedAt: string, window: Window, groups: string[], sources: Source[], results: SourceResult[],
+  extra: { nearEnd?: string; collect_s?: number; proxy?: ProxyStats } = {}): unknown {
   mkdirSync(outDir, { recursive: true });
   const groupOf = new Map(sources.map((s) => [s.name, s.group] as const));
-  // near_end: the last dated day; the page lists what starts after it under Further ahead.
-  const span = { start: window[0], near_end: nearEnd, end: window[1] };
+  // near_end (extra.nearEnd, default the window end): the last dated day; the page lists what starts after it under Further ahead.
+  const span = { start: window[0], near_end: extra.nearEnd ?? window[1], end: window[1] };
   const index: { collected_at: string; collect_s?: number; proxy?: unknown; window: typeof span; groups: Record<string, { file: string; sources: string[] }>; sources: unknown[] } =
     { collected_at: collectedAt, window: span, groups: {}, sources: [] };
   if (extra.collect_s !== undefined) index.collect_s = extra.collect_s;
@@ -584,7 +584,8 @@ export async function main(argv: string[], deps: MainDeps = {}): Promise<number>
     return 2;
   }
   const window: Window = [start, end];
-  const nearEnd = end;   // the whole window is still dated; a longer window with a nearer end comes with the six-month change
+  // The dated part is the default window; a later --to only adds Further ahead, so render's cap on the dated span holds.
+  const nearEnd = end > defaultEnd(start) ? defaultEnd(start) : end;
 
   const controller = new AbortController();
   const stop = () => controller.abort();
@@ -617,8 +618,8 @@ export async function main(argv: string[], deps: MainDeps = {}): Promise<number>
   }
   let index: { groups: Record<string, unknown> };
   try {
-    index = writeOutput(args.out, localIsoNow(now), window, nearEnd, Object.keys(config.groups), chosen, results,
-      { collect_s: Math.round((Date.now() - collectStart) / 100) / 10, proxy: proxy?.stats?.() }) as typeof index;
+    index = writeOutput(args.out, localIsoNow(now), window, Object.keys(config.groups), chosen, results,
+      { nearEnd, collect_s: Math.round((Date.now() - collectStart) / 100) / 10, proxy: proxy?.stats?.() }) as typeof index;
   } catch (e) {
     err(`cannot write ${args.out}: ${errMessage(e)}`);
     return 2;

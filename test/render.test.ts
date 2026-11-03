@@ -91,7 +91,13 @@ describe("WindowNearEnd", () => {
   const W = { start: "2026-10-20", end: "2027-04-20" };
 
   test("near_end between start and end, or equal to either, is fine", () => {
-    for (const near_end of ["2026-10-20", "2026-11-22", "2027-04-20"]) expect(problemsWith({ ...W, near_end })).toEqual([]);
+    for (const near_end of ["2026-10-20", "2026-11-22", "2026-12-19"]) expect(problemsWith({ ...W, near_end })).toEqual([]);
+    expect(problemsWith({ start: "2026-10-20", end: "2026-11-30", near_end: "2026-11-30" }, false)).toEqual([]);
+  });
+  test("a dated part longer than 60 days is a problem, even when near_end is the window end", () => {
+    for (const near_end of ["2026-12-20", "2027-04-20"]) {
+      expect(problemsWith({ ...W, near_end }).some((p) => p.includes("more than 60 days after window.start"))).toBe(true);
+    }
   });
   test("near_end that is not a real date, or lies outside the window, is a problem", () => {
     for (const near_end of ["soon", "2026-02-30", "2026-10-19", "2027-04-21", null, 20261122]) {
@@ -413,8 +419,9 @@ describe("Status link", () => {
 
 describe("Status link, as the page draws it", () => {
   /** Runs page.js against a stand-in document that records what is written to each element's innerHTML. */
-  function drawn(data: Doc): Record<string, string> {
+  function drawn(data: Doc, opt: { today?: string; toggles?: string[] } = {}): Record<string, string> {
     const html: Record<string, string> = {};
+    const listeners: Record<string, ((ev: any) => void)[]> = {};
     const make = (id: string): any => {
       const target: any = function () { return proxy; };
       const proxy: any = new Proxy(target, {
@@ -422,6 +429,7 @@ describe("Status link, as the page draws it", () => {
           if (key === "innerHTML") return html[id] ?? "";
           if (key === "textContent") return id === "events-data" ? JSON.stringify(render.pageData(data)) : "";
           if (key === Symbol.toPrimitive) return () => "";
+          if (key === "addEventListener") return (type: string, fn: (ev: any) => void) => { (listeners[id + ":" + type] ??= []).push(fn); };
           if (key === "dataset" || key === "style" || key === "classList") return make(id + "." + String(key));
           return proxy;
         },
@@ -439,8 +447,16 @@ describe("Status link, as the page draws it", () => {
       },
     });
     const window: any = { addEventListener() {}, matchMedia: () => ({ matches: false, addEventListener() {} }), location: { hash: "" }, innerWidth: 390, scrollTo() {} };
-    new Function("document", "window", "localStorage", "navigator", "location", "history", "requestAnimationFrame", "setTimeout", "IntersectionObserver", "getComputedStyle", assetText("page.js"))(
-      document, window, { getItem: () => null, setItem() {} }, {}, window.location, {}, () => 0, () => 0, function () { return { observe() {} }; }, () => make("computed"));
+    // The page's "today" is the clock; a fixed one makes the draw repeatable.
+    const [ty, tm, td] = (opt.today ?? "2026-10-21").split("-").map(Number) as [number, number, number];
+    class FixedDate extends Date { constructor(...a: any[]) { if (a.length) super(...(a as [any])); else super(ty, tm - 1, td); } }
+    new Function("document", "window", "localStorage", "navigator", "location", "history", "requestAnimationFrame", "setTimeout", "IntersectionObserver", "getComputedStyle", "Date", assetText("page.js"))(
+      document, window, { getItem: () => null, setItem() {} }, {}, window.location, {}, () => 0, () => 0, function () { return { observe() {} }; }, () => make("computed"), FixedDate);
+    // press the filter chips the way a click on them reaches the page
+    for (const toggle of opt.toggles ?? []) {
+      const chip = { dataset: { toggle }, setAttribute() {} };
+      for (const fn of listeners["filters:click"] ?? []) fn({ target: { closest: () => chip, id: "" } });
+    }
     return html;
   }
 
@@ -457,5 +473,54 @@ describe("Status link, as the page draws it", () => {
     expect(html.meta).toContain('<a href="status.html">2 sources, 1 unreachable · build status</a>');
     expect(html.foot).toContain("Times are local, Portugal. Drive times are estimates from");
     expect(html.sources).toBeUndefined();
+  });
+
+  const ev = (over: Doc) => ({ ...first(sample(), "single"), start_date: "2026-12-01", end_date: null, dates: null, recurrence: null, date_tbc: false, ...over });
+  const farData = (events: Doc[], near_end = "2026-11-22") => {
+    const d = sample(); d.window = { start: "2026-10-20", near_end, end: "2027-04-20" }; d.events = events; return d;
+  };
+
+  test("the Weekend filter on Further ahead judges a recurring event by its next date, and keeps ongoing and tbc as the dated part does", () => {
+    const d = farData([
+      ev({ title_pt: "Tue first", title_en: "Tue first", kind: "recurring", dates: ["2026-12-01", "2026-12-05"], recurrence: "Tuesdays and Saturdays" }),
+      ev({ title_pt: "Sat first", title_en: "Sat first", kind: "recurring", dates: ["2026-12-05", "2026-12-08"], recurrence: "Saturdays and Tuesdays" }),
+      ev({ title_pt: "Weekday single", title_en: "Weekday single", start_date: "2026-12-02" }),
+      ev({ title_pt: "Ongoing far", title_en: "Ongoing far", kind: "ongoing", start_date: "2026-12-01", end_date: "2026-12-03" }),
+      ev({ title_pt: "Tbc far", title_en: "Tbc far", date_tbc: true, start_date: "2026-12" }),
+    ]);
+    const all = drawn(d).ahead!;
+    for (const t of ["Tue first", "Sat first", "Weekday single", "Ongoing far", "Tbc far"]) expect(all).toContain(t);
+    const we = drawn(d, { toggles: ["weekend"] }).ahead!;
+    expect(we).not.toContain("Tue first");
+    expect(we).not.toContain("Weekday single");
+    for (const t of ["Sat first", "Ongoing far", "Tbc far"]) expect(we).toContain(t);
+  });
+
+  test("the last month grid says where Further ahead starts, also when the dated part ends on a month end", () => {
+    const events = [ev({ title_pt: "Near one", title_en: "Near one", start_date: "2026-10-30" }), ev({ title_pt: "Far one", title_en: "Far one" })];
+    expect(drawn(farData(events, "2026-11-30")).rail).toContain("Events after 30 Nov are under Further ahead.");
+    expect(drawn(farData(events, "2026-11-22")).rail).toContain("Events after 22 Nov are under Further ahead.");
+    const rail = drawn(farData(events, "2026-11-30")).rail!;
+    expect(rail.split("grid-note").length - 1).toBe(1);
+    expect(drawn(farData([events[0]!], "2026-11-30")).rail).not.toContain("grid-note");
+  });
+
+  test("with nothing matching, the empty-state card stands alone for the dated part and Further ahead keeps its hidden line", () => {
+    const events = [ev({ title_pt: "Near one", title_en: "Near one", start_date: "2026-10-30" }), ev({ title_pt: "Far one", title_en: "Far one" })];
+    const h = drawn(farData(events), { toggles: ["picks"] });
+    expect(h.list).toContain("No events match these filters.");
+    expect(h.tbc).not.toContain("hidden by your filters");
+    expect(h.ahead).toContain("1 more event further ahead hidden by your filters");
+    expect((h.list!.match(/Clear filters/g) ?? []).length).toBe(1);
+    // with something still showing, the dated part reports what its filters hide
+    const w = drawn(farData([ev({ title_pt: "Near one", title_en: "Near one", start_date: "2026-10-28" }), ev({ title_pt: "Near two", title_en: "Near two", start_date: "2026-10-30" })]), { toggles: ["weekend"] });
+    expect(w.tbc).toContain("1 more event in the coming weeks hidden by your filters");
+  });
+
+  test("the unfiltered counts are worked out once, from one filter factory", () => {
+    const js = assetText("page.js");
+    expect(js).toContain("ALL || (ALL = sections(NOFILTER))");
+    expect(js).not.toContain("all = sections(NOFILTER)");
+    expect(js.match(/\{ cats: new Set\(\)/g)?.length).toBe(1);
   });
 });

@@ -18,7 +18,9 @@ export const CATEGORIES: readonly string[] = [
 export const KINDS = ["single", "multi_day", "ongoing", "recurring"] as const;
 export const MAX_PROBLEMS = 20;
 const MAX_MULTI_DAY = 7;
-const MAX_UNSPLIT_WINDOW = 60;   // days; the dated weeks are at most 34, so only a widened window needs near_end
+// The dated agenda (start..near_end) may span this many days at most. The collector's dated weeks are at most 34, so 60 leaves
+// room without letting one endless dated list through: a longer window needs near_end, and near_end may not be later than this.
+const MAX_DATED_SPAN = 60;
 
 export const EVENT_KEYS = [
   "title_pt", "title_en", "category", "kind", "start_date", "end_date",
@@ -206,9 +208,13 @@ export function check(data: unknown): string[] {
       const ne = realDate(w.near_end);
       if (ne === null) problems.push("window.near_end must be a real date, YYYY-MM-DD");
       else if (ne < ws || ne > we) problems.push("window.near_end must lie between window.start and window.end");
-    } else if (dayNumber(we) - dayNumber(ws) > MAX_UNSPLIT_WINDOW) {
+      else if (dayNumber(ne) - dayNumber(ws) > MAX_DATED_SPAN) {
+        // near_end == end on a long window would defeat the guard below: the whole window would be one dated list.
+        problems.push(`window.near_end is more than ${MAX_DATED_SPAN} days after window.start; the dated part may span ${MAX_DATED_SPAN} days at most`);
+      }
+    } else if (dayNumber(we) - dayNumber(ws) > MAX_DATED_SPAN) {
       // The page puts everything after near_end under Further ahead; without it a long window would be one long dated list.
-      problems.push(`window.near_end is required when the window is longer than ${MAX_UNSPLIT_WINDOW} days`);
+      problems.push(`window.near_end is required when the window is longer than ${MAX_DATED_SPAN} days`);
     }
   }
   if (!textOk(data.origin)) problems.push("origin must be a non-empty string");
@@ -286,12 +292,17 @@ function plainList(data: Doc): string {
   return items.join("\n");
 }
 
+/** Where the window's dated part ends: `near` is near_end, or `end` when there is no Further ahead (`ahead` false). */
+export function windowSplit(w: Doc): { start: string; near: string; end: string; ahead: boolean } {
+  const start = pyStr(w.start), end = pyStr(w.end);
+  const ahead = has(w, "near_end") && w.near_end < w.end;
+  return { start, near: ahead ? pyStr(w.near_end) : end, end, ahead };
+}
+
 /** "S to E", or "S to N, and further ahead to E" when the window has a Further ahead part. */
 function windowLine(w: Doc): string {
-  const start = pyStr(w.start), end = pyStr(w.end);
-  return has(w, "near_end") && w.near_end < w.end
-    ? `${start} to ${pyStr(w.near_end)}, and further ahead to ${end}`
-    : `${start} to ${end}`;
+  const { start, near, end, ahead } = windowSplit(w);
+  return ahead ? `${start} to ${near}, and further ahead to ${end}` : `${start} to ${end}`;
 }
 
 export function build(data: Doc, css: string, js: string): string {

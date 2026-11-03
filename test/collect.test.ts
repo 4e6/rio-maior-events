@@ -676,11 +676,24 @@ describe("Main", () => {
     expect(await window(["--from", "2026-10-25"], "2026-01-01")).toEqual({ start: "2026-10-25", near_end: "2026-11-22", end: "2026-11-22" });
   });
 
+  test("a --to later than the default end keeps the default as near_end and the --to as end", async () => {
+    expect(await window(["--to", "2027-04-20"], "2026-10-21")).toEqual({ start: "2026-10-21", near_end: "2026-11-22", end: "2027-04-20" });
+    expect(await window(["--to", "2026-11-22"], "2026-10-21")).toEqual({ start: "2026-10-21", near_end: "2026-11-22", end: "2026-11-22" });
+  });
+
+  test("writeOutput without a near end writes the window end", () => {
+    const dir = mkdtempSync(join(tmpdir(), "collect-"));
+    const source = { name: "a", group: "g", town: "T", adapter: "text", url: "https://a.example/" } as unknown as Source;
+    const result = { name: "a", url: source.url, town: "T", adapter: "text", ok: true, status: 200, error: null, note: null, items: [], past: [], text: null, truncated: false, details: [] };
+    writeOutput(dir, "2026-10-20T08:00:00+01:00", ["2026-10-20", "2026-11-22"], ["g"], [source], [result as any]);
+    expect(JSON.parse(readFileSync(join(dir, "index.json"), "utf8")).window).toEqual({ start: "2026-10-20", near_end: "2026-11-22", end: "2026-11-22" });
+  });
+
   test("writeOutput writes the near end it is given, into the index and every group file", () => {
     const dir = mkdtempSync(join(tmpdir(), "collect-"));
     const source = { name: "a", group: "g", town: "T", adapter: "text", url: "https://a.example/" } as unknown as Source;
     const result = { name: "a", url: source.url, town: "T", adapter: "text", ok: true, status: 200, error: null, note: null, items: [], past: [], text: null, truncated: false, details: [] };
-    writeOutput(dir, "2026-10-20T08:00:00+01:00", ["2026-10-20", "2027-04-20"], "2026-11-22", ["g"], [source], [result as any]);
+    writeOutput(dir, "2026-10-20T08:00:00+01:00", ["2026-10-20", "2027-04-20"], ["g"], [source], [result as any], { nearEnd: "2026-11-22" });
     const want = { start: "2026-10-20", near_end: "2026-11-22", end: "2027-04-20" };
     expect(JSON.parse(readFileSync(join(dir, "index.json"), "utf8")).window).toEqual(want);
     expect(JSON.parse(readFileSync(join(dir, "g.json"), "utf8")).window).toEqual(want);

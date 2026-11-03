@@ -11,7 +11,7 @@ sources:
   - resource: test/**
   - resource: .github/workflows/**
   - resource: certs/**
-sources_digest: 7af1dd4e94a8e418
+sources_digest: 7dd4e22428487a4d
 ---
 
 # What it is
@@ -294,14 +294,19 @@ dark.
   month, as the same cards, with a "Big event" tag at 50 minutes or more (derived
   from `drive_min`, shown on those cards only). Absent or outside the window,
   `near_end` means the whole window is dated; `src/render.ts` rejects a window of
-  more than 60 days without one, so a lost field cannot turn a long window into one
-  endless list. The grids stay on the near weeks because half a year of mostly
-  empty months would read as "nothing on in March"; the last grid says where the
-  later events are, and a rail link and a strip chip jump to the section. The
+  more than 60 days without one, and a `near_end` more than 60 days after
+  `window.start`, so neither a lost field nor `near_end == end` can turn a long
+  window into one endless list. The grids stay on the near weeks because half a year of mostly
+  empty months would read as "nothing on in March"; the last grid always says where the
+  later events are ("Events after 22 Nov are under Further ahead"), and a rail link and a strip chip jump to the section. The
+  Weekend filter judges a recurring event there by its next date, and keeps ongoing
+  and date-tbc events as the dated part does. The
   distance and other filters apply to both parts, and each part says how many events
-  its filters hide ("N more ... hidden by your filters. Show all"); the result line's
+  its filters hide ("N more ... hidden by your filters. Show all"; the dated
+  part's line is left out when the empty-state card is showing); the result line's
   denominator counts only events not yet over. `collect` writes `near_end` into
-  `index.json` (today equal to `end`, so collected data is unchanged) and the page
+  `index.json` (the default end, so a `--to` beyond it adds only Further ahead; without `--to`
+  it equals `end` and collected data is unchanged) and the page
   data and `status.json`'s `window` carry it through; nothing else reads it yet.
 - **.ics times are floating local times**, meaning Portugal's: no `TZID` and no
   `VTIMEZONE`. Do not "fix" them to UTC. All-day and multi-day events use

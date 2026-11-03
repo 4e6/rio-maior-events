@@ -1193,10 +1193,11 @@ footer.foot p { margin: 0; }
   })();
 
   /* -------------------------------------------------------------- filters */
-  var F = { cats: new Set(), dist: "any", free: false, weekend: false, picks: false, q: "" };
+  function noFilters() { return { cats: new Set(), dist: "any", free: false, weekend: false, picks: false, q: "" }; }
+  var F = noFilters();
   function norm(s) { return (s || "").toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""); }
   EVENTS.forEach(function (e) { e._hay = norm([e.title_en, e.title_pt, e.town, e.venue, e.description_en, CATS[e.category]].join(" ")); });
-  var NOFILTER = { cats: new Set(), dist: "any", free: false, weekend: false, picks: false, q: "" };
+  var NOFILTER = noFilters();
   /* every matcher takes the filters it applies, so the page can count what its own filters hide */
   function matchBase(e, f) {
     if (f.cats.size && !f.cats.has(e.category)) return false;
@@ -1349,7 +1350,7 @@ footer.foot p { margin: 0; }
     clearTimeout(qTimer); qTimer = setTimeout(function () { F.q = ev.target.value.trim(); renderAll(); }, 120);
   });
   function resetFilters() {
-    F = { cats: new Set(), dist: "any", free: false, weekend: false, picks: false, q: "" };
+    F = noFilters();
     renderFilters(); renderAll();
   }
   filtersEl.addEventListener("click", function (ev) {
@@ -1374,10 +1375,13 @@ footer.foot p { margin: 0; }
 
   /* ------------------------------------------------------- main render */
   var dayCounts = {};   // date -> {n, star}
+  /* The Weekend filter on Further ahead. A recurring event is judged by its next occurrence (e._ahead), not by any
+     later date: one that next falls on a Tuesday is not a weekend event because a Saturday follows. Date-tbc and
+     ongoing events have no day to test, and the dated part keeps them under every filter (s.tbc, s.ongoing), so
+     they stay here too. */
   function aheadWeekend(e) {
-    if (e.date_tbc) return true;
-    if (e.kind === "recurring") return (e.dates || []).some(isWeekend) || /sat|sun|weekend/i.test(e.recurrence || "");
-    if (e.kind === "ongoing" && diff(e.start_date, e.end_date) >= 6) return true;
+    if (e.date_tbc || e.kind === "ongoing") return true;
+    if (e.kind === "recurring") return isWeekend(e._ahead);
     return e._days.some(isWeekend);
   }
   /* what each part of the page holds under the filters f (F, or NOFILTER to count everything) */
@@ -1393,12 +1397,16 @@ footer.foot p { margin: 0; }
     s.nNear = s.dated.filter(function (e) { return visibleDays(e, f).length; }).length + s.ongoing.length + s.regulars.length + s.tbc.length;
     return s;
   }
+  /* What the page holds with no filters on, for the "hidden by your filters" counts. It reads nothing that changes
+     (NOFILTER has picks off, so not the stars; TODAY and NEAR are fixed), so it is worked out once, not per keystroke. */
+  var ALL = null;
+  function unfiltered() { return ALL || (ALL = sections(NOFILTER)); }
   function hiddenLine(n, where) {
     return n > 0 ? '<p class="hidden-line">' + n + (n === 1 ? " more event " : " more events ") + where + ' hidden by your filters. <button type="button" class="linkish" data-clear>Show all</button></p>' : "";
   }
   var aheadAll = 0, aheadShown = 0;   // for the rail link and the strip chip
   function renderAll() {
-    var S = sections(F), all = sections(NOFILTER);
+    var S = sections(F), all = unfiltered();
     var dated = S.dated, ongoing = S.ongoing, regulars = S.regulars, tbc = S.tbc, ahead = S.ahead;
     aheadAll = all.ahead.length; aheadShown = ahead.length;
 
@@ -1450,7 +1458,8 @@ footer.foot p { margin: 0; }
       html += "</section>";
     });
     var nShown = S.nNear + ahead.length, nTotal = all.nNear + all.ahead.length;
-    if (!nShown) html = '<div class="empty-state"><p>No events match these filters.</p><button class="btn" type="button" id="empty-clear">Clear filters</button></div>';
+    var emptyState = !nShown;
+    if (emptyState) html = '<div class="empty-state"><p>No events match these filters.</p><button class="btn" type="button" id="empty-clear">Clear filters</button></div>';
     document.getElementById("list").innerHTML = html;
     var emptyBtn = document.getElementById("empty-clear");
     if (emptyBtn) emptyBtn.addEventListener("click", resetFilters);
@@ -1458,7 +1467,7 @@ footer.foot p { margin: 0; }
     /* tbc */
     document.getElementById("tbc").innerHTML = (tbc.length ? '<section class="band" aria-labelledby="band-tbc"><h2 id="band-tbc">Date to be confirmed</h2><div class="day-list">' +
       tbc.map(function (e) { return card(e, { lead: '<span class="tbc">date tbc</span>', idPrefix: "t-" }); }).join("") + "</div></section>" : "") +
-      hiddenLine(all.nNear - S.nNear, "in the coming weeks");
+      (emptyState ? "" : hiddenLine(all.nNear - S.nNear, "in the coming weeks"));   // the empty-state card already says nothing matches
 
     /* further ahead: by month of the first day, after the dated bands */
     var aheadHtml = "";
@@ -1528,7 +1537,7 @@ footer.foot p { margin: 0; }
       }
       r += "</div>";
       /* the greyed days after NEAR are not empty days: say where their events are */
-      if (aheadAll && NEAR.slice(0, 7) === cur.slice(0, 7) && add(NEAR, 1).slice(0, 7) === cur.slice(0, 7)) r += '<p class="grid-note">Events from ' + fmtShort(add(NEAR, 1)) + ' on are under Further ahead.</p>';
+      if (aheadAll && NEAR.slice(0, 7) === cur.slice(0, 7)) r += '<p class="grid-note">Events after ' + fmtShort(NEAR) + ' are under Further ahead.</p>';
       r += "</div>";
       cur = add(cur, 32).slice(0, 7) + "-01";
     }

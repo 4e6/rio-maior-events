@@ -4,7 +4,7 @@
 // beyond reading the stored colour theme.
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { safeUrl, x } from "./render.ts";
+import { safeUrl, windowSplit, x } from "./render.ts";
 
 type Json = Record<string, any>;
 
@@ -387,8 +387,8 @@ function totalsList(d: Json): string {
 export function renderStatus(d: Json, css: string, statusCss: string): string {
   const ok = (d.sources as SourceRow[]).filter((s) => s.state === "ok").length;
   const n = (d.sources as SourceRow[]).length;
-  const ahead = d.window?.near_end && d.window.near_end < d.window.end ? `, further ahead to ${x(d.window.end)}` : "";
-  const win = d.window ? `${x(d.window.start)} to ${x(d.window.near_end && ahead ? d.window.near_end : d.window.end)}${ahead}` : "";
+  const w = d.window ? windowSplit(d.window) : null;
+  const win = w ? `${x(w.start)} to ${x(w.near)}${w.ahead ? `, further ahead to ${x(w.end)}` : ""}` : "";
   const facts: [string, string][] = [];
   if (d.commit) facts.push(["Commit", link(d.commit.url, d.commit.short)]);
   if (d.run_url) facts.push(["Actions run", link(d.run_url, "open")]);
