@@ -35,7 +35,9 @@
           "name": { "type": "string", "minLength": 1 },
           "url": { "type": "string", "minLength": 1 },
           "ok": { "type": "boolean", "description": "False when the source could not be read." },
-          "error": { "type": "string", "description": "Why it could not be read. Only with ok false." }
+          "error": { "type": "string", "description": "Why it could not be read. Only with ok false." },
+          "label": { "type": "string", "minLength": 1, "description": "The source's name for people, the name readers write on an event. Written by the merge; leave it as it is." },
+          "horizon": { "const": "near", "description": "Only on a source read for the coming weeks only (Portugal Running). Written by the merge; leave it as it is: the final checks leave out an event after window.near_end whose every source is such a row." }
         },
         "required": ["name", "url", "ok"],
         "additionalProperties": false

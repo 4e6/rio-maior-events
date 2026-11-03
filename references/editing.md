@@ -21,7 +21,8 @@ first.
 - the window (first and last day) to keep to, and where the coming weeks end
   (`window.near_end`). The window is about six months; the page lists what
   starts after `window.near_end` under "Further ahead" by itself, and explains
-  it, so write nothing about it in the note and leave `window` as it is;
+  it, so write nothing about it in the note and leave `window` as it is, and
+  `sources_checked` too (its `label` and `horizon` are for the final checks);
 - the events file.
 
 The merge script has already joined listings with the same title, date and town
@@ -94,7 +95,9 @@ Decide which to add as events:
 - never state a day for a hint;
 - add no race from Portugal Running that starts after `window.near_end`: its
   sources are read for the coming weeks only; never add back a race the report
-  lists under "races left out", from the candidates files or otherwise.
+  lists under "races left out", from the candidates files or otherwise (the
+  final checks leave out again any event after `window.near_end` whose every
+  source is a horizon-near row of `sources_checked`).
 
 ## 5. When the page's check fails
 

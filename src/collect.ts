@@ -482,8 +482,9 @@ export function writeOutput(outDir: string, collectedAt: string, window: Window,
       status: result.status, error: result.error, refused: result.refused === true, via: result.via === "proxy" ? "proxy" : "direct", note: result.note,
       items: result.items.length, past: result.past.length,
       chars: cpLen(result.text || ""), details: result.details.length,
-      // which sources only reach the dated weeks: merge holds an event only they list to those weeks
-      horizon: source.horizon ?? null,
+      // which sources only reach the dated weeks: merge holds an event only they list to those weeks, and the label
+      // (the name readers write on an event) lets finalize match a race the editor adds back to these rows
+      horizon: source.horizon ?? null, label: source.label ?? null,
     });
   });
   writeFileSync(join(outDir, "index.json"), dumps(index));

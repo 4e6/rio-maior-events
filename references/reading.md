@@ -155,7 +155,8 @@ MARATONA" over "50ª Meia Maratona Internacional da Nazaré".
   weekly market over six months would be about 26 dates): the rest is in
   `recurrence` ("every Saturday"). A recurring event that starts after
   `window.near_end` lists at most its first four dates; the merge step cuts any
-  longer list to that. A workshop that runs all year on set days
+  longer list to that, and only when `recurrence` says how it goes on (without
+  it, every date stays, since the page shows the dates). A workshop that runs all year on set days
   or on request (Óbidos's, for example) is one `recurring` event with its
   recurrence in words, not one event per date. Dated performances (a play on two or three
   dates) are never `recurring`: write one `single` per date. A run of four or
@@ -229,7 +230,7 @@ item (title and date) or the entry in sources.md's known yearly list.
 - A yearly event qualifies when its usual dates overlap the coming weeks
   (`window.start` to `window.near_end`), not merely its month, and not the later
   months of the window: the table in sources.md is a hand-kept list, and the
-  merge step leaves out a hint dated after `window.near_end`. A vague usual time means: "early" is the 1st to the 10th, "mid" the
+  merge step leaves out a hint whose month is after `window.near_end`'s month. A vague usual time means: "early" is the 1st to the 10th, "mid" the
   10th to the 20th, "late" the 21st to the end of the month, and a bare month
   the whole month ("mid October" is 10 to 20 October). `start_date` is then `YYYY-MM` of the expected month, and must fall
   inside the coming weeks. If the usual dates are outside them, write no hint.

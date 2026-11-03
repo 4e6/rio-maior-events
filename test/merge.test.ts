@@ -445,7 +445,7 @@ describe("Finalize", () => {
     const stats = join(tmp, "stats.json");
     write(path, doc([event("Concerto", "2026-10-25"), event("Concerto", "2026-10-25"), event("Velho", "2025-01-01")]));
     expect(capture(() => merge.main(["--finalize", path, "--stats", stats])).result).toBe(0);
-    expect(readJson(stats)).toEqual({ events: 1, dropped: 1, collapsed: 1 });
+    expect(readJson(stats)).toEqual({ events: 1, dropped: 1, collapsed: 1, races: 0 });
   });
 
   test("test_a_clean_file_only_gains_a_note", () => {
@@ -1084,5 +1084,122 @@ describe("The coming weeks (window.near_end)", () => {
     expect(merge.trimRecurring(bad, "2026-11-22")).toBe(false);
     expect(merge.startsAfter(event("x", "2026-11"), "2026-11-22")).toBe(false);
     expect(merge.startsAfter(event("x", "2026-12"), "2026-11-22")).toBe(true);
+  });
+
+  test("trimRecurring: without recurrence text no date is cut, near or far (the page shows the dates themselves)", () => {
+    const dates = ["2026-11-14", "2026-11-28", "2026-12-12", "2027-01-09", "2027-02-13"];
+    for (const recurrence of [null, "", "  "]) {
+      const e = event("Feira Mensal", dates[0]!, "Rio Maior", { kind: "recurring", dates: [...dates], recurrence });
+      expect(merge.trimRecurring(e, "2026-12-06")).toBe(false);
+      expect(e.dates).toEqual(dates);
+    }
+    const far = event("Mercado Longe", "2027-01-09", "Rio Maior", { kind: "recurring", dates: ["2027-01-09", "2027-01-16", "2027-01-23", "2027-01-30", "2027-02-06"], recurrence: null });
+    expect(merge.trimRecurring(far, "2026-12-06")).toBe(false);
+    expect(far.dates).toHaveLength(5);
+  });
+
+  test("merge leaves a recurring event without recurrence text whole and does not count it", () => {
+    const dates = ["2026-11-14", "2026-11-28", "2026-12-12", "2027-01-09", "2027-02-13"];
+    candFile("town", [event("Feira Mensal", dates[0]!, "Rio Maior", { kind: "recurring", dates, recurrence: null })]);
+    const [code, text] = runMerge();
+    expect(code).toBe(0);
+    expect(output().events[0].dates).toEqual(dates);
+    expect(text).not.toContain("recurring events with their dates cut");
+  });
+
+  test("sources_checked carries each index row's label and a near horizon, for finalize; rows without them gain nothing", () => {
+    const index = readJson(join(col, "index.json"));
+    index.sources[0].label = "Portugal Running – Santarém";
+    index.sources[2].label = "Município da Vila";
+    write(join(col, "index.json"), index);
+    expect(runMerge()[0]).toBe(0);
+    const checked = output().sources_checked;
+    expect(checked[0]).toEqual({ name: "pr-1", url: "https://example.org/1", ok: true, label: "Portugal Running – Santarém", horizon: "near" });
+    expect(checked[1]).toEqual({ name: "pr-2", url: "https://example.org/2", ok: true, horizon: "near" });
+    expect(checked[2]).toEqual({ name: "cm-town", url: "https://example.org/3", ok: true, label: "Município da Vila" });
+    expect(render.check(output())).toEqual([]);
+  });
+});
+
+describe("Finalize: far races the editor adds back", () => {
+  // fixed dates, no clock: the dated weeks end 2026-11-22 and the agenda 2027-04-20
+  let path: string;
+  beforeEach(() => { tmp = mkdtempSync(join(tmpdir(), "final-")); path = join(tmp, "events.json"); });
+  afterEach(() => rmSync(tmp, { recursive: true, force: true }));
+
+  const SANTAREM = "Portugal Running – Santarém";
+  const checked = (): Doc[] => [
+    { name: "portugalrunning-santarem", url: "https://www.portugalrunning.com/corridas-santarem/", ok: true, label: SANTAREM, horizon: "near" },
+    { name: "portugalrunning-leiria", url: "https://www.portugalrunning.com/corridas-leiria/", ok: true, label: "Portugal Running – Leiria", horizon: "near" },
+    { name: "cm-santarem", url: "https://www.cm-santarem.pt/rss_eventos", ok: true, label: "Município de Santarém" },
+  ];
+  const doc = (events: Doc[], sources = checked(), window: Doc = { start: "2026-10-20", near_end: "2026-11-22", end: "2027-04-20" }): Doc => ({
+    generated_at: "2026-10-20T09:30:15+01:00", window, origin: "Rio Maior", sources_checked: sources, events,
+  });
+  const cites = (...names: string[]) => ({ sources: names.map((name) => ({ name, url: "https://example.org/e" })) });
+  function run(d: Doc): { code: number; stdout: string; out: Doc; stats: Doc } {
+    write(path, d);
+    const stats = join(tmp, "stats.json");
+    const r = capture(() => merge.main(["--finalize", path, "--stats", stats]));
+    return { code: r.result, stdout: r.stdout, out: readJson(path), stats: readJson(stats) };
+  }
+  const titles = (d: Doc) => d.events.map((e: Doc) => e.title_pt);
+
+  test("a Portugal Running race the editor re-adds after near_end, citing the label as readers write it, is left out and reported", () => {
+    const r = run(doc([
+      event("Corrida de São Silvestre", "2026-12-31", "Santarém", cites(SANTAREM)),
+      event("Corrida Perto", "2026-11-22", "Santarém", cites(SANTAREM)),
+      event("Concerto", "2027-01-10", "Rio Maior"),
+    ]));
+    expect(r.code).toBe(0);
+    expect(titles(r.out)).toEqual(["Corrida Perto", "Concerto"]);
+    expect(r.stdout).toContain("races left out (every source horizon near, and not on or before the coming weeks' end, 2026-11-22): 1\n  Corrida de São Silvestre | 2026-12-31 | Santarém");
+    expect(r.stats).toEqual({ events: 2, dropped: 0, collapsed: 0, races: 1 });
+    // a deliberate cut, not an event that could not be shown: the note does not name it
+    expect(r.out.note).not.toContain("São Silvestre");
+    expect(render.check(r.out)).toEqual([]);
+  });
+
+  test("the match takes the index name or the label, in any case, accents or dash; a month alone in near_end's month fails closed", () => {
+    const r = run(doc([
+      event("Corrida A", "2027-01-17", "Leiria", cites("portugalrunning-leiria")),
+      event("Corrida B", "2027-02-14", "Santarém", cites("portugal running - santarem")),
+      event("Corrida C", "2027-03-01", "Leiria", cites(SANTAREM, "Portugal Running – Leiria")),
+      event("Corrida D", "2026-11", "Leiria", { ...cites("portugalrunning-leiria"), date_tbc: true }),
+      event("Corrida E", "2026-10", "Leiria", { ...cites("portugalrunning-leiria"), date_tbc: true }),
+    ]));
+    expect(titles(r.out)).toEqual(["Corrida E"]);
+    expect(r.stats.races).toBe(4);
+  });
+
+  test("a race that also cites a town source survives, and so does one naming a source no row has", () => {
+    const r = run(doc([
+      event("Corrida do Ribatejo", "2027-01-17", "Santarém", cites(SANTAREM, "Município de Santarém")),
+      event("Corrida Alheia", "2027-01-24", "Santarém", cites("Portugal Running")),
+      event("Corrida Sem Fontes", "2027-01-31", "Santarém", { sources: [] }),
+    ]));
+    expect(r.code).toBe(0);
+    expect(titles(r.out)).toEqual(["Corrida do Ribatejo", "Corrida Alheia"]);
+    expect(r.stats.races).toBe(0);
+    // the empty sources list is the page's check to drop, as before
+    expect(r.stats.dropped).toBe(1);
+  });
+
+  test("a name both a near row and another row bear never counts as near", () => {
+    const sources = [...checked(), { name: "santarem-extra", url: "https://example.org/x", ok: true, label: SANTAREM }];
+    const r = run(doc([event("Corrida Partilhada", "2027-01-17", "Santarém", cites(SANTAREM))], sources));
+    expect(titles(r.out)).toEqual(["Corrida Partilhada"]);
+  });
+
+  test("an old file (no horizon on any row, or no near_end) cuts nothing", () => {
+    const race = () => [event("Corrida Longe", "2027-01-17", "Santarém", cites(SANTAREM))];
+    const old = checked().map(({ horizon: _h, label: _l, ...rest }) => rest);
+    expect(titles(run(doc(race(), old)).out)).toEqual(["Corrida Longe"]);
+    const noLabel = checked().map(({ label: _l, ...rest }) => rest);
+    // without labels only the index names match: a race citing the label stays
+    expect(titles(run(doc(race(), noLabel)).out)).toEqual(["Corrida Longe"]);
+    const short = run(doc([event("Corrida", "2026-11-15", "Santarém", cites(SANTAREM))], checked(), { start: "2026-10-20", end: "2026-11-22" }));
+    expect(titles(short.out)).toEqual(["Corrida"]);
+    expect(short.stats.races).toBe(0);
   });
 });

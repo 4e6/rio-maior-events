@@ -333,7 +333,12 @@ async function finalize(work: string): Promise<boolean> {
   const stats = join(work, "finalize-stats.json");
   if (parses(events)) summary.editor_events = JSON.parse(readFileSync(events, "utf8")).events?.length ?? null;
   summary.finalize_input = "editor";
-  if (parses(events) && (await cli("merge", "--finalize", events, "--stats", stats)).code === 0) return true;
+  if (parses(events)) {
+    // its report names the far races it left out of the editor's file: printed, so the run's log keeps them
+    const edited = await cli("merge", "--finalize", events, "--stats", stats);
+    console.log(edited.stdout.trim());
+    if (edited.code === 0) return true;
+  }
   console.error("finalizing the editor's file did not work; falling back to the merge output");
   summary.finalize_input = "merge";
   copyFileSync(raw, events);

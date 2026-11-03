@@ -230,7 +230,8 @@ export function startsAfter(e: Doc, nearEnd: string): boolean {
  * Where a candidate starts against `nearEnd`: "within" (on or before it), "after", or "unknown" when merge cannot
  * tell: not an object, no real start_date, or only a month (date_tbc "YYYY-MM") that is near_end's own month and runs
  * past it. The race cut drops "unknown" as well as "after" (fail closed): an invalid date is otherwise only reported,
- * and the editor's repair of it is never held to near_end again.
+ * and the editor's repair of it is held to near_end again only by finalize's name match (farRaces), which a race
+ * citing a name no source row has escapes.
  */
 export function placeStart(e: unknown, nearEnd: string): "within" | "after" | "unknown" {
   if (!isDict(e) || typeof e.start_date !== "string") return "unknown";
@@ -250,20 +251,21 @@ export const FAR_RECURRING_DATES = 4;
 /**
  * A recurring event lists its dates only up to near_end, with the rest in `recurrence`: a weekly market over six
  * months would otherwise carry about 26 dates into the readers' output and the editor's input. One that starts after
- * near_end keeps its first FAR_RECURRING_DATES distinct dates. Not trimmed when that would leave one date and no
- * recurrence text (the page's check reads that as a single event), nor when a date is not a string (left for the check
- * to report). Returns whether it trimmed. start_date and end_date are left as they are: the page places a recurring
- * event by its dates, render.checkEvent ties neither to them, and the kept dates are the earliest, so the span the
- * event states (to end_date, with the rest in `recurrence`) still holds.
+ * near_end keeps its first FAR_RECURRING_DATES distinct dates. Trimmed only when `recurrence` has text to hold the
+ * rest: without it the page shows the dates themselves, and a cut list would end the event at near_end with nothing
+ * saying it goes on. Not trimmed either when a date is not a string (left for the check to report). Returns whether
+ * it trimmed. start_date and end_date are left as they are: the page places a recurring event by its dates,
+ * render.checkEvent ties neither to them, and the kept dates are the earliest, so the span the event states (to
+ * end_date, with the rest in `recurrence`) still holds.
  */
 export function trimRecurring(e: Doc, nearEnd: string): boolean {
   if (e.kind !== "recurring" || e.date_tbc === true || !Array.isArray(e.dates)) return false;
+  if (!render.textOk(e.recurrence)) return false;
   if (!e.dates.every((d: unknown) => typeof d === "string")) return false;
   const dates = [...new Set<string>(e.dates)].sort();
   const near = dates.filter((d) => d <= nearEnd);
   const kept = near.length ? near : dates.slice(0, FAR_RECURRING_DATES);
   if (kept.length === dates.length) return false;
-  if (kept.length < 2 && !render.textOk(e.recurrence)) return false;
   e.dates = kept;
   return true;
 }
@@ -375,6 +377,9 @@ export function merge(
       o = !truthy(o.ok) && truthy(o.error) ? o : { error: NOT_READ };
     }
     if (!entry.ok && truthy(o.error)) entry.error = o.error;
+    // for finalize's race backstop (farRaces): the index row's label, the name readers write on an event, and its horizon
+    if (isDict(s) && render.textOk(s.label)) entry.label = s.label;
+    if (isDict(s) && s.horizon === "near") entry.horizon = "near";
     checked.push(entry);
   }
 
@@ -558,10 +563,38 @@ export function collapseDuplicates(
   return { events: out, origins: outOrigins, collapsed: events.length - out.length, titles };
 }
 
-type Stats = { events: number; dropped: number; collapsed: number };
+/** `races`: events left out by farRaces (after the coming weeks, every source horizon near); not in `dropped`. */
+type Stats = { events: number; dropped: number; collapsed: number; races: number };
 
-/** merge.finalize_document: [events file fixed so render.check passes, stats] or [null, problems]. */
-export function finalizeDocument(doc: unknown): [Doc, Stats] | [null, string[]] {
+/** A source name or label as finalize matches it: its words, accents, case and punctuation folded ("-" for "–"). */
+const sourceKey = (text: unknown): string => typeof text === "string" ? (normalise(text).match(/[a-z0-9]+/g) ?? []).join(" ") : "";
+
+/**
+ * finalize's race backstop, the last one: whether an event is a race the coming weeks hold that the editor (or anything
+ * after merge) put back. Merge leaves those out by the unit a candidate came from; finalize has only the file, so it
+ * goes by the names on the event: every one of its `sources[].name` is the name or the label of a `sources_checked`
+ * row with horizon "near" (and of no other row), and placeStart does not put it on or before near_end (it fails closed,
+ * as merge's does). Weaker than merge's unit attribution, but in the safe direction: a race its town's source lists too
+ * cites that source and stays, and so does an event naming a source no row has. Null (nothing is cut) when the window
+ * has no near_end before its end or no row carries a horizon: an old file, or one whose sources_checked lost it.
+ */
+export function farRaces(doc: Doc): ((e: Doc) => boolean) | null {
+  const w = doc.window;
+  const ne = isDict(w) ? render.realDate(w.near_end) : null, we = isDict(w) ? render.realDate(w.end) : null;
+  if (!(ne && we && ne < we) || !Array.isArray(doc.sources_checked)) return null;
+  const near = new Set<string>(), other = new Set<string>();
+  for (const s of doc.sources_checked) {
+    if (!isDict(s)) continue;
+    for (const k of [sourceKey(s.name), sourceKey(s.label)]) if (k) (s.horizon === "near" ? near : other).add(k);
+  }
+  for (const k of other) near.delete(k);
+  if (!near.size) return null;
+  return (e) => Array.isArray(e.sources) && e.sources.length > 0 &&
+    e.sources.every((s: unknown) => isDict(s) && near.has(sourceKey(s.name))) && placeStart(e, ne) !== "within";
+}
+
+/** merge.finalize_document: [events file fixed so render.check passes, stats, report lines] or [null, problems]. */
+export function finalizeDocument(doc: unknown): [Doc, Stats, string[]] | [null, string[]] {
   if (!isDict(doc) || !Array.isArray(doc.events)) return [null, ["the file must be a JSON object with an events list"]];
   let window: [string, string] | null = null;
   const w = doc.window;
@@ -571,14 +604,23 @@ export function finalizeDocument(doc: unknown): [Doc, Stats] | [null, string[]] 
   }
 
   const dropped: string[] = [];
+  const races: string[] = [];
+  const isFarRace = farRaces(doc);
   const valid: Doc[] = [];
   for (const e of doc.events) {
-    if (isDict(e) && !render.checkEvent(e, window).length) valid.push(e);
-    else {
+    if (isDict(e) && !render.checkEvent(e, window).length) {
+      if (isFarRace?.(e)) races.push(describe(e));
+      else valid.push(e);
+    } else {
       const title = isDict(e) ? e.title_pt ?? null : null;
       const start = isDict(e) ? e.start_date ?? null : null;
       dropped.push(`${render.textOk(title) ? title : "untitled"} (${pyStr(start)})`);
     }
+  }
+  const report: string[] = [];
+  if (races.length) {
+    report.push(`races left out (every source horizon near, and not on or before the coming weeks' end, ${pyStr((w as Doc).near_end)}): ${races.length}`);
+    for (const t of races) report.push(`  ${t}`);
   }
 
   const kept = collapseDuplicates(valid, [], window).events;
@@ -600,7 +642,7 @@ export function finalizeDocument(doc: unknown): [Doc, Stats] | [null, string[]] 
   out.note = note;
   const problems = render.check(out);
   if (problems.length) return [null, problems];
-  return [out, { events: kept.length, dropped: dropped.length, collapsed }];
+  return [out, { events: kept.length, dropped: dropped.length, collapsed, races: races.length }, report];
 }
 
 /** The counts file is only for the status page: a failed write is a warning, never a failed merge. */
@@ -621,7 +663,7 @@ export function finalize(path: string, statsPath?: string): number {
     console.log(`cannot read ${path}: ${(err as Error).message}`);
     return 2;
   }
-  const [out, result] = finalizeDocument(doc);
+  const [out, result, report] = finalizeDocument(doc);
   if (out === null) {
     console.log(`cannot finalize ${path}:`);
     for (const line of result.slice(0, render.MAX_PROBLEMS)) console.log("  " + line);
@@ -636,7 +678,8 @@ export function finalize(path: string, statsPath?: string): number {
     return 2;
   }
   if (statsPath) writeStats(statsPath, result);
-  console.log(`finalized ${path}: ${result.events} events, ${result.dropped} dropped, ${result.collapsed} duplicates collapsed`);
+  console.log(`finalized ${path}: ${result.events} events, ${result.dropped} dropped, ${result.collapsed} duplicates collapsed, ${result.races} far races left out`);
+  for (const line of report!) console.log(line);
   return 0;
 }
 

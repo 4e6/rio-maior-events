@@ -11,7 +11,7 @@ sources:
   - resource: test/**
   - resource: .github/workflows/**
   - resource: certs/**
-sources_digest: 370b74a76f9448e4
+sources_digest: b747a20ac5d3e142
 ---
 
 # What it is
@@ -69,14 +69,30 @@ and each has its own traps.
   reads nothing, as with the undated guide table). It fails closed, each case on a report line of its own:
   such a candidate whose start it cannot place on or before `near_end` (no real `start_date`,
   not an object, or only a month that runs past `near_end`, like the guide table's "Dezembro") is left out
-  too, since the editor's repair of a bad date is never held to `near_end` again; a unit whose
+  too, since the editor's repair of a bad date is held to `near_end` again only by finalize's name
+  match (below), which a race citing a name no source row has escapes; a unit whose
   sources it cannot tell (none listed, or one not in the index) is held as if all were near; a
   unit mixing near and other sources is named, not held. `manual.json`, a person's own list, is not
-  cut. A hint after `near_end` is left out
-  (the yearly table stays a coming-weeks list); a recurring event's `dates` are cut
+  cut. A hint after `near_end` is left out (a hint's `start_date` is a month alone, so
+  one in `near_end`'s own month stays; the yearly table stays a coming-weeks list); a recurring event's `dates` are cut
   to `near_end` (a far one keeps its first four distinct dates; start and end dates stay, since the page
   places a recurring event by its dates), because a weekly market over six
-  months would carry about 26 dates. The editor (`claude -p` run by `src/build.ts`) settles those and writes the `note`; if it fails, `merge --finalize` writes one. Both take `--stats FILE` and write their counts there (candidates, collapsed, events, dropped), for the status page to report; that write is best effort, a warning on stderr and never a failed merge.
+  months would carry about 26 dates, but only when `recurrence` has text to say how it goes on: without
+  it the page shows the dates themselves, and a cut list would end the event at `near_end`. The editor (`claude -p` run by `src/build.ts`) settles those and writes the `note`; if it fails, `merge --finalize` writes one. Both take `--stats FILE` and write their counts there (candidates, collapsed, events, dropped, and finalize's `races`), for the status page to report; that write is best effort, a warning on stderr and never a failed merge.
+- **`merge --finalize` holds the races again.** The editor can read every candidates file, so it
+  could put a far race back. Finalize has only the events file, so it matches by name, not by unit:
+  merge copies each index row's `label` (the name readers write on an event, which `collect` now
+  writes into `index.json`) and `horizon: "near"` into `sources_checked`, and finalize leaves out an
+  event whose every `sources[].name` is the name or label of a horizon-near row (folded for case,
+  accents and punctuation, and of no other row) and that `placeStart` does not put on or before
+  `near_end` (fail closed, as in merge). Each is named on finalize's output, which `src/build.ts`
+  prints on both paths, and counted as `races` beside `dropped`; the note does not name them. It is
+  weaker than merge's unit attribution but fails safe: a race its town's source lists too cites
+  that source and stays, and so does one naming a source no row has. A file without a horizon on
+  any row (one from before this, or one whose editor stripped `sources_checked`), or a window with
+  no `near_end` before its end, cuts nothing. Finalize cannot tell where an event came from, so a
+  far `manual.json` race citing only horizon-near rows, which merge keeps, is cut here. A far hint
+  the editor adds from a town group is held by `editing.md` alone.
 - **`src/render.ts` checks and draws.** It validates the file in plain code
   (exit 2 lists each problem with its event), makes each event's id, and inlines
   `assets/page.css`, `assets/page.js` and the events as JSON into one HTML file.

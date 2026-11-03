@@ -158,7 +158,7 @@ export function buildStatus(input: StatusInput): Json {
   const counts = new Map<string, number>();
   const reach = new Map<string, string>();
   const unattributed = new Map<string, number>();
-  // hints counts what the readers wrote; merge leaves out those after window.near_end, so the editor sees fewer
+  // hints counts what the readers wrote; merge leaves out those after window.near_end (a hint's month alone: after near_end's month), so the editor sees fewer
   let candidateEvents = 0, hints = 0;
   const coverage: { id: string; text: string }[] = [];
   for (const [id, file] of Object.entries(input.candidates)) {
@@ -262,6 +262,8 @@ export function buildStatus(input: StatusInput): Json {
     totals: {
       candidates: m?.candidates ?? candidateEvents, collapsed_before_report: m?.collapsed ?? null, after_merge: m?.events ?? null,
       editor_file: summary.editor_events ?? null, finalize_dropped: f?.dropped ?? null, finalize_collapsed: f?.collapsed ?? null,
+      // far races finalize left out of the editor's file (null from a finalize that predates the count)
+      finalize_races: typeof f?.races === "number" ? f.races : null,
       after_finalize: f?.events ?? null, on_page: input.page.events, hints,
     },
     coverage,
@@ -381,7 +383,8 @@ function totalsList(d: Json): string {
   const rows: [string, string][] = [["Candidate events from the readers", fmtNum(t.candidates)]];
   if (t.after_merge !== null) rows.push(["After merging identical listings", `${fmtNum(t.after_merge)} (${fmtNum(t.collapsed_before_report ?? 0)} merged)`]);
   if (t.editor_file !== null) rows.push(["In the editor's file", fmtNum(t.editor_file)]);
-  if (t.after_finalize !== null) rows.push(["After the final checks", `${fmtNum(t.after_finalize)} (${fmtNum(t.finalize_dropped ?? 0)} dropped by the checks, ${fmtNum(t.finalize_collapsed ?? 0)} duplicates collapsed)`]);
+  if (t.after_finalize !== null) rows.push(["After the final checks", `${fmtNum(t.after_finalize)} (${fmtNum(t.finalize_dropped ?? 0)} dropped by the checks, ${fmtNum(t.finalize_collapsed ?? 0)} duplicates collapsed` +
+    (t.finalize_races ? `, ${fmtNum(t.finalize_races)} far races left out` : "") + ")"]);
   rows.push(["On the page", fmtNum(t.on_page)], ["Hints the readers wrote", fmtNum(t.hints)]);
   return `<dl class="facts">${rows.map(([k, v]) => `<dt>${x(k)}</dt><dd>${x(v)}</dd>`).join("")}</dl>`;
 }
